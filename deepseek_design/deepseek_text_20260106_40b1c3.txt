@@ -1,0 +1,3 @@
+RWKV-v4 (Fixed Decay) → RWKV-v6 (Data-dependent) → Selective RWKV
+Mamba (S4) → Mamba (S6) → Selective SSM
+            ↘ Common Ground: Selective Linear Attention

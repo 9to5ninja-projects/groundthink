@@ -1,0 +1,64 @@
+# config_actual.yaml
+model:
+  name: "GroundedMamba-v1"
+  
+  # Core dimensions (these matter MORE than depth)
+  dim: 2048
+  depth: 24
+  ssm_state_dim: 64          # Too small = can't think, too large = unstable
+  rwkv_heads: 16
+  rwkv_head_dim: 128         # Must divide evenly into dim
+  
+  # Critical stability parameters
+  stability:
+    dt_min: 0.001            # Minimum time step (prevents state explosion)
+    dt_max: 0.1              # Maximum time step (prevents state vanishing)
+    state_norm_clip: 10.0    # Clip state norms to this value
+    gradient_clip: 1.0       # NON-NEGOTIABLE
+    state_reset_threshold: 0.3  # Reset states when cosine similarity drops below this
+    
+  # Memory configuration
+  memory:
+    size: 4096               # Size of explicit memory bank
+    update_rate: 0.01        # How fast to update memory (slower = more stable)
+    retrieval_heads: 4       # Separate heads for memory retrieval
+    
+  # Training
+  training:
+    batch_size: 32
+    gradient_accumulation: 4  # Effective batch size = 128
+    learning_rate: 3e-4
+    warmup_steps: 2000
+    total_steps: 100000
+    
+    # Loss weights (TUNE THESE CAREFULLY)
+    loss_weights:
+      ce: 1.0                # Cross-entropy
+      state_stability: 0.1   # Penalize state drift
+      memory_consistency: 0.05  # Penalize memory contradictions
+      
+    # Schedule
+    lr_schedule: "cosine"
+    weight_decay: 0.1
+    
+  # Inference
+  inference:
+    chunk_size: 512          # Process in chunks for very long sequences
+    state_checkpointing: true  # Save states every N tokens for recovery
+    max_context: 131072      # Maximum supported context
+    
+  # Monitoring
+  monitoring:
+    log_state_norms: true
+    log_gate_weights: true
+    log_memory_usage: true
+    validation_every: 500
+    checkpoint_every: 1000
+    emergency_recovery: true  # Save good states automatically
+    
+  # Debugging
+  debugging:
+    gradient_checkpointing: true
+    detect_nan: true
+    profile_memory: true
+    log_to_file: "training.log"

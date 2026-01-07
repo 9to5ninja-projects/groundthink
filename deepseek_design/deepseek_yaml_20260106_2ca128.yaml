@@ -1,0 +1,39 @@
+# config.yaml
+model:
+  name: "GroundThink-2.8B"
+  architecture: "Selective-RWKV"
+  
+  dimensions:
+    d_model: 2560
+    n_layers: 32
+    n_heads: 40
+    head_dim: 64
+    state_dim: 64
+    ffn_expansion: 3.5
+    vocab_size: 50304
+    
+  selection:
+    rank: 160  # Bottleneck rank for Δ, B, C
+    dt_min: 0.001
+    dt_max: 0.1
+    dt_init: "random"
+    dt_scale: 1.0
+    
+  normalization:
+    norm_type: "rmsnorm"
+    norm_eps: 1e-6
+    
+  initialization:
+    w_init: "power_law"  # Faster decay in early layers
+    output_init: "zero"   # O3 initialization
+    dt_bias: 1.0         # Start with moderate memory
+    
+  training:
+    max_seq_len: 131072
+    chunk_size: 256      # For chunked parallel scan
+    use_flash: true      # Use Flash Attention for attention layers
+    
+  hardware:
+    memory_format: "channels_last"
+    use_triton: true
+    compile_mode: "reduce-overhead"
