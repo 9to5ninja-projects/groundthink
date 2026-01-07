@@ -28,8 +28,8 @@ class Config:
     # A100 Specifics
     # Total Batch = micro_batch * grad_accum * devices
     # 80GB VRAM allows dense batches
-    micro_batch_size = 32   # A100 can eat this easily
-    grad_accum_steps = 4    # Total batch ~128 (Adjust for convergence)
+    micro_batch_size = 16   # REDUCED from 32 (Stability First)
+    grad_accum_steps = 8    # Increased to maintain total batch size
     
     max_seq_len = 2048      # Real context length (vs 512 on T4)
     learning_rate = 3e-4    # Slightly lower for deeper model
