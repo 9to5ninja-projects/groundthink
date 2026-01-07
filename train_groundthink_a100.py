@@ -10,6 +10,22 @@ from transformers import AutoTokenizer
 from datasets import load_dataset
 import bitsandbytes as bnb
 
+# Try to import Triton kernel for 10x speedup
+try:
+    # Try importing assuming script is in root and groundthink is a package
+    from groundthink.ops.selective_scan_triton import selective_scan_triton_forward
+    USE_TRITON = True
+    print("✅ Triton Kernel available (Package). Acceleration ON.")
+except ImportError:
+    try:
+        # Try relative import if script is running from inside groundthink folder
+        from ops.selective_scan_triton import selective_scan_triton_forward
+        USE_TRITON = True
+        print("✅ Triton Kernel available (Local). Acceleration ON.")
+    except ImportError as e:
+        USE_TRITON = False
+        print(f"⚠️ Triton not found: {e}. Falling back to slow Python loop.")
+
 # ==========================================
 # 0. A100 OPTIMIZATIONS
 # ==========================================
@@ -29,8 +45,8 @@ class Config:
     # A100 Specifics
     # Total Batch = micro_batch * grad_accum * devices
     # 80GB VRAM allows dense batches
-    micro_batch_size = 8    # Reduced to prevent OOM (Total: 128 via Accum)
-    grad_accum_steps = 16   # Total batch ~128
+    micro_batch_size = 16    # Increased for A100 80GB
+    grad_accum_steps = 8     # Total batch ~128
     
     max_seq_len = 2048      # Real context length (vs 512 on T4)
     learning_rate = 3e-4    # Slightly lower for deeper model
@@ -69,41 +85,61 @@ class SelectiveWKV_1B(nn.Module):
         r = torch.sigmoid(self.r_proj(x))
         
         # Reshape
-        k = k.view(B, T, self.n_head, self.head_size, 1)
-        v = v.view(B, T, self.n_head, 1, self.head_size)
-        w = w.view(B, T, self.n_head, self.head_size, 1) 
-        r = r.view(B, T, self.n_head, 1, self.head_size) # Check dims
+        # [B, T, H, D] format is cleaner for both Triton and PyTorch
+        k = k.view(B, T, self.n_head, self.head_size) 
+        v = v.view(B, T, self.n_head, self.head_size) 
+        w = w.view(B, T, self.n_head, self.head_size) 
+        r = r.view(B, T, self.n_head, self.head_size)
         
-        if state is None:
-            state = torch.zeros(B, self.n_head, self.head_size, self.head_size, device=x.device, dtype=x.dtype)
-        
-        # CHUNKED RECURRENCE (Fused-ish)
-        # On A100, we can use larger chunks or compile this
-        chunk_size = 128
-        num_chunks = (T + chunk_size - 1) // chunk_size
-        
-        outputs = []
-        for i in range(num_chunks):
-            start = i * chunk_size
-            end = min(start + chunk_size, T)
+        if USE_TRITON and x.is_cuda:
+            # FAST PATH: Triton Kernel
+            # Note: Kernel expects [B, T, H, D]
+            # Output: [B, T, H, D]
+            y = selective_scan_triton_forward(k, v, w, r, state)
             
-            # Slice
-            k_c = k[:, start:end]
-            v_c = v[:, start:end]
-            w_c = w[:, start:end]
-            r_c = r[:, start:end]
+            # Combine Heads [B, T, H, D] -> [B, T, C]
+            y = y.view(B, T, C)
+            return self.out_proj(y), None # State updates not fully synced back in this simplified v1 kernel wrapper
             
-            # Chunk Scan
-            chunk_out = []
-            for t in range(end - start):
-                kv = k_c[:, t] @ v_c[:, t] # [B, H, D, 1] @ [B, H, 1, D] -> [B, H, D, D]
-                state = (1 - w_c[:, t]) * state + kv
-                out = r_c[:, t] @ state    # [B, H, 1, D] @ [B, H, D, D] -> [B, H, 1, D]
-                chunk_out.append(out.squeeze(2))
+        else:
+            # REAL SLOW PATH: Python Loop
+            
+            # Add singleton dims for matrix math: [B, T, H, D, 1] etc
+            k = k.unsqueeze(-1)         # [B, T, H, D, 1]
+            v = v.unsqueeze(-2)         # [B, T, H, 1, D]
+            w = w.unsqueeze(-1)         # [B, T, H, D, 1]
+            r = r.unsqueeze(-2)         # [B, T, H, 1, D]
+            
+            if state is None:
+                state = torch.zeros(B, self.n_head, self.head_size, self.head_size, device=x.device, dtype=x.dtype)
+            
+            # CHUNKED RECURRENCE (Fused-ish)
+            # On A100, we can use larger chunks or compile this
+            chunk_size = 128
+            num_chunks = (T + chunk_size - 1) // chunk_size
+            
+            outputs = []
+            for i in range(num_chunks):
+                start = i * chunk_size
+                end = min(start + chunk_size, T)
                 
-            outputs.append(torch.stack(chunk_out, dim=1))
+                # Slice
+                k_c = k[:, start:end]
+                v_c = v[:, start:end]
+                w_c = w[:, start:end]
+                r_c = r[:, start:end]
+                
+                # Chunk Scan
+                chunk_out = []
+                for t in range(end - start):
+                    kv = k_c[:, t] @ v_c[:, t] # [B, H, D, 1] @ [B, H, 1, D] -> [B, H, D, D]
+                    state = (1 - w_c[:, t]) * state + kv
+                    out = r_c[:, t] @ state    # [B, H, 1, D] @ [B, H, D, D] -> [B, H, 1, D]
+                    chunk_out.append(out.squeeze(2))
+                    
+                outputs.append(torch.stack(chunk_out, dim=1))
             
-        return self.out_proj(torch.cat(outputs, dim=1).view(B, T, C)), state
+            return self.out_proj(torch.cat(outputs, dim=1).view(B, T, C)), state
 
 class GroundThinkBlock(nn.Module):
     def __init__(self, config):
@@ -204,10 +240,15 @@ def train():
     optimizer.zero_grad()
     
     t0 = time.time()
-    steps = 0
-    tokens = 0
+    micro_step = 0
+    global_step = 0
+    accum_loss = 0.0
     
     print("⚡ Training Started...")
+    
+    # Create checkpoints dir immediately to verify permissions
+    ckpt_dir = f"checkpoints/{config.project_name}"
+    os.makedirs(ckpt_dir, exist_ok=True)
     
     for x, y in dataloader:
         x, y = x.cuda(), y.cuda()
@@ -218,27 +259,38 @@ def train():
             _, loss = model(x, y)
             loss = loss / config.grad_accum_steps
         
+        # Accumulate loss for logging (multiply back to get real scale)
+        accum_loss += loss.item() * config.grad_accum_steps
+        
         loss.backward()
         
-        if (steps + 1) % config.grad_accum_steps == 0:
+        micro_step += 1
+        
+        # Optimizer Step (Gradient Accumulation)
+        if micro_step % config.grad_accum_steps == 0:
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
             optimizer.zero_grad()
+            global_step += 1
             
-            # Throughput Stats
-            if (steps + 1) % 10 == 0:
-                dt = time.time() - t0
-                tps = (config.micro_batch_size * config.max_seq_len * config.grad_accum_steps * 10) / dt
-                print(f"Step {steps+1} | Loss: {loss.item()*config.grad_accum_steps:.4f} | TPS: {tps:.0f}")
-                t0 = time.time()
-                
-        steps += 1
-        
-        # Save occasionally
-        if steps % 1000 == 0:
-            output_dir = f"checkpoints/{config.project_name}"
-            os.makedirs(output_dir, exist_ok=True)
-            torch.save(model.state_dict(), f"{output_dir}/step_{steps}.pt")
+            # Throughput & Logging
+            dt = time.time() - t0
+            # Real tokens processed in this interval
+            current_tokens = config.micro_batch_size * config.max_seq_len * config.grad_accum_steps
+            tps = current_tokens / dt
+            avg_loss = accum_loss / config.grad_accum_steps
+            
+            print(f"Step {global_step} | Loss: {avg_loss:.4f} | TPS: {tps:.0f}")
+            
+            # Reset counters
+            t0 = time.time()
+            accum_loss = 0.0
+            
+            # Save Checkpoint (Every 50 optimizer steps)
+            # 50 steps * 128 batch size = 6400 samples
+            if global_step % 50 == 0:
+                print(f"💾 Saving checkpoint at step {global_step}...")
+                torch.save(model.state_dict(), f"{ckpt_dir}/step_{global_step}.pt")
 
 if __name__ == "__main__":
     train()
