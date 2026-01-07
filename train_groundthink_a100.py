@@ -271,7 +271,11 @@ class GroundThink1B(nn.Module):
         if targets is not None:
             # Efficient Loss Calculation (Avoid materializing full logits)
             logits = self.head(x)
-            loss = F.cross_entropy(logits.view(-1, logits.size(-1)), targets.view(-1))
+            # CRITICAL FIX: Shift targets for Next Token Prediction
+            # logits[0] predicts targets[1], etc.
+            shift_logits = logits[..., :-1, :].contiguous()
+            shift_labels = targets[..., 1:].contiguous()
+            loss = F.cross_entropy(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
             return logits, loss
         
         return self.head(x), None
