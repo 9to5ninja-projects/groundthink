@@ -1,0 +1,56 @@
+# GroundedMamba Minimal Configuration
+# Per FOUNDATION.md specification
+# Start small, validate, then scale
+
+model:
+  vocab_size: 10000
+  dim: 512
+  depth: 8
+  ssm_dim: 16
+  rwkv_heads: 4
+  fixed_gate: true  # Disable learned gate initially
+
+stability:
+  dt_min: 0.001
+  dt_max: 0.1
+  state_norm_clip: 10.0
+  gradient_clip: 1.0  # NON-NEGOTIABLE
+  state_reset_threshold: 0.3
+
+memory:
+  size: 1024
+  update_rate: 0.01  # 1% blend per update
+  update_frequency: 100  # Every 100 steps
+
+training:
+  batch_size: 8
+  seq_len: 1024
+  stride: 256
+  learning_rate: 3e-4
+  warmup_steps: 1000
+  total_steps: 50000
+  
+  # Loss weights
+  stability_weight: 0.1
+  consistency_weight: 0.01
+  
+  # Separate LR multipliers
+  ssm_lr_mult: 0.5
+  rwkv_lr_mult: 0.3
+  
+  # Weight decay
+  ssm_weight_decay: 0.1
+  rwkv_weight_decay: 0.01
+  other_weight_decay: 0.1
+
+monitoring:
+  log_interval: 100
+  validate_every: 500
+  checkpoint_every: 1000
+  state_norm_warn: 10.0
+  state_norm_error: 100.0
+
+recovery:
+  enabled: true
+  buffer_size: 5
+  lr_reduction: 0.7
