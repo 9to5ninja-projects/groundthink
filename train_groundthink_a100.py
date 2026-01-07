@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torch.utils.checkpoint import checkpoint
 from transformers import AutoTokenizer
-from datasets import load_dataset
+from datasets import load_dataset, interleave_datasets
 import bitsandbytes as bnb
 
 # Try to import Triton kernel for 10x speedup
@@ -284,13 +284,29 @@ class GroundThink1B(nn.Module):
 # 3. DATASET
 # ==========================================
 def get_dataloaders(config):
-    print("📚 Loading Dataset (TinyStories for demo, swap for OpenWebText on A100)...")
+    print("📚 Loading Mixed Dataset (FineWeb-Edu + TinyStories)...")
     tokenizer = AutoTokenizer.from_pretrained("gpt2")
     tokenizer.pad_token = tokenizer.eos_token
     
-    # Increase buffer use for A100 speed
-    dataset = load_dataset("roneneldan/TinyStories", split="train", streaming=True)
+    # 1. Heavy Lifting: FineWeb-Edu (High quality educational content)
+    # Using sample-10BT to ensure immediate availability and consistent quality
+    ds_heavy = load_dataset("HuggingFaceFW/fineweb-edu", name="sample-10BT", split="train", streaming=True)
     
+    # 2. Grounding: TinyStories (Simple grammar, strict logic)
+    ds_light = load_dataset("roneneldan/TinyStories", split="train", streaming=True)
+    
+    # Mix: 80% Heavy, 20% Light
+    # This ensures the model learns complex language but maintains simple narrative coherence
+    try:
+        dataset = interleave_datasets([ds_heavy, ds_light], probabilities=[0.8, 0.2])
+    except Exception as e:
+        print(f"⚠️ merge failed ({e}), falling back to FineWeb only")
+        dataset = ds_heavy
+
+    # Clean: Filter absurdly short sequences that waste compute
+    # 100% CLEAN DATA check
+    dataset = dataset.filter(lambda x: x['text'] is not None and len(x['text']) > 200)
+
     def collate_fn(batch):
         texts = [item['text'] for item in batch]
         encoded = tokenizer(
@@ -302,6 +318,19 @@ def get_dataloaders(config):
         labels = input_ids.clone()
         
         # Mask padding tokens so we don't train on them
+        # -100 is the default ignore_index for CrossEntropyLoss
+        if 'attention_mask' in encoded:
+            labels[encoded['attention_mask'] == 0] = -100
+            
+        return input_ids, labels
+
+    return DataLoader(
+        dataset, 
+        batch_size=config.micro_batch_size, 
+        collate_fn=collate_fn,
+        num_workers=4,        # Reduced to 4 to prevent sharding warnings
+        pin_memory=True
+    )
         # -100 is the default ignore_index for CrossEntropyLoss
         if 'attention_mask' in encoded:
             labels[encoded['attention_mask'] == 0] = -100
