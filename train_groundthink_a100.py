@@ -331,19 +331,6 @@ def get_dataloaders(config):
         num_workers=4,        # Reduced to 4 to prevent sharding warnings
         pin_memory=True
     )
-        # -100 is the default ignore_index for CrossEntropyLoss
-        if 'attention_mask' in encoded:
-            labels[encoded['attention_mask'] == 0] = -100
-            
-        return input_ids, labels
-
-    return DataLoader(
-        dataset, 
-        batch_size=config.micro_batch_size, 
-        collate_fn=collate_fn,
-        num_workers=8,        # High-performance data loading for A100
-        pin_memory=True       # Fast transfer to GPU
-    )
 
 # ==========================================
 # 4. HIGH-PERFORMANCE LOOP
