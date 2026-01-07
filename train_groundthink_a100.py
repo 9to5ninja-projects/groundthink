@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
+from torch.utils.checkpoint import checkpoint
 from transformers import AutoTokenizer
 from datasets import load_dataset
 import bitsandbytes as bnb
@@ -28,8 +29,8 @@ class Config:
     # A100 Specifics
     # Total Batch = micro_batch * grad_accum * devices
     # 80GB VRAM allows dense batches
-    micro_batch_size = 32   # A100 can eat this easily
-    grad_accum_steps = 4    # Total batch ~128 (Adjust for convergence)
+    micro_batch_size = 8    # Reduced to prevent OOM (Total: 128 via Accum)
+    grad_accum_steps = 16   # Total batch ~128
     
     max_seq_len = 2048      # Real context length (vs 512 on T4)
     learning_rate = 3e-4    # Slightly lower for deeper model
@@ -135,8 +136,11 @@ class GroundThink1B(nn.Module):
     def forward(self, idx, targets=None):
         B, T = idx.size()
         x = self.token_emb(idx)
+        
+        # Gradient Checkpointing (Essential for RNN state memory)
         for block in self.blocks:
-            x = block(x)
+            x = checkpoint(block, x, use_reentrant=False)
+            
         x = self.ln_f(x)
         
         if targets is not None:
