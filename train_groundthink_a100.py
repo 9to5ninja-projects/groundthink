@@ -330,7 +330,7 @@ def get_dataloaders(config):
         collate_fn=collate_fn,
         num_workers=4,        # Reduced to 4 to prevent sharding warnings
         pin_memory=True
-    )
+    ), tokenizer
 
 # ==========================================
 # 4. HIGH-PERFORMANCE LOOP
@@ -351,7 +351,20 @@ def train():
     # 3. Optimize (Using configured groups)
     optimizer = model.configure_optimizers(config.learning_rate, 'cuda')
     
-    dataloader = get_dataloaders(config)
+    dataloader, tokenizer = get_dataloaders(config)
+    
+    # 4. Scheduler (Cosine Decay with Warmup)
+    # Warmup for 10% of steps, then cosine decay
+    from torch.optim.lr_scheduler import OneCycleLR
+    scheduler = OneCycleLR(
+        optimizer, 
+        max_lr=config.learning_rate,
+        total_steps=config.total_steps + 10, # Slight buffer
+        pct_start=0.05, # 5% Warmup
+        anneal_strategy='cos',
+        div_factor=10, # Start at LR/10
+        final_div_factor=10 # End at LR/10
+    )
     
     model.train()
     optimizer.zero_grad()
@@ -387,6 +400,7 @@ def train():
         if micro_step % config.grad_accum_steps == 0:
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
+            scheduler.step() # Update LR
             optimizer.zero_grad()
             global_step += 1
             
@@ -397,7 +411,8 @@ def train():
             tps = current_tokens / dt
             avg_loss = accum_loss / config.grad_accum_steps
             
-            print(f"Step {global_step} | Loss: {avg_loss:.4f} | TPS: {tps:.0f}")
+            current_lr = scheduler.get_last_lr()[0]
+            print(f"Step {global_step} | Loss: {avg_loss:.4f} | TPS: {tps:.0f} | LR: {current_lr:.2e}")
 
             # DEBUG: Periodically generate text to verify learning (Safety Check)
             if global_step % 200 == 0:
@@ -418,10 +433,10 @@ def train():
                     
                     # Store tokenizer in validation context to decode
                     try:
-                        dec = AutoTokenizer.from_pretrained("gpt2").decode(out[0].tolist())
+                        dec = tokenizer.decode(out[0].tolist())
                         print(f"📝 Excerpt: {dec}...")
                     except:
-                        print("📝 [Decode Error - Tokenizer not loaded here]")
+                        print("📝 [Decode Error - Tokenizer issue]")
                 model.train()
             
             # Reset counters
