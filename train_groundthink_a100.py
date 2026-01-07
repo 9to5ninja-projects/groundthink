@@ -186,8 +186,9 @@ def train():
     model.to('cuda', dtype=torch.bfloat16) # BF16 is King on A100
     
     # 2. Compile (Torch 2.0+ Speedup)
-    print("🔥 Compiling model with torch.compile()...")
-    model = torch.compile(model)
+    # print("🔥 Compiling model with torch.compile()...")
+    # model = torch.compile(model)
+    print("⚠️ torch.compile DISABLED (Immediate Execution Mode)")
     
     # 3. Optimize
     # Standard AdamW is fine with 80GB, but 8bit is still efficient
