@@ -11,7 +11,7 @@ pip install -r requirements.txt
 ## 2. Running the Training
 Run the training script directly. It is pre-configured for A100 80GB.
 ```bash
-python train_groundthink_a100.py
+python3 train_groundthink_a100.py
 ```
 
 ## 3. Configuration
