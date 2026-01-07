@@ -52,6 +52,8 @@ class Config:
     max_seq_len = 2048      # Real context length (vs 512 on T4)
     learning_rate = 3e-4    # Slightly lower for deeper model
     
+    total_steps = 2500      # Stop after this many steps (approx 1 epoch of TinyStories)
+    
     project_name = "groundthink_1B_A100"
     dtype = torch.bfloat16  # NATIVE BF16 (No Scaler needed, High Stability)
 
@@ -169,6 +171,53 @@ class GroundThink1B(nn.Module):
         self.ln_f = nn.LayerNorm(config.d_model)
         self.head = nn.Linear(config.d_model, config.vocab_size, bias=False)
         self.token_emb.weight = self.head.weight
+        
+        # Initialize weights
+        self.apply(self._init_weights)
+        
+    def _init_weights(self, module):
+        if isinstance(module, nn.Linear):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
+        elif isinstance(module, nn.Embedding):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+        elif isinstance(module, nn.LayerNorm):
+            torch.nn.init.zeros_(module.bias)
+            torch.nn.init.ones_(module.weight)
+            
+    def configure_optimizers(self, learning_rate, device_type):
+        # Separate parameters as per FOUNDATION.md recommendations
+        # SSM/decay params -> lower LR, lower WD
+        # MLP/Other -> standard LR, higher WD
+        
+        param_dict = {pn: p for pn, p in self.named_parameters()}
+        param_dict = {pn: p for pn, p in param_dict.items() if p.requires_grad}
+        
+        decay_params = []
+        nodecay_params = []
+        special_params = [] # w_proj, decay control
+        
+        for n, p in param_dict.items():
+            if p.dim() < 2:
+                # 1D params (biases, layernorms) - no weight decay
+                nodecay_params.append(p)
+            elif 'projections' in n or 'w_proj' in n:
+                # Decay dynamics - lower LR
+                special_params.append(p)
+            else:
+                # Standard weights (matrices)
+                decay_params.append(p)
+                
+        optim_groups = [
+            {'params': decay_params, 'weight_decay': 0.1, 'lr': learning_rate},
+            {'params': nodecay_params, 'weight_decay': 0.0, 'lr': learning_rate},
+            {'params': special_params, 'weight_decay': 0.01, 'lr': learning_rate * 0.3} # Slower learning for dynamics
+        ]
+        
+        # Use Paged AdamW 8-bit for efficiency
+        optimizer = bnb.optim.Adam8bit(optim_groups, betas=(0.9, 0.95))
+        return optimizer
 
     def forward(self, idx, targets=None):
         B, T = idx.size()
@@ -205,7 +254,16 @@ def get_dataloaders(config):
             texts, padding=True, truncation=True, 
             max_length=config.max_seq_len, return_tensors="pt"
         )
-        return encoded['input_ids'], encoded['input_ids'].clone()
+        
+        input_ids = encoded['input_ids']
+        labels = input_ids.clone()
+        
+        # Mask padding tokens so we don't train on them
+        # -100 is the default ignore_index for CrossEntropyLoss
+        if 'attention_mask' in encoded:
+            labels[encoded['attention_mask'] == 0] = -100
+            
+        return input_ids, labels
 
     return DataLoader(
         dataset, 
@@ -231,9 +289,8 @@ def train():
     # model = torch.compile(model)
     print("⚠️ torch.compile DISABLED (Immediate Execution Mode)")
     
-    # 3. Optimize
-    # Standard AdamW is fine with 80GB, but 8bit is still efficient
-    optimizer = bnb.optim.Adam8bit(model.parameters(), lr=config.learning_rate)
+    # 3. Optimize (Using configured groups)
+    optimizer = model.configure_optimizers(config.learning_rate, 'cuda')
     
     dataloader = get_dataloaders(config)
     
@@ -287,11 +344,17 @@ def train():
             t0 = time.time()
             accum_loss = 0.0
             
-            # Save Checkpoint (Every 50 optimizer steps)
-            # 50 steps * 128 batch size = 6400 samples
-            if global_step % 50 == 0:
+            # Save Checkpoint (Every 500 optimizer steps)
+            if global_step % 500 == 0:
                 print(f"💾 Saving checkpoint at step {global_step}...")
                 torch.save(model.state_dict(), f"{ckpt_dir}/step_{global_step}.pt")
+                
+            # Stop condition
+            if global_step >= config.total_steps:
+                print(f"🏁 Training complete! Reached {global_step} steps.")
+                print(f"💾 Saving final model...")
+                torch.save(model.state_dict(), f"{ckpt_dir}/final_model.pt")
+                break
 
 if __name__ == "__main__":
     train()
