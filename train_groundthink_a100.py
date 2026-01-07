@@ -411,6 +411,31 @@ def train():
             avg_loss = accum_loss / config.grad_accum_steps
             
             print(f"Step {global_step} | Loss: {avg_loss:.4f} | TPS: {tps:.0f}")
+
+            # DEBUG: Periodically generate text to verify learning (Safety Check)
+            if global_step % 200 == 0:
+                print(f"🔍 [Step {global_step}] Generating validation sample...")
+                model.eval()
+                with torch.no_grad():
+                    # Simple generation loop
+                    ctx = torch.tensor([[50256]], device='cuda') # <|endoftext|>
+                    out = ctx
+                    for _ in range(50):
+                        logits, _ = model(out)
+                        # Predict next token (last position)
+                        last_logits = logits[:, -1, :] 
+                        probs = F.softmax(last_logits, dim=-1)
+                        # Sample
+                        next_token = torch.multinomial(probs, num_samples=1)
+                        out = torch.cat((out, next_token), dim=1)
+                    
+                    # Store tokenizer in validation context to decode
+                    try:
+                        dec = AutoTokenizer.from_pretrained("gpt2").decode(out[0].tolist())
+                        print(f"📝 Excerpt: {dec}...")
+                    except:
+                        print("📝 [Decode Error - Tokenizer not loaded here]")
+                model.train()
             
             # Reset counters
             t0 = time.time()
