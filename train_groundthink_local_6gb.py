@@ -56,6 +56,8 @@ class Config:
     
     max_seq_len = 1024      # Reduced from 2048 to ensure 1B fits in 6GB. 
                             # (Can try 2048 if 1024 is stable)
+    
+    total_steps = 2500      # Stop after this many steps
                             
     learning_rate = 3e-4
     dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
@@ -185,7 +187,15 @@ def get_dataloaders(config):
             texts, padding='max_length', truncation=True, 
             max_length=config.max_seq_len, return_tensors="pt"
         )
-        return encoded['input_ids'], encoded['input_ids'].clone()
+        
+        input_ids = encoded['input_ids']
+        labels = input_ids.clone()
+        
+        # Mask padding tokens so we don't train on them
+        if 'attention_mask' in encoded:
+            labels[encoded['attention_mask'] == 0] = -100
+            
+        return input_ids, labels
         
     return DataLoader(dataset, batch_size=config.micro_batch_size, collate_fn=collate_fn)
 
@@ -250,6 +260,14 @@ def train_local():
                 ckpt_path = f"checkpoints/step_{current_step}.pth"
                 torch.save(model.state_dict(), ckpt_path)
                 print(f"💾 Checkpoint saved: {ckpt_path}")
+
+            # Stop condition
+            if current_step >= config.total_steps:
+                print(f"🏁 Training complete! Reached {current_step} steps.")
+                final_path = f"checkpoints/final_model.pth"
+                torch.save(model.state_dict(), final_path)
+                print(f"💾 Final model saved: {final_path}")
+                break
 
             step_loss = 0
             t0 = time.time()
