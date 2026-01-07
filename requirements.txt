@@ -8,3 +8,6 @@ ninja
 packaging
 wheel
 psutil
+scipy
+tokenizers
+einops

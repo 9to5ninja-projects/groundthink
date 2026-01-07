@@ -211,7 +211,7 @@ def get_dataloaders(config):
         dataset, 
         batch_size=config.micro_batch_size, 
         collate_fn=collate_fn,
-        num_workers=4,        # Use CPU cores
+        num_workers=8,        # High-performance data loading for A100
         pin_memory=True       # Fast transfer to GPU
     )
 
