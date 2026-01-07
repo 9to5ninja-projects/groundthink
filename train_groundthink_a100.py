@@ -76,6 +76,45 @@ class SelectiveWKV_1B(nn.Module):
         self.r_proj = nn.Linear(self.dim, self.dim, bias=False)
         self.out_proj = nn.Linear(self.dim, self.dim, bias=False)
         self.ln_x = nn.LayerNorm(self.dim)
+        
+        # Initialize Geometric Decay (CRITICAL FOR LONG CONTEXT)
+        # Decay rates from 0.9 (fast) to 0.999 (slow) across heads
+        # decay = sigmoid(bias)
+        # bias = log(decay / (1 - decay))
+        
+        with torch.no_grad():
+            # Setup decay schedule for each head
+            # We want w (forget rate) to vary.
+            # w = 1 - retention.
+            # retention = exp(-Lambda) where Lambda varies.
+            # OR simpler: retention linear space from 0.9 to 0.999
+            
+            n_heads = self.n_head
+            head_size = self.head_size
+            
+            # Geometric schedule for retention: 0.9 to 0.999
+            # Meaning w (forget) goes from 0.1 to 0.001
+            r_min = 0.9
+            r_max = 0.999
+            
+            # Create a ramp for each head
+            r_schedule = torch.linspace(r_min, r_max, n_heads)
+            
+            # Convert to w (forget gate) target = 1 - r
+            w_target = 1.0 - r_schedule
+            
+            # Convert to bias: w = sigmoid(bias) -> bias = logit(w)
+            bias_schedule = torch.logit(w_target)
+            
+            # Apply to w_proj bias
+            # w_proj output is [B, T, C]. C = n_heads * head_size
+            # We want all features in head i to share the same bias[i]
+            
+            # Expand bias_schedule [n_heads] -> [n_heads, head_size] -> [dim]
+            bias_full = bias_schedule.unsqueeze(-1).expand(n_heads, head_size).reshape(-1)
+            
+            self.w_proj.bias.copy_(bias_full)
+            self.w_proj.weight.data.normal_(0, 0.01) # Small weights so dynamic modulation is perturbation around bias
 
     def forward(self, x, state=None):
         B, T, C = x.size()
