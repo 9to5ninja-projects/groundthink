@@ -35,13 +35,8 @@ def analyze():
             print(f"   - {k}: {v} ({v/len(ds)*100:.1f}%)")
             
     # 2. Token Analysis
-    print("\n🧮 Token Stats (Estimating with RWKV World Tokenizer or similar)...")
-    # We'll use a standard tokenizer for estimation if World is not available
-    try:
-        tokenizer = AutoTokenizer.from_pretrained("RWKV/rwkv-4-world-chntuned", trust_remote_code=True)
-    except:
-        print("   (Using GPT2 tokenizer for approximation)")
-        tokenizer = AutoTokenizer.from_pretrained("gpt2")
+    print("\n🧮 Token Stats (Using GPT2 Tokenizer as requested)...")
+    tokenizer = AutoTokenizer.from_pretrained("gpt2")
         
     lengths = []
     # Sample 1000 items for speed

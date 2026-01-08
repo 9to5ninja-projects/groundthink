@@ -29,6 +29,11 @@ checkpoints/
 models/
 wandb/
 
+# Data files
+data/
+*.txt
+groundthink_v2_dataset_raw/
+
 # VS Code
 .vscode/
 

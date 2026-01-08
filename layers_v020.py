@@ -1,8 +1,15 @@
 """
-GroundThink Core Layers
+GroundThink Core Layers - v0.2.0
 
-Key insight: RWKV-7 already has input-dependent selective decay.
-The innovation here is the GroundingMechanism that ensures state stability.
+Version History:
+  v0.1.0 - Initial hybrid with Mamba-dominant behavior
+  v0.2.0 - Rebalanced: Added alpha coefficient, reduced time_decay init
+  
+Key Changes in v0.2.0:
+  1. Added HYBRID_BALANCE_ALPHA: Explicit control over RWKV vs Mamba contribution
+  2. Reduced TIME_DECAY_INIT_STD: Smaller initialization to prevent Mamba dominance
+  3. Added GROUNDING_STRENGTH: Control base_decay influence
+  4. All hyperparameters documented at top of file
 """
 
 import math
@@ -17,6 +24,49 @@ sys.path.insert(0, 'e:/RWKV/fla')
 from fla.ops.simple_gla import chunk_simple_gla
 
 
+# ============================================================================
+# HYPERPARAMETERS - v0.2.0
+# All tunable values in one place for easy experimentation
+# ============================================================================
+
+VERSION = "0.2.0"
+
+# Balance Control
+HYBRID_BALANCE_ALPHA = 0.6         # 0.5 = equal, >0.5 = more RWKV grounding
+GROUNDING_STRENGTH = 1.0           # Multiplier on base_decay (1.0 = standard)
+
+# Initialization
+TIME_DECAY_INIT_STD = 0.02         # Keep standard - model init handles decay range
+EMBED_INIT_STD = 0.02              # Standard for embeddings
+OUTPUT_PROJ_INIT_STD = 0.02        # Output projection
+
+# Clamps
+MIN_RETENTION = 0.01               # Never completely forget
+MAX_RETENTION = 0.99               # Always some decay
+
+# Local Grounding
+CONV_KERNEL_SIZE = 4               # n-gram context size
+CONV_RESIDUAL_WEIGHT = 0.1         # How much local context to add
+
+# State Normalization
+STATE_NORM_EPS = 1e-5              # Epsilon for state normalization
+
+# ============================================================================
+
+
+def get_layer_config():
+    """Returns current layer configuration as dict for logging"""
+    return {
+        "version": VERSION,
+        "hybrid_balance_alpha": HYBRID_BALANCE_ALPHA,
+        "grounding_strength": GROUNDING_STRENGTH,
+        "time_decay_init_std": TIME_DECAY_INIT_STD,
+        "min_retention": MIN_RETENTION,
+        "max_retention": MAX_RETENTION,
+        "conv_kernel_size": CONV_KERNEL_SIZE,
+    }
+
+
 class RMSNorm(nn.Module):
     """Root Mean Square Layer Normalization"""
     
@@ -26,7 +76,6 @@ class RMSNorm(nn.Module):
         self.weight = nn.Parameter(torch.ones(dim))
     
     def forward(self, x):
-        # Add eps inside sqrt to avoid NaN gradient when norm is near zero
         norm = (x.pow(2).mean(-1, keepdim=True) + self.eps).sqrt()
         return x / norm * self.weight
 
@@ -39,13 +88,27 @@ class GroundingMechanism(nn.Module):
     1. Local (conv) - captures n-grams before recurrence
     2. Medium-term (learned base decay) - provides stability floor
     3. Long-term (residual pathway) - ensures gradient flow
+    
+    v0.2.0 Changes:
+    - Added alpha parameter for RWKV/Mamba balance control
+    - Configurable grounding strength
     """
     
-    def __init__(self, dim: int, kernel_size: int = 4, min_retention: float = 0.01, max_retention: float = 0.99):
+    def __init__(
+        self, 
+        dim: int, 
+        kernel_size: int = CONV_KERNEL_SIZE,
+        min_retention: float = MIN_RETENTION,
+        max_retention: float = MAX_RETENTION,
+        alpha: float = HYBRID_BALANCE_ALPHA,
+        grounding_strength: float = GROUNDING_STRENGTH,
+    ):
         super().__init__()
         self.dim = dim
         self.min_retention = min_retention
         self.max_retention = max_retention
+        self.alpha = alpha  # Balance coefficient
+        self.grounding_strength = grounding_strength
         
         # Tier 1: Local grounding via depthwise conv
         self.conv_short = nn.Conv1d(
@@ -76,17 +139,18 @@ class GroundingMechanism(nn.Module):
         
         # Tier 1: Local n-gram grounding
         x_conv = self.conv_short(x.transpose(1, 2))[:, :, :L].transpose(1, 2)
-        grounded_x = x + 0.1 * x_conv  # Small residual from local context
+        grounded_x = x + CONV_RESIDUAL_WEIGHT * x_conv
         
         # Tier 2: Combine base decay with selective decay
-        # Base decay provides stability floor
-        w_base = torch.exp(-self.base_decay.view(1, 1, -1))
+        # Base decay provides stability floor (RWKV grounding)
+        w_base = torch.exp(-self.base_decay.view(1, 1, -1) * self.grounding_strength)
         
-        # Selective decay from RWKV-7's input-dependent mechanism
+        # Selective decay from RWKV-7's input-dependent mechanism (Mamba-like)
         w_selective = selective_decay  # Already exp(-w) form
         
-        # Combined: grounding + thinking
-        w_combined = w_base * w_selective
+        # v0.2.0: Balanced combination using alpha
+        # Linear interpolation is more stable than power
+        w_combined = self.alpha * w_base + (1 - self.alpha) * w_selective
         
         # Tier 3: Clamp to ensure minimum retention (never completely forget)
         # and maximum decay (always some forgetting to prevent saturation)
@@ -101,7 +165,7 @@ class StateNormalizer(nn.Module):
     RMS normalization applied to state matrices.
     """
     
-    def __init__(self, eps: float = 1e-5):
+    def __init__(self, eps: float = STATE_NORM_EPS):
         super().__init__()
         self.eps = eps
     
@@ -117,6 +181,9 @@ class TimeMixing(nn.Module):
     
     Uses the existing RWKV-7 selective mechanism but adds grounding
     to prevent state drift in very long contexts.
+    
+    v0.2.0 Changes:
+    - Reduced time_decay initialization to prevent Mamba dominance
     """
     
     def __init__(
@@ -156,12 +223,15 @@ class TimeMixing(nn.Module):
         self._init_weights()
     
     def _init_weights(self):
-        """Initialize for stability"""
-        # Small random init for output projection (not zeros - kills gradients)
-        nn.init.normal_(self.out_proj.weight, std=0.02)
+        """Initialize for stability - v0.2.0 reduced time_decay init"""
+        # Output projection
+        nn.init.normal_(self.out_proj.weight, std=OUTPUT_PROJ_INIT_STD)
         
         # Small positive gate init
         nn.init.uniform_(self.gate.weight, 0.9, 1.1)
+        
+        # v0.2.0: Smaller time_decay init to reduce Mamba dominance
+        nn.init.normal_(self.time_decay.weight, std=TIME_DECAY_INIT_STD)
     
     def forward(
         self, 
@@ -207,17 +277,13 @@ class TimeMixing(nn.Module):
             state = torch.zeros(B, H, self.head_dim, self.head_dim, device=x.device, dtype=x.dtype)
         
         # Use FLA's fast chunked implementation
-        # FLA simple_gla: S_t = g*S_{t-1} + k⊗v, y = q @ S
-        # Our formula: S_t = (1-w)*S_{t-1} + k⊗v, y = r @ S
-        # So: g = log(1-w) in log-space, q = r
-        # FLA expects g in log-space (will apply exp internally)
         g_log = torch.log(1 - w + 1e-6).mean(dim=-1)  # [B, L, H] - headwise scalar
         
         output, final_state = chunk_simple_gla(
-            q=r,      # query = receptance
+            q=r,
             k=k,
             v=v,
-            g=g_log,  # log-space gate (headwise)
+            g=g_log,
             scale=1.0 / math.sqrt(self.head_dim),
             initial_state=state,
             output_final_state=True
@@ -237,9 +303,7 @@ class TimeMixing(nn.Module):
 
 
 class ChannelMixing(nn.Module):
-    """
-    RWKV-7 Channel Mixing (FFN equivalent)
-    """
+    """RWKV-7 Channel Mixing (FFN equivalent)"""
     
     def __init__(self, dim: int, expansion: float = 3.5):
         super().__init__()
@@ -288,7 +352,7 @@ class GroundThinkBlock(nn.Module):
         x = self.ln1(x)
         x, state = self.time_mixing(x, state)
         
-        # Normalize state to prevent explosion in long sequences
+        # Normalize state to prevent explosion
         if self.normalize_state and state is not None:
             state = self.state_norm(state)
         

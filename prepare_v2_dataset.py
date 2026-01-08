@@ -5,22 +5,22 @@ Goal: Create a clean, deterministic, high-quality dataset for 125M Scientific Ru
 Hypothesis: 125M is small. It needs HIGH DENSITY signal. No trash.
 
 The 4 Pillars:
-1. Logic (40%): FineWeb-Edu (High educational value traces)
-2. Memory (30%): PG19 (Long-context books > 4096 chars)
-3. Chat (20%): OpenHermes-2.5 (High quality instruction/dialog)
-4. Grounding (10%): TinyStories (Fluent, simple grammar)
+1. Logic (60%): FineWeb-Edu (High educational value traces)
+2. Memory (30%): Cosmopedia Stories (Long-context narrative)
+3. Grounding (10%): TinyStories (Fluent, simple grammar)
 """
 
 import os
+os.environ['HF_HUB_ENABLE_HF_TRANSFER'] = '1'  # Fast downloads
+
 import re
 import hashlib
-from datasets import load_dataset, concatenate_datasets, Dataset
-import numpy as np
+from datasets import load_dataset, Dataset
 from tqdm import tqdm
 
 # Configuration
 OUTPUT_DIR = "groundthink_v2_dataset"
-TOTAL_SAMPLES = 200_000 
+TOTAL_SAMPLES = 500_000  # Start smaller for local testing, scale up for A100
 SEED = 42
 
 # ==========================================
@@ -86,12 +86,12 @@ def clean_text(text):
 
 def prepare_dataset():
     print(f"🧹 Starting Editor's Cut Selection (Target: {TOTAL_SAMPLES} samples)...")
+    print(f"📁 Output: {OUTPUT_DIR}")
     
     seen_hashes = set() # Deduplication Memory
 
     def is_unique(text):
         # Hash first 200 chars (header) + last 200 chars (footer)
-        # Sufficient to catch copy-pasted articles
         sig = text[:200] + text[-200:]
         h = hashlib.md5(sig.encode('utf-8')).hexdigest()
         if h in seen_hashes:
@@ -99,119 +99,138 @@ def prepare_dataset():
         seen_hashes.add(h)
         return True
 
-    def process_stream(iterator, target_count, source_name, length_filter_fn):
+    def process_stream(iterator, target_count, source_name, length_filter_fn, text_key='text'):
         samples = []
-        pbar = tqdm(desc=f"Minng {source_name}", total=target_count)
+        rejected = 0
+        pbar = tqdm(desc=f"Mining {source_name}", total=target_count, unit="samples")
         
         for item in iterator:
-            raw_text = item.get('text', '')
+            raw_text = item.get(text_key, '')
             
-            # 1. Basic Length Filter (Architecture requirement)
-            if not length_filter_fn(raw_text): continue
+            # 1. Basic Length Filter
+            if not length_filter_fn(raw_text): 
+                rejected += 1
+                continue
             
             # 2. Deep Cleaning
             cleaned = clean_text(raw_text)
-            if cleaned is None: continue # Rejected by cleaner
+            if cleaned is None: 
+                rejected += 1
+                continue
             
             # 3. Deduplication
-            if not is_unique(cleaned): continue
+            if not is_unique(cleaned): 
+                rejected += 1
+                continue
             
             samples.append({'text': cleaned, 'source': source_name})
             pbar.update(1)
             
             if len(samples) >= target_count:
                 break
+        
+        pbar.close()
+        print(f"   ✓ {source_name}: {len(samples)} samples (rejected {rejected})")
         return samples
 
     # ---------------------------------------------------------
-    # 1. LOGIC: FineWeb-Edu (The Textbook)
+    # 1. LOGIC: FineWeb-Edu (60%)
     # ---------------------------------------------------------
-    print("1️⃣  Fetching FineWeb-Edu (Logic)...")
-    ds_logic = load_dataset("HuggingFaceFW/fineweb-edu", name="sample-10BT", split="train", streaming=True)
-    # Target 40%
-    logic_samples = process_stream(
-        ds_logic, 
-        int(TOTAL_SAMPLES * 0.4), 
-        "fineweb-edu",
-        lambda t: len(t) > 1000
-    )
+    print("\n1️⃣  Fetching FineWeb-Edu (Logic)...")
+    try:
+        ds_logic = load_dataset(
+            "HuggingFaceFW/fineweb-edu", 
+            name="sample-10BT", 
+            split="train", 
+            streaming=True,
+            trust_remote_code=True
+        )
+        logic_target = int(TOTAL_SAMPLES * 0.6)
+        logic_samples = process_stream(
+            ds_logic, 
+            logic_target, 
+            "fineweb-edu",
+            lambda t: len(t) > 500  # Lower threshold for more samples
+        )
+    except Exception as e:
+        print(f"⚠️ FineWeb-Edu failed: {e}")
+        logic_samples = []
 
     # ---------------------------------------------------------
-    # 2. MEMORY: PG19 (The Novel)
+    # 2. MEMORY: Cosmopedia Stories (30%)
     # ---------------------------------------------------------
-    print("2️⃣  Fetching PG19 (Deep Memory)...")
-    ds_memory = load_dataset("pg19", split="train", streaming=True)
-    # We need to manually fix PG19 extraction since it's nested
-    # Wrapping iterator to normalize text field
-    def pg19_wrapper(ds):
-        for x in ds:
-            # Strip Gutenberg Header
-            t = x['text']
-            if "Project Gutenberg" in t[:500]:
-                start = t.find("*** START")
-                if start != -1: t = t[start+100:]
-            yield {'text': t[:50000]} # Truncate to 50k chars max
-            
-    memory_samples = process_stream(
-        pg19_wrapper(ds_memory),
-        int(TOTAL_SAMPLES * 0.3),
-        "pg19",
-        lambda t: len(t) > 8000
-    )
+    print("\n2️⃣  Fetching Cosmopedia-Stories (Memory/Narrative)...")
+    try:
+        ds_memory = load_dataset(
+            "HuggingFaceTB/cosmopedia", 
+            "stories", 
+            split="train", 
+            streaming=True,
+            trust_remote_code=True
+        )
+        memory_target = int(TOTAL_SAMPLES * 0.3)
+        memory_samples = process_stream(
+            ds_memory,
+            memory_target,
+            "cosmopedia-stories",
+            lambda t: len(t) > 1000,
+            text_key='text'
+        )
+    except Exception as e:
+        print(f"⚠️ Cosmopedia failed: {e}. Using more FineWeb instead.")
+        memory_samples = []
 
     # ---------------------------------------------------------
-    # 3. CHAT: OpenHermes-2.5 (The Persona)
+    # 3. GROUNDING: TinyStories (10%)
     # ---------------------------------------------------------
-    print("3️⃣  Fetching OpenHermes (Conversational)...")
-    ds_chat = load_dataset("teknium/OpenHermes-2.5", split="train", streaming=True)
-    
-    def chat_wrapper(ds):
-        for x in ds:
-            conv = ""
-            for msg in x['conversations']:
-                role = "User" if msg['from'] == 'human' else "Assistant"
-                if msg['from'] == 'system': role = "System"
-                conv += f"{role}: {msg['value']}\n\n"
-            yield {'text': conv}
-
-    chat_samples = process_stream(
-        chat_wrapper(ds_chat),
-        int(TOTAL_SAMPLES * 0.20),
-        "openhermes",
-        lambda t: len(t) > 500
-    )
-
-    # ---------------------------------------------------------
-    # 4. GROUNDING: TinyStories (The Anchor)
-    # ---------------------------------------------------------
-    print("4️⃣  Fetching TinyStories (Grounding)...")
-    ds_ground = load_dataset("roneneldan/TinyStories", split="train", streaming=True)
-    
-    ground_samples = process_stream(
-        ds_ground,
-        int(TOTAL_SAMPLES * 0.10),
-        "tinystories",
-        lambda t: len(t) > 200
-    )
+    print("\n3️⃣  Fetching TinyStories (Grounding)...")
+    try:
+        ds_ground = load_dataset(
+            "roneneldan/TinyStories", 
+            split="train", 
+            streaming=True,
+            trust_remote_code=True
+        )
+        ground_target = int(TOTAL_SAMPLES * 0.10)
+        ground_samples = process_stream(
+            ds_ground,
+            ground_target,
+            "tinystories",
+            lambda t: len(t) > 100
+        )
+    except Exception as e:
+        print(f"⚠️ TinyStories failed: {e}")
+        ground_samples = []
 
     # ---------------------------------------------------------
     # MERGE & SHUFFLE
     # ---------------------------------------------------------
-    print("🌪️  Mixing and Shuffling...")
-    all_data = logic_samples + memory_samples + chat_samples + ground_samples
+    print("\n🌪️  Mixing and Shuffling...")
+    all_data = logic_samples + memory_samples + ground_samples
+    
+    if len(all_data) == 0:
+        print("❌ No samples collected! Check network/dataset access.")
+        return
     
     # Create HF Dataset from list
     final_ds = Dataset.from_list(all_data)
     final_ds = final_ds.shuffle(seed=SEED)
     
-    print(f"💾 Saving to {OUTPUT_DIR}...")
+    print(f"\n💾 Saving to {OUTPUT_DIR}...")
     final_ds.save_to_disk(OUTPUT_DIR)
-    print(f"✅ Design V2 Dataset Ready. Total: {len(final_ds)} samples.")
-    print("   Distribution:")
-    print(f"   - Logic (FineWeb): {len(logic_samples)}")
-    print(f"   - Memory (PG19): {len(memory_samples)}")
-    print(f"   - Chat (Hermes): {len(chat_samples)}")
-    print(f"   - Grounding: {len(ground_samples)}")
+    
+    # Calculate token estimate
+    avg_chars = sum(len(x['text']) for x in all_data) / len(all_data)
+    est_tokens = len(all_data) * avg_chars / 4  # ~4 chars per token
+    
+    print(f"\n✅ Dataset Ready!")
+    print(f"   Total samples: {len(final_ds):,}")
+    print(f"   Avg chars/sample: {avg_chars:.0f}")
+    print(f"   Est. tokens: {est_tokens/1e6:.1f}M")
+    print(f"\n   Distribution:")
+    print(f"   - Logic (FineWeb): {len(logic_samples):,}")
+    print(f"   - Memory (Cosmopedia): {len(memory_samples):,}")
+    print(f"   - Grounding (TinyStories): {len(ground_samples):,}")
 
 if __name__ == "__main__":
     prepare_dataset()

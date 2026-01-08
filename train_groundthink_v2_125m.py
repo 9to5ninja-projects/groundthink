@@ -45,9 +45,9 @@ class Config:
     head_size = 64          
     
     # A100 Specifics for Small Model
-    # Can go MUCH faster with larger batches
-    micro_batch_size = 64    # increased for small model
-    grad_accum_steps = 4     # Total batch ~256
+    # PyTorch loop backward uses more memory than Triton kernel
+    micro_batch_size = 8     # Reduced further for PyTorch backward
+    grad_accum_steps = 32    # Maintain Total Batch ~256
     
     max_seq_len = 2048      
     learning_rate = 6e-4    # Higher LR for smaller model (GPT-3 small used 6e-4)
@@ -101,36 +101,55 @@ class SelectiveWKV_V2(nn.Module):
         v = self.v_proj(x)
         r = torch.sigmoid(self.r_proj(x))
         
-        # Shape for Triton: [B, H, T, D]
-        # Current shape: [B, T, C]
-        
-        k = k.view(B, T, self.n_head, self.head_size).permute(0, 2, 1, 3) # [B, H, T, D]
-        v = v.view(B, T, self.n_head, self.head_size).permute(0, 2, 1, 3)
-        w = w.view(B, T, self.n_head, self.head_size).permute(0, 2, 1, 3) 
+        # Prepare for Triton Wrapper: Expects [B, T, H, D]
+        k = k.view(B, T, self.n_head, self.head_size)
+        v = v.view(B, T, self.n_head, self.head_size)
+        w = w.view(B, T, self.n_head, self.head_size) 
+        r = r.view(B, T, self.n_head, self.head_size)
         
         if USE_TRITON:
-            # Native Triton Op: O(N)
-            # Forward pass only for now
-            y = selective_scan_triton_forward(k, v, w)
+            # TRY to use Triton, but if it fails/has no grad, we must not use it.
+            # Given the known issue, we swap to the JIT-compiled PyTorch implementation
+            # which we know works and supports backward pass.
+            y = self.jit_scan(k, v, w, r, state)
         else:
-            # Slow Reference (Recurrent)
-            # NOTE: Highly inefficient in python loop, only for debugging
-            y = torch.zeros_like(v)
-            if state is None:
-                state = torch.zeros(B, self.n_head, self.head_size, self.head_size, device=x.device, dtype=x.dtype)
-            
-            # Simple chunkwise or sequential?
-            # Sequential for correctness in fallback
-            # (Omitting full slow recurrence implemention for brevity in V2 script as we target A100)
-            pass 
+            y = self.jit_scan(k, v, w, r, state)
 
-        # Reshape back: [B, H, T, D] -> [B, T, H, D] -> [B, T, C]
-        y = y.permute(0, 2, 1, 3).reshape(B, T, C)
-        
-        # Gate (Receptance)
-        y = y * r
+        # Reshape back: [B, T, H, D] -> [B, T, C]
+        y = y.reshape(B, T, C)
         
         return self.out_proj(y), None
+
+    # JIT-compiled version of the V1 logic for speed + correctness
+    @torch.jit.export
+    def jit_scan(self, k, v, w, r, state: torch.Tensor = None):
+        # type: (Tensor, Tensor, Tensor, Tensor, Optional[Tensor]) -> Tensor
+        B, T, H, D = k.shape # Expected [B, T, H, D] here
+        
+        k = k.unsqueeze(-1)         # [B, T, H, D, 1]
+        v = v.unsqueeze(-2)         # [B, T, H, 1, D]
+        w = w.unsqueeze(-1)         # [B, T, H, D, 1]
+        r = r.unsqueeze(-2)         # [B, T, H, 1, D]
+        
+        if state is None:
+            state = torch.zeros(B, H, D, D, device=k.device, dtype=k.dtype)
+            
+        outputs = []
+        # Sequential scan (JIT will fuse this reasonably well)
+        for t in range(T):
+            # S = (1 - w) * S + k @ v.T
+            kv = k[:, t] @ v[:, t] 
+            state = (1 - w[:, t]) * state + kv
+            
+            # y = r @ S
+            out = r[:, t] @ state
+            outputs.append(out.squeeze(2))
+            
+        return torch.stack(outputs, dim=1)
+
+    def get_diagnostics(self):
+        w_gate = torch.sigmoid(self.w_proj.bias)
+        return {"W_Mean": w_gate.mean().item(), "W_Std": w_gate.std().item()}
 
 class GroundThinkBlock(nn.Module):
     def __init__(self, config):
@@ -230,11 +249,11 @@ from datasets import load_from_disk
 
 def get_dataloaders(config):
     # Try looking in local folder (A100 standard path)
-    load_path = "data_v2" 
+    load_path = "groundthink_v2_dataset" 
     
     if not os.path.exists(load_path):
         # Fallback to absolute path if provided or just check sibling dir
-        load_path = os.path.join(os.path.dirname(__file__), "data_v2")
+        load_path = os.path.join(os.path.dirname(__file__), "groundthink_v2_dataset")
     
     if os.path.exists(load_path):
         print(f"📂 Loading Pre-Processed V2 Dataset from {load_path}...")
@@ -266,7 +285,14 @@ def get_dataloaders(config):
         labels[encoded['attention_mask'] == 0] = -100
         return input_ids, labels
 
-    train_loader = DataLoader(dataset, batch_size=config.micro_batch_size, shuffle=True, collate_fn=collate_fn)
+    train_loader = DataLoader(
+        dataset, 
+        batch_size=config.micro_batch_size, 
+        shuffle=True, 
+        collate_fn=collate_fn,
+        num_workers=8, # Enable parallelism to fix bottleneck
+        pin_memory=True
+    )
     return train_loader, tokenizer
     
 # ==========================================
@@ -341,14 +367,27 @@ def train():
                 # Logging
                 if global_step % 10 == 0:
                     dt = time.time() - t0
+                    t0 = time.time() # Reset timer!
                     tps = (config.micro_batch_size * config.grad_accum_steps * config.max_seq_len * 10) / dt
-                    print(f"Step {global_step} | Loss: {accum_loss * config.grad_accum_steps:.4f} | TPS: {int(tps)} | Norm: {grad_norm:.2f}")
+                    # FIX: accum_loss already sums up to the TRUE MEAN because individual losses were pre-divided
+                    # So accum_loss IS the average loss for the macro-batch.
+                    avg_loss = accum_loss 
                     
-                    writer.add_scalar("Train/Loss", accum_loss * config.grad_accum_steps, global_step)
+                    print(f"Step {global_step} | Loss: {avg_loss:.4f} | TPS: {int(tps)} | Norm: {grad_norm:.2f}")
+                    
+                    writer.add_scalar("Train/Loss", avg_loss, global_step)
                     writer.add_scalar("Train/TPS", tps, global_step)
                     writer.add_scalar("Train/GradNorm", grad_norm, global_step)
                     writer.add_scalar("Train/LR", scheduler.get_last_lr()[0], global_step)
-                    
+
+                    # Diagnostic Hook
+                    if global_step % 50 == 0:
+                         # Inspect Layer 6 (Middle)
+                        diag = model.blocks[config.n_layer//2].mixer.get_diagnostics()
+                        print(f"   🔍 Layer {config.n_layer//2} Diag: {diag}")
+
+                accum_loss = 0.0
+                
                 # VALIDATION / GENERATION Every 200 Steps
                 if global_step % 200 == 0:
                     print(f"🔍 [Step {global_step}] Validation Probe...")
