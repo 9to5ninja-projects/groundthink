@@ -19,7 +19,7 @@ import numpy as np
 from tqdm import tqdm
 
 # Configuration
-OUTPUT_DIR = "e:/RWKV/data_v2"
+OUTPUT_DIR = "groundthink_v2_dataset"
 TOTAL_SAMPLES = 200_000 
 SEED = 42
 

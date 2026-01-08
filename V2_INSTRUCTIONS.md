@@ -10,7 +10,7 @@ ssh root@<ip_address> -p <port>
 ```bash
 # On the Remote Server:
 cd /root/
-git clone https://github.com/recursal/groundthink.git
+git clone https://github.com/9to5ninja-projects/groundthink.git
 cd groundthink
 
 # Install Dependencies
