@@ -10,6 +10,7 @@ from torch.utils.checkpoint import checkpoint
 from transformers import AutoTokenizer
 from datasets import load_dataset, interleave_datasets
 import bitsandbytes as bnb
+from torch.utils.tensorboard import SummaryWriter
 
 # Try to import Triton kernel for 10x speedup
 try:
@@ -380,6 +381,9 @@ def train():
     ckpt_dir = f"checkpoints/{config.project_name}"
     os.makedirs(ckpt_dir, exist_ok=True)
     
+    # TensorBoard Logger
+    writer = SummaryWriter(log_dir=f"logs/{config.project_name}")
+
     for x, y in dataloader:
         x, y = x.cuda(), y.cuda()
         
@@ -411,8 +415,10 @@ def train():
             tps = current_tokens / dt
             avg_loss = accum_loss / config.grad_accum_steps
             
-            current_lr = scheduler.get_last_lr()[0]
-            print(f"Step {global_step} | Loss: {avg_loss:.4f} | TPS: {tps:.0f} | LR: {current_lr:.2e}")
+            cuLOGGING
+            writer.add_scalar("Train/Loss", avg_loss, global_step)
+            writer.add_scalar("Train/TPS", tps, global_step)
+            writer.add_scalar("Train/LR", current_lr, global_step)
 
             # DEBUG: Periodically generate text to verify learning (Safety Check)
             if global_step % 200 == 0:
@@ -432,6 +438,10 @@ def train():
                         out = torch.cat((out, next_token), dim=1)
                     
                     # Store tokenizer in validation context to decode
+                    try:
+                        dec = tokenizer.decode(out[0].tolist())
+                        print(f"📝 Excerpt: {dec}...")
+                        writer.add_text("Validation/Sample", dec, global_stepontext to decode
                     try:
                         dec = tokenizer.decode(out[0].tolist())
                         print(f"📝 Excerpt: {dec}...")

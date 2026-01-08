@@ -270,6 +270,146 @@ def get_dataloaders(config):
     return train_loader, tokenizer
     
 # ==========================================
-# 4. TRAINING LOOP
+# 4. TRAINING LOOP V2 (Scientific Monitoring)
 # ==========================================
-# (Standard loop from previous file to be appended)
+def train():
+    print(f"🚀 Starting V2 Scientific Run: {config.project_name}")
+    print(f"   Model: 125M | Layers: {config.n_layer} | Dim: {config.d_model} | Opt: Adam8bit (Split)")
+    
+    # Setup
+    log_dir = f"logs/{config.project_name}"
+    writer = SummaryWriter(log_dir)
+    ckpt_dir = f"checkpoints/{config.project_name}"
+    os.makedirs(ckpt_dir, exist_ok=True)
+    
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    
+    # Load Data (V2 Artifact)
+    train_loader, tokenizer = get_dataloaders(config)
+    
+    # Init Model
+    model = GroundThink125M(config).to(device).to(config.dtype)
+    print(f"   Parameters: {sum(p.numel() for p in model.parameters())/1e6:.1f}M")
+    
+    if USE_TRITON:
+        print("✅ Triton Kernel Active")
+    else:
+        print("⚠️  Running in Slow Python Mode")
+        
+    optimizer = model.configure_optimizers(config.learning_rate)
+    
+    # Scheduler: OneCycleLR (Warmup 10% -> 100% -> Decay)
+    scheduler = torch.optim.lr_scheduler.OneCycleLR(
+        optimizer, 
+        max_lr=[config.learning_rate, config.learning_rate * 1.8, config.learning_rate], # Match Split
+        total_steps=config.total_steps,
+        pct_start=0.1,
+        div_factor=10,
+        final_div_factor=100
+    )
+    
+    # Training State
+    global_step = 0
+    t0 = time.time()
+    accum_loss = 0.0
+    
+    model.train()
+    
+    while global_step < config.total_steps:
+        for batch_idx, (idx, targets) in enumerate(train_loader):
+            idx, targets = idx.to(device), targets.to(device)
+            
+            # Forward
+            # Note: We rely on automatic mixed precision or native BF16
+            with torch.amp.autocast(device_type="cuda", dtype=config.dtype):
+                logits, loss = model(idx, targets)
+                loss = loss / config.grad_accum_steps
+            
+            # Backward
+            loss.backward()
+            accum_loss += loss.item()
+            
+            if (batch_idx + 1) % config.grad_accum_steps == 0:
+                # Gradient Clipping for Stability (Crucial for Recurrent V2)
+                grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                
+                optimizer.step()
+                scheduler.step()
+                optimizer.zero_grad()
+                global_step += 1
+                
+                # Logging
+                if global_step % 10 == 0:
+                    dt = time.time() - t0
+                    tps = (config.micro_batch_size * config.grad_accum_steps * config.max_seq_len * 10) / dt
+                    print(f"Step {global_step} | Loss: {accum_loss * config.grad_accum_steps:.4f} | TPS: {int(tps)} | Norm: {grad_norm:.2f}")
+                    
+                    writer.add_scalar("Train/Loss", accum_loss * config.grad_accum_steps, global_step)
+                    writer.add_scalar("Train/TPS", tps, global_step)
+                    writer.add_scalar("Train/GradNorm", grad_norm, global_step)
+                    writer.add_scalar("Train/LR", scheduler.get_last_lr()[0], global_step)
+                    
+                # VALIDATION / GENERATION Every 200 Steps
+                if global_step % 200 == 0:
+                    print(f"🔍 [Step {global_step}] Validation Probe...")
+                    model.eval()
+                    
+                    # 1. Recall Probe (The "Secret Code" Test)
+                    # We inject a fact and ask for it later.
+                    # "The secret code is 8472. [filler] What is the secret code?"
+                    # We will synthesize a quick prompt to test short-term recall.
+                    probe_prompt = "The secret agent's passcode is 9922. The agent walked down the hall. He stopped. He asked, 'What is the passcode?' The passcode is"
+                    
+                    try:
+                        with torch.no_grad():
+                            # Standard Generation
+                            out = torch.zeros((1, 1), dtype=torch.long, device=device) + tokenizer.encode("The")[0] # Dummy start
+                            # Let's use the helper generate function logic inline or call a helper
+                            # Simple generate for logging:
+                            
+                            # Test 1: Creative Generation
+                            start_tokens = tokenizer.encode("The future of artificial intelligence is", return_tensors="pt").to(device)
+                            gen = start_tokens
+                            for _ in range(50):
+                                logits, _ = model(gen)
+                                next_token = torch.argmax(logits[:, -1, :], dim=-1, keepdim=True)
+                                gen = torch.cat((gen, next_token), dim=1)
+                            
+                            txt = tokenizer.decode(gen[0])
+                            print(f"📝 Creative: {txt}")
+                            writer.add_text("Val/Creative", txt, global_step)
+
+                            # Test 2: The Probe
+                            probe_tokens = tokenizer.encode(probe_prompt, return_tensors="pt").to(device)
+                            gen = probe_tokens
+                            for _ in range(5): # Expected output: " 9922"
+                                logits, _ = model(gen)
+                                next_token = torch.argmax(logits[:, -1, :], dim=-1, keepdim=True)
+                                gen = torch.cat((gen, next_token), dim=1)
+                                
+                            probe_out = tokenizer.decode(gen[0])
+                            print(f"🧠 Recall Probe: {probe_out}")
+                            writer.add_text("Val/Probe", probe_out, global_step)
+
+                    except Exception as e:
+                        print(f"⚠️ Generation Error: {e}")
+                    
+                    model.train()
+                
+                # Checkpoint Every 500 Steps
+                if global_step % 500 == 0:
+                    print(f"💾 Saving Step {global_step}...")
+                    torch.save(model.state_dict(), f"{ckpt_dir}/step_{global_step}.pt")
+                
+                # Reset counters
+                t0 = time.time()
+                accum_loss = 0.0
+                
+            if global_step >= config.total_steps:
+                break
+                
+    print("🏁 Training Complete.")
+    torch.save(model.state_dict(), f"{ckpt_dir}/final.pt")
+
+if __name__ == "__main__":
+    train()
