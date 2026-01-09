@@ -1,0 +1,586 @@
+# V4 Training Guide
+> **GOLD STANDARD** - This is THE authoritative reference for how we train hybrid models.  
+> Distilled from V3_CROSS_REFERENCE.md and prior experiments. Read this FIRST.
+
+**Status:** Active | **Version:** 1.1 | **Last Updated:** 2026-01-09
+
+---
+
+## How to Use This Document
+
+1. **Before training**: Review Critical Rules and Pre-Flight Checklist
+2. **During training**: Use Quick Reference for log interpretation
+3. **When stuck**: Consult Common Failure Modes and Decision Tree
+4. **After training**: Grade run using Run Assessment Scorecard (Appendix H)
+
+---
+
+## Critical Rules (Non-Negotiable)
+
+### 1. Validation Loss is THE Metric
+- **Train loss means nothing alone** - it only shows the model is learning *something*
+- **Val loss determines everything**: when to stop, when to checkpoint, when to adjust
+- Log format: `Step X | Train: X.XX | Val: X.XX | RWKV/Mamba: X.XX`
+- Eval every 100 steps minimum, every 20 steps during debugging
+
+### 2. Component Gradient Monitoring
+Hybrid models can have one component die silently. Track gradient norms separately.
+
+| RWKV/Mamba Ratio | Status | Action |
+|------------------|--------|--------|
+| 0.3 - 3.0 | OK | Continue |
+| 0.1 - 0.3 or 3.0 - 10.0 | WARN | Monitor closely, may need LR adjustment |
+| < 0.1 or > 10.0 | FAIL | Stop. One component is dead. |
+
+**Activation Collapse Monitoring** (SSM-specific failure mode):
+- SSMs can have "activation collapse" where outputs become near-constant
+- Monitor activation variance per component (already logged as `RWKV: var=X.XX` and `Mamba: var=X.XX`)
+- **Healthy**: Both variances in 0.5-2.0 range
+- **WARN**: Variance < 0.1 or > 5.0 (extreme)
+- **FAIL**: Variance ≈ 0 (activations collapsed to constant)
+
+### 3. Stopping Criteria
+**STOP training when:**
+- Val loss diverges from train loss (gap grows > 0.5)
+- Val loss increases for 5+ consecutive evals
+- **Val loss increases >5-10% while train decreases** = overfitting, stop immediately
+- **Val loss hasn't improved for 3-5x typical improvement interval** (e.g., if improvement every 500 steps, stop after 1500-2500 with no improvement)
+- LR reduced 2+ times with no improvement
+- Gradient ratio enters FAIL zone
+- Loss oscillates wildly (std > 20% of mean)
+
+**CONTINUE training when:**
+- Val loss has "heartbeat" (small improvements even if slow)
+- Both components have non-zero gradients
+- Loss is stable or decreasing
+
+**Hybrid-Specific: Sawtooth Validation Curves**
+- Hybrid validation curves often show "sawtooth" pattern (up-down-up-down)
+- **Look at the envelope of minima**, not individual points
+- If the minima are getting lower over time → training is working
+- If the minima have plateaued → model has converged
+- If the minima are trending UP → overfitting
+
+### 4. Plateau Response Protocol
+| Plateau Duration | Diagnosis | Action |
+|-----------------|-----------|--------|
+| 1-10% of training | Normal settling | Wait, continue |
+| 10-20% of training | Possible issue | Reduce LR by 30-50%, continue 10-20% more steps |
+| > 20% of training | Converged or stuck | Stop, analyze |
+
+**Plateau Diagnosis:**
+- **Genuine convergence**: Val loss flat but not increasing. Model reached its capacity.
+- **Optimization mismatch**: One component's LR is wrong. Check gradient ratio.
+- **Gradient competition**: Components fighting each other. Check if updates cancel out.
+
+**For Hybrids at Small Scale (8M):** Investigate each plateau. Don't train through blindly.
+- This is different from production scale where "patience budget" applies
+- At validation scale, every plateau is information about the architecture
+
+### 5. Defining "Improvement Interval"
+
+The improvement interval is how often you typically see val loss decrease during healthy training.
+
+**How to calculate:**
+1. During first 20% of training, track when val_loss improves
+2. Average the gap between improvements = your improvement interval
+3. Use 3-5x this value as your patience threshold
+
+**Example:**
+- Training for 5000 steps, eval every 50 steps
+- During steps 0-1000, val improved at: 50, 100, 200, 350, 500, 700
+- Average gap: ~100 steps
+- Patience threshold: 300-500 steps without improvement
+
+**For our current runs:**
+- 5000 steps, eval every 50 steps
+- Typical improvement interval: ~100-200 steps during healthy learning
+- Patience: stop after 500-1000 steps with no val improvement
+
+---
+
+## Hyperparameters (V4 Defaults)
+
+```python
+CONFIG = {
+    # Architecture
+    'batch_size': 4,
+    'seq_len': 256,
+    'grad_accum': 4,        # Effective batch = 16
+    
+    # Optimizer
+    'lr': 3e-4,             # Base LR for RWKV + other
+    'mamba_lr_mult': 2.0,   # Mamba gets 2x LR (6e-4)
+    'min_lr': 3e-5,         # 10% of peak
+    'weight_decay': 0.1,
+    'betas': (0.9, 0.95),
+    'grad_clip': 1.0,
+    
+    # Schedule
+    'warmup_steps': 2000,   # 2-4x longer for hybrids
+    'max_steps': 50000,
+    
+    # Monitoring
+    'eval_interval': 100,
+    'log_interval': 20,
+    'checkpoint_interval': 10000,
+    
+    # Stopping
+    'val_patience': 5,      # Stop after 5 evals with no val improvement
+    'grad_ratio_warn': 3.0,
+    'grad_ratio_fail': 10.0,
+}
+```
+
+---
+
+## Training Loop Structure
+
+```python
+# Pseudocode - actual implementation in train_v4.py
+
+for step in range(max_steps):
+    # 1. Forward + backward (with gradient accumulation)
+    loss = forward_backward(batch)
+    
+    # 2. Gradient monitoring (BEFORE clipping)
+    rwkv_norm, mamba_norm, ratio = get_component_gradients(model)
+    check_gradient_health(ratio)  # Warn/fail if bad
+    
+    # 3. Clip + step
+    clip_grad_norm_(model.parameters(), grad_clip)
+    optimizer.step()
+    scheduler.step()
+    
+    # 4. Validation (every eval_interval steps)
+    if step % eval_interval == 0:
+        val_loss = evaluate(model, val_data)
+        log(step, train_loss, val_loss, ratio)
+        
+        # Early stopping check
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            save_checkpoint(model, 'best.pt')
+            patience_counter = 0
+        else:
+            patience_counter += 1
+            if patience_counter >= val_patience:
+                print("Early stopping: val loss not improving")
+                break
+```
+
+---
+
+## Common Failure Modes
+
+### 1. "Loss looks good but model outputs garbage"
+- **Cause**: Overfitting. Train loss ↓ but val loss ↑
+- **Fix**: More data, more dropout, earlier stopping
+
+### 2. "One component dominates"
+- **Symptoms**: Gradient ratio >> 10 or << 0.1
+- **Cause**: LR imbalance or architecture issue
+- **Fix**: Adjust mamba_lr_mult, check layer initialization
+
+### 3. "Loss stuck from the start"
+- **Cause**: LR too low, or dead initialization
+- **Fix**: Try 10x higher LR, check that all params have grads
+
+### 4. "Loss spikes randomly"
+- **Cause**: Grad explosion, bad batch, or numerical instability
+- **Fix**: Lower LR, increase grad_clip, check for inf/nan
+
+### 5. "Training is stable but val never improves"
+- **Cause**: Dataset too small, or model too big
+- **Fix**: More data, or smaller model, or stronger regularization
+
+### 6. "Activation Collapse" (SSM-specific)
+- **Symptoms**: One component's activation variance → 0, outputs become constant
+- **Cause**: State dynamics collapsed, often from bad initialization or gradient starvation
+- **Diagnosis**: Look at logged `RWKV: var=X.XX` and `Mamba: var=X.XX` values
+- **Fix**: Check initialization, increase that component's LR, or reduce the other component's dominance
+
+### 7. "Components Fighting" (Gradient Competition)
+- **Symptoms**: Loss oscillates, gradient ratio swings between extremes
+- **Cause**: RWKV and Mamba optimizing for different local minima
+- **Diagnosis**: Gradient ratio alternates high/low across steps
+- **Fix**: Reduce LR of dominant component, or add separate normalization layers
+
+---
+
+## Checkpointing Strategy
+
+1. **Best checkpoint**: Save whenever val_loss improves
+2. **Periodic checkpoint**: Every 10K steps regardless
+3. **Always save**: optimizer state + scheduler state + step count
+
+```python
+torch.save({
+    'step': step,
+    'model_state_dict': model.state_dict(),
+    'optimizer_state_dict': optimizer.state_dict(),
+    'scheduler_state_dict': scheduler.state_dict(),
+    'best_val_loss': best_val_loss,
+    'config': CONFIG,
+}, f'checkpoint_step_{step}.pt')
+```
+
+---
+
+## Pre-Flight Checklist
+
+Before starting a real training run:
+
+- [ ] Ran 100-step test, loss decreasing
+- [ ] Val loss computed and logged
+- [ ] Component gradients both non-zero
+- [ ] Gradient ratio in OK range (0.3-3.0)
+- [ ] Checkpoint saving works
+- [ ] VRAM usage acceptable (< 80% of available)
+- [ ] Estimated time to completion calculated
+
+---
+
+## Quick Reference: Log Interpretation
+
+```
+Step  100 | Train: 4.50 | Val: 4.52 | RWKV/Mamba: 1.20       # Good: val ≈ train
+Step  200 | Train: 4.30 | Val: 4.35 | RWKV/Mamba: 0.95       # Good: both improving
+Step  300 | Train: 4.10 | Val: 4.40 | RWKV/Mamba: 0.80       # WARN: gap growing
+Step  400 | Train: 3.90 | Val: 4.50 | RWKV/Mamba: 0.70       # BAD: overfitting
+Step  500 | Train: 3.70 | Val: 4.60 | RWKV/Mamba: 8.50 [WARN] # BAD: ratio + overfit
+```
+
+**Healthy training**: Train and val decrease together, ratio stable 0.5-2.0
+
+---
+
+## Files Reference
+
+| File | Purpose |
+|------|---------|
+| `train_v4.py` | Training script with all monitoring |
+| `hybrid_v4.py` | Model architecture (RWKV6 + Mamba2 parallel) |
+| `data_v030.py` | Dataset with train/val split |
+| `tokenizer_v030.py` | Character tokenizer |
+| `V4_HANDOFF.md` | Task tracking for agents |
+| `V4_DESIGN.md` | Architecture decisions |
+| `V4_BUILD_LOG.md` | Session-by-session progress |
+
+---
+
+*Last updated: 2026-01-09*
+
+---
+
+## Appendix A: Weight Decay (NOT YET IMPLEMENTED)
+
+**Current state:** train_v4.py applies same weight_decay to all params in each group.
+
+**TODO:** Should exclude these patterns from weight decay:
+```python
+no_decay = ['bias', 'norm', 'ln', 'gain', 'scale']
+```
+
+FLA internal params (A_log, time_decay) are handled by FLA - we don't control their weight decay directly.
+
+### Fusion Gains (V4 Approach)
+
+V4 uses `rwkv_gain` and `mamba_gain` initialized to 0.5 each:
+```python
+self.rwkv_gain = nn.Parameter(torch.ones(hidden_size) * 0.5)
+self.mamba_gain = nn.Parameter(torch.ones(hidden_size) * 0.5)
+```
+
+This is different from the 0.01 residual scaling - V4's parallel design already provides gradient independence, so we start with equal contribution from both pathways.
+
+---
+
+## Appendix B: V4 Architecture
+
+### ParallelHybridBlock
+
+Each block runs RWKV-6 and Mamba-2 **in parallel** on the same input:
+
+```
+x_in ─→ RMSNorm ─┬─→ [RWKV6Attention] ─→ * rwkv_gain ─┐
+                 │                                     │
+                 └─→ [Mamba2]          ─→ * mamba_gain ┴─→ + x_in ─→ RMSNorm ─→ FFN ─→ out
+```
+
+### Key Parameters
+
+| Component | Setting | Notes |
+|-----------|---------|-------|
+| `RWKV6Attention` | hidden_size, num_heads | From FLA library |
+| `Mamba2` | expand=2, head_dim=64 | num_heads = expand*hidden/head_dim |
+| `rwkv_gain` | init 0.5 | Learnable per-channel |
+| `mamba_gain` | init 0.5 | Learnable per-channel |
+| `FFN` | 4x expansion, GELU | Standard transformer FFN |
+
+### Model Configs
+
+| Name | hidden_size | num_layers | num_heads | Params |
+|------|-------------|------------|-----------|--------|
+| `create_hybrid_5m` | 128 | 8 | 4 | ~3M |
+| `create_hybrid_8m` | 192 | 12 | 6 | ~8M |
+
+### Weight Initialization
+- Linear: `normal_(mean=0.0, std=0.02)`
+- Embedding: `normal_(mean=0.0, std=0.02)`
+- Tied embeddings: `head.weight = embed.weight`
+
+---
+
+## Appendix C: State Monitoring (ADVANCED)
+
+### FLA Internal States
+
+FLA's RWKV6Attention and Mamba2 manage their own internal states. We don't have direct access to monitor state entropy.
+
+**What we CAN monitor:**
+- Component gradient norms (implemented in train_v4.py)
+- Loss trajectory
+- Output distribution entropy
+
+**Passkey test:** Could be implemented as a separate evaluation script, but not critical for initial training validation.
+
+---
+
+## Appendix D: Curriculum Learning (FUTURE)
+
+Not implemented in current train_v4.py. For initial validation, fixed seq_len=256 is fine.
+
+If implementing later:
+| Phase | Seq Len | Purpose |
+|-------|---------|---------|
+| Warmup | 128 | Basic patterns |
+| Short | 256 | Local dependencies |
+| Medium | 512 | State compression |
+| Full | 1024 | Long-range |
+
+**Transition rule:** When doubling seq_len, reduce LR by 10-15%.
+
+---
+
+## Appendix E: Evaluation Tests (Reference)
+
+Simple tests to validate model behavior. Can be run manually after training.
+
+### Test 1: Completion Coherence
+Feed first 100 chars of shakespeare.txt, generate 100 more. Output should be readable English-like text, not random chars.
+
+### Test 2: Long Context
+Feed 500+ tokens, check that loss on token 500 is similar to loss on token 50. Big spike = state is leaking.
+
+### Test 3: Character Distribution
+After training, sample 1000 characters. Distribution should roughly match shakespeare (mostly lowercase letters, spaces, punctuation). If output is 90% one character = model collapsed.
+
+### For Conversational Data (Future)
+- Persona lock test
+- State jitter (cross-document leakage)
+- Instruction following
+
+---
+
+## Appendix F: Model Configs & Scaling Rules
+
+### Current Model Configurations
+
+| Config Name | hidden_size | num_layers | num_heads | Approx Params | Use Case |
+|-------------|-------------|------------|-----------|---------------|----------|
+| `create_hybrid_1m` | 64 | 4 | 2 | ~500K | Ultra-fast iteration, sanity checks |
+| `create_hybrid_5m` | 128 | 8 | 4 | ~3M | **Current validation** |
+| `create_hybrid_8m` | 192 | 12 | 6 | ~8M | Extended validation |
+| (future) | 256 | 12 | 8 | ~15M | Pre-scale testing |
+| (future) | 384 | 12 | 12 | ~30M | First real scale |
+
+### Scaling Strategy
+
+**Rule 1:** Scale width first, then depth. Changing depth invalidates tuning.
+
+**Rule 2:** When doubling width:
+- Expect ~4x params (width² in attention/FFN)
+- May need to reduce LR by ~30%
+- Warmup should increase proportionally
+
+**TODO:** Add `create_hybrid_1m` for faster iteration testing:
+```python
+def create_hybrid_1m(vocab_size: int = 10000) -> HybridModel:
+    """Create ~500K parameter hybrid model for fast iteration"""
+    return HybridModel(
+        vocab_size=vocab_size,
+        hidden_size=64,
+        num_layers=4,
+        num_heads=2,
+        ffn_mult=4.0,
+    )
+```
+
+### Expected Training Times (Windows/Triton fallback @ ~2600 tok/s)
+
+| Model | 5000 steps | 10000 steps |
+|-------|------------|-------------|
+| 1M (TODO) | ~5 min | ~10 min |
+| 3M (current) | ~30 min | ~60 min |
+| 8M | ~60 min | ~120 min |
+
+**Note:** On Linux with proper CUDA kernels, expect 10-20x faster.
+
+---
+
+## Appendix G: Tokenizer (CURRENT STATE)
+
+Using char-level tokenizer (~97 vocab for shakespeare.txt).
+
+- ✅ Minimal embedding tax
+- ✅ Fast iteration
+- ❌ Not suitable for production (need BPE for real deployment)
+
+For scaling to larger data, switch to custom BPE (16-24k vocab).
+
+---
+
+## Quick Decision Tree
+
+```
+Loss stuck at 7.0?
+├── Check gradient norm
+│   ├── Near 0 → Vanishing gradients, raise LR
+│   └── Spiking → Lower LR, add grad clip
+├── Check component gradients
+│   └── One near zero → That pathway is dead
+└── Check LR
+    └── Try 10x higher or lower
+
+Val loss diverging from train?
+├── Gap < 0.2 → Normal, continue
+├── Gap 0.2-0.5 → Watch closely
+└── Gap > 0.5 → Overfitting, stop or regularize
+
+Component gradient ratio unhealthy?
+├── Ratio < 0.1 or > 10 → FAIL, architecture problem
+├── Ratio 0.1-0.3 or 3-10 → WARN, adjust mamba_lr_mult
+└── Ratio 0.3-3.0 → Healthy, continue
+```
+
+---
+
+## Appendix H: Run Assessment Scorecard
+
+Use this to grade any training run. Each criterion is Pass/Warn/Fail.
+
+### Criterion 1: Validation Loss Trend
+| Grade | Condition |
+|-------|-----------|
+| ✅ PASS | Val loss decreased over run, final < initial |
+| ⚠️ WARN | Val loss flat or sawtooth but envelope improving |
+| ❌ FAIL | Val loss increased or diverged from train |
+
+### Criterion 2: Train/Val Gap
+| Grade | Condition |
+|-------|-----------|
+| ✅ PASS | Gap < 0.2 throughout |
+| ⚠️ WARN | Gap 0.2-0.5, stable |
+| ❌ FAIL | Gap > 0.5 or growing |
+
+### Criterion 3: Gradient Ratio Stability
+| Grade | Condition |
+|-------|-----------|
+| ✅ PASS | Ratio in [0.3, 3.0] for >80% of evals |
+| ⚠️ WARN | Ratio in [0.1, 10.0] but outside [0.3, 3.0] frequently |
+| ❌ FAIL | Ratio < 0.1 or > 10.0 at any point |
+
+### Criterion 4: Activation Variance
+| Grade | Condition |
+|-------|-----------|
+| ✅ PASS | Both components in [0.5, 2.0] range |
+| ⚠️ WARN | One component outside [0.3, 3.0] |
+| ❌ FAIL | Either component < 0.1 (collapsed) |
+
+### Criterion 5: Improvement Interval
+| Grade | Condition |
+|-------|-----------|
+| ✅ PASS | Val improves within 3x typical interval |
+| ⚠️ WARN | Plateau 10-20% of training |
+| ❌ FAIL | No improvement for >20% of training |
+
+### Overall Grade
+- **A (Excellent)**: 5 PASS
+- **B (Good)**: 4 PASS, 1 WARN
+- **C (Acceptable)**: 3 PASS, 2 WARN
+- **D (Marginal)**: 2 PASS, 3 WARN
+- **F (Failed)**: Any FAIL
+
+---
+
+## Appendix I: Example Run Assessment
+
+### HY Fusion Run (2026-01-09) - Steps 1000-2000
+
+**Run Info:**
+- Model: V4 HY Fusion (~3M params)
+- Dataset: shakespeare.txt (1.1M chars, 97 vocab)
+- Config: batch=8, seq=256, lr=3e-4, mamba_lr=6e-4
+
+**Observations:**
+
+| Step | Train PPL | Val PPL | R/M Ratio | Status |
+|------|-----------|---------|-----------|--------|
+| 1050 | 4.26 | 4.62 | 3.32 | WARN |
+| 1500 | 4.08 | 4.15 | 2.85 | OK |
+| 2000 | 3.73 | 3.94 | 2.64 | OK |
+
+**Scorecard:**
+
+| Criterion | Grade | Notes |
+|-----------|-------|-------|
+| 1. Val Loss Trend | ✅ PASS | 4.62 → 3.94 (15% improvement) |
+| 2. Train/Val Gap | ✅ PASS | Gap = 0.21 at step 2000 |
+| 3. Gradient Ratio | ⚠️ WARN | ~50% in OK range, ~50% WARN (3.0-3.5) |
+| 4. Activation Var | ✅ PASS | RWKV=0.87, Mamba=1.08 (healthy) |
+| 5. Improvement Int | ✅ PASS | Improving every 100-200 steps |
+
+**Overall: B (Good)** - 4 PASS, 1 WARN
+
+**Recommendation:** Continue training. Gradient ratio oscillating near threshold is not blocking - trend is toward balance. Monitor for stabilization.
+
+---
+
+## Appendix J: Training Summary Output (TODO)
+
+**Future Enhancement:** Add `--save-summary` flag to train_v4.py that outputs a markdown summary after training:
+
+```markdown
+# Training Summary: [RUN_NAME]
+
+## Run Configuration
+- **Model:** V4 HY Fusion (3,092,736 params)
+- **Dataset:** shakespeare.txt (1,115,394 tokens)
+- **Date:** 2026-01-09 14:30
+- **Duration:** 32 minutes
+- **Steps:** 1000 → 2000
+
+## Final Metrics
+- Train Loss: 1.32 (PPL 3.73)
+- Val Loss: 1.37 (PPL 3.94)
+- Best Val Loss: 1.37 (step 2000)
+
+## Health Summary
+- Gradient Ratio: 2.64 (OK)
+- RWKV Variance: 0.87 (healthy)
+- Mamba Variance: 1.08 (healthy)
+- Train/Val Gap: 0.21 (healthy)
+
+## Scorecard: B (Good)
+[auto-generated scorecard]
+
+## Checkpoints
+- ckpt_HY_step1000.pt (resumed from)
+- ckpt_HY_step2000.pt (saved)
+```
+
+**Implementation Notes:**
+- Save to `runs/[RUN_NAME]_summary.md`
+- Include version of train_v4.py and hybrid_v4.py
+- Include git hash if available

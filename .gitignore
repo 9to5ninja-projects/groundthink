@@ -25,9 +25,22 @@ MANIFEST
 *.pth
 *.pt
 *.ckpt
+*.safetensors
+*.bin
+*.onnx
 checkpoints/
 models/
 wandb/
+*.log
+
+# Large build artifacts
+*.whl
+*.so
+*.o
+*.a
+
+# PDFs and large docs
+*.pdf
 
 # Data files
 data/

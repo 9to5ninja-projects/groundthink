@@ -1,14 +1,14 @@
 """
-Train GroundThink v0.2.0 - Rebalanced Hybrid
+Train GroundThink - Config-based training
 
-Changes from v0.1.0:
-- Uses layers_v020.py with balance controls
-- Logs layer config to checkpoint
-- Saves versioned checkpoints
+Usage:
+  python train.py --config 5M_deep
+  python train.py --config 8M_wide
 """
 import os
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
+import argparse
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
@@ -16,6 +16,7 @@ import time
 from pathlib import Path
 import math
 import json
+import importlib
 
 from layers_v020 import GroundThinkBlock, RMSNorm, get_layer_config, VERSION
 
@@ -110,7 +111,6 @@ class CharTokenizer:
 
 
 def compute_state_norms(model, sample_input):
-    """Monitor state norms to detect explosion/collapse"""
     model.eval()
     with torch.no_grad():
         x = model.embed(sample_input)
@@ -124,21 +124,30 @@ def compute_state_norms(model, sample_input):
 
 
 def main():
-    print(f"GroundThink v{VERSION} Training")
-    print(f"Layer config: {json.dumps(get_layer_config(), indent=2)}")
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config', type=str, required=True, help='Config name: 5M_deep, 8M_wide')
+    parser.add_argument('--steps', type=int, default=None, help='Override num_steps')
+    args = parser.parse_args()
     
-    # Config
-    cfg = dict(dim=256, n_layers=6, n_heads=8, head_dim=32, seq_len=256,
-               batch_size=16, num_steps=10000, lr_base=3e-4, lr_decay=1e-3, warmup=500)
+    # Load config
+    config_module = importlib.import_module(f'configs.model_{args.config}')
+    model_cfg = config_module.MODEL_CONFIG
+    train_cfg = config_module.TRAIN_CONFIG.copy()
+    save_name = config_module.SAVE_NAME
+    
+    if args.steps:
+        train_cfg['num_steps'] = args.steps
+    
+    print(f"GroundThink v{VERSION} - {args.config}")
+    print(f"Model: {json.dumps(model_cfg, indent=2)}")
+    print(f"Train: {json.dumps(train_cfg, indent=2)}")
     
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     print(f"Device: {device}")
     
-    data_path = Path('data/mixed_training_data_clean.txt')
+    data_path = Path('../data/final_training_mix.txt')
     if not data_path.exists():
-        data_path = Path('data/mixed_training_data.txt')
-    if not data_path.exists():
-        print("ERROR: Run download_training_data.py first!")
+        print("ERROR: No training data found!")
         return
     
     print("Building tokenizer...")
@@ -147,52 +156,51 @@ def main():
     tokenizer = CharTokenizer(sample_text)
     print(f"Vocab size: {tokenizer.vocab_size}")
     
-    expected_loss = math.log(tokenizer.vocab_size)
-    print(f"Expected random loss: {expected_loss:.2f}")
-    
-    dataset = LineDataset(data_path, tokenizer, cfg['seq_len'])
+    dataset = LineDataset(data_path, tokenizer, train_cfg['seq_len'])
     print(f"Dataset: {len(dataset):,} samples")
-    loader = DataLoader(dataset, batch_size=cfg['batch_size'], shuffle=True, num_workers=0)
+    loader = DataLoader(dataset, batch_size=train_cfg['batch_size'], shuffle=True, num_workers=0)
     
-    model = GroundThinkModel(tokenizer.vocab_size, cfg['dim'], cfg['n_layers'], 
-                             cfg['n_heads'], cfg['head_dim']).to(device)
+    model = GroundThinkModel(
+        tokenizer.vocab_size, 
+        model_cfg['dim'], 
+        model_cfg['n_layers'], 
+        model_cfg['n_heads'], 
+        model_cfg['head_dim']
+    ).to(device)
     
     total_params = sum(p.numel() for p in model.parameters())
     print(f"Parameters: {total_params:,}")
     
-    # Per-component optimizer
-    param_groups = model.get_param_groups(cfg['lr_base'], cfg['lr_decay'], wd=0.1)
+    param_groups = model.get_param_groups(train_cfg['lr_base'], train_cfg['lr_decay'], wd=0.1)
     optimizer = torch.optim.AdamW(param_groups, betas=(0.9, 0.95))
     
-    # Print param group sizes
     for pg in param_groups:
         n = sum(p.numel() for p in pg['params'])
-        print(f"  {pg['name']}: {n:,} params, lr={pg['lr']:.1e}, wd={pg['weight_decay']}")
+        print(f"  {pg['name']}: {n:,} params, lr={pg['lr']:.1e}")
     
     criterion = nn.CrossEntropyLoss(ignore_index=0)
     
     def lr_lambda(step):
-        if step < cfg['warmup']:
-            return step / cfg['warmup']
-        return 0.5 * (1 + math.cos(math.pi * (step - cfg['warmup']) / (cfg['num_steps'] - cfg['warmup'])))
+        if step < train_cfg['warmup']:
+            return step / train_cfg['warmup']
+        return 0.5 * (1 + math.cos(math.pi * (step - train_cfg['warmup']) / 
+                                    (train_cfg['num_steps'] - train_cfg['warmup'])))
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
     
-    # Get sample for state monitoring
     sample_batch = next(iter(loader))[0][:1].to(device)
     
     # Initial state norms
     init_norms = compute_state_norms(model, sample_batch)
     print(f"Initial state norms: {[f'{n:.2f}' for n in init_norms]}")
     
-    # Train loop
-    print(f"\nTraining for {cfg['num_steps']} steps (warmup: {cfg['warmup']})...")
+    print(f"\nTraining for {train_cfg['num_steps']} steps (warmup: {train_cfg['warmup']})...")
     model.train()
     step, total_loss, best_loss = 0, 0, float('inf')
     start = time.time()
     
-    while step < cfg['num_steps']:
+    while step < train_cfg['num_steps']:
         for inputs, targets in loader:
-            if step >= cfg['num_steps']:
+            if step >= train_cfg['num_steps']:
                 break
             inputs, targets = inputs.to(device), targets.to(device)
             
@@ -200,10 +208,7 @@ def main():
             logits = model(inputs)
             loss = criterion(logits.view(-1, tokenizer.vocab_size), targets.view(-1))
             loss.backward()
-            
-            # Gradient clipping and tracking
             grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            
             optimizer.step()
             scheduler.step()
             
@@ -213,7 +218,7 @@ def main():
             if step % 100 == 0:
                 avg = total_loss / 100
                 elapsed = time.time() - start
-                tok_s = step * cfg['batch_size'] * cfg['seq_len'] / elapsed
+                tok_s = step * train_cfg['batch_size'] * train_cfg['seq_len'] / elapsed
                 current_lr = scheduler.get_last_lr()[0]
                 
                 # State health check every 500 steps
@@ -222,15 +227,14 @@ def main():
                     norms = compute_state_norms(model, sample_batch)
                     state_info = f" | states: {[f'{n:.1f}' for n in norms[:3]]}"
                 
-                print(f"Step {step:4d} | Loss: {avg:.4f} | LR: {current_lr:.2e} | "
+                print(f"Step {step:5d} | Loss: {avg:.4f} | LR: {current_lr:.2e} | "
                       f"Grad: {grad_norm:.2f} | {tok_s:.0f} tok/s{state_info}")
-                
                 total_loss = 0
                 if avg < best_loss:
                     best_loss = avg
     
     elapsed = time.time() - start
-    print(f"\nDone! {elapsed:.1f}s, {step * cfg['batch_size'] * cfg['seq_len'] / elapsed:.0f} tok/s")
+    print(f"\nDone! {elapsed:.1f}s, {step * train_cfg['batch_size'] * train_cfg['seq_len'] / elapsed:.0f} tok/s")
     print(f"Best loss: {best_loss:.4f}")
     
     # Final state norms
@@ -238,22 +242,18 @@ def main():
     print(f"Final state norms: {[f'{n:.2f}' for n in final_norms]}")
     
     # Generate samples
-    print("\n--- Generation Samples ---")
+    print("\n--- Narrative Test ---")
     model.eval()
-    
-    prompts = [
+    narrative_prompts = [
         "Once upon a time",
         "The old man looked",
-        "She walked into the room",
-        "I think that",
-        "He said to her",
+        "She walked into",
     ]
     
-    for prompt_text in prompts:
+    for prompt_text in narrative_prompts:
         print(f"\nPrompt: '{prompt_text}'")
         with torch.no_grad():
             prompt = torch.tensor([tokenizer.encode(prompt_text)]).to(device)
-            
             min_len = 16
             if prompt.shape[1] < min_len:
                 pad = torch.zeros(1, min_len - prompt.shape[1], dtype=torch.long, device=device)
@@ -272,13 +272,38 @@ def main():
                 generated = generated[:generated.index('\n')]
             print(f"  → {generated[:200]}")
     
-    # Save with version info
-    save_path = f'groundthink_v{VERSION.replace(".", "")}_{cfg["num_steps"]//1000}k_5M.pt'
+    print("\n--- Conversation Test ---")
+    prompts = ["What is your name?", "How are you today?", "Can you help me?"]
+    
+    for prompt_text in prompts:
+        print(f"\nQ: {prompt_text}")
+        with torch.no_grad():
+            prompt = torch.tensor([tokenizer.encode(prompt_text)]).to(device)
+            min_len = 16
+            if prompt.shape[1] < min_len:
+                pad = torch.zeros(1, min_len - prompt.shape[1], dtype=torch.long, device=device)
+                prompt_padded = torch.cat([pad, prompt], dim=1)
+            else:
+                prompt_padded = prompt
+            
+            for _ in range(100):
+                logits = model(prompt_padded)
+                probs = torch.softmax(logits[:, -1, :] / 0.8, dim=-1)
+                next_token = torch.multinomial(probs, 1)
+                prompt_padded = torch.cat([prompt_padded, next_token], dim=1)
+            
+            generated = tokenizer.decode(prompt_padded[0, min_len - prompt.shape[1]:].tolist())
+            if '\n' in generated:
+                generated = generated[:generated.index('\n')]
+            print(f"A: {generated[:150]}")
+    
+    # Save
+    save_path = f'{save_name}_{train_cfg["num_steps"]//1000}k.pt'
     torch.save({
         'model': model.state_dict(),
         'vocab': tokenizer.char_to_id,
-        'config': cfg,
-        'layer_config': get_layer_config(),
+        'model_config': model_cfg,
+        'train_config': train_cfg,
         'version': VERSION,
         'best_loss': best_loss,
     }, save_path)
