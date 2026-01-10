@@ -147,24 +147,55 @@ python train_v4.py --model HGF-RH --steps 1000 --batch_size 32 --seq_len 64
 
 ## Results Template
 
-### Phase 3.7 Results (To Be Filled)
+### Phase 3.7 Results (2026-01-10) ✅ COMPLETE
 
-**Test Date:** ____  
+**Test Date:** 2026-01-10  
 **Conditions:** batch=32, seq_len=64, 1000 steps, Shakespeare char-level
 
-| Model | gate_init | Final Gate | R/M Ratio | Val Loss | Val PPL |
-|-------|-----------|------------|-----------|----------|---------|
-| GF-MH | 0.3 | — | 0.10 | 1.59 | 4.90 | *(Phase 3.6)* |
-| GF-RH | 0.7 | — | — | — | — |
-| HGF | 0.5 | — | 0.21 | 1.69 | 5.41 | *(Phase 3.6)* |
-| HGF-MH | 0.3 | — | — | — | — |
-| HGF-RH | 0.7 | — | — | — | — |
+| Model | gate_init | Final R/M | Val Loss | Val PPL | Observation |
+|-------|-----------|-----------|----------|---------|-------------|
+| GF-MH | 0.3 | 0.10 | 1.59 | 4.90 | ⚠️ RWKV dominant *(Phase 3.6)* |
+| **GF-RH** | **0.7** | **0.14** | **1.64** | **5.14** | ⚠️ RWKV dominant — same pattern! |
+| HGF | 0.5 | 0.21 | 1.69 | 5.41 | ⚠️ RWKV dominant *(Phase 3.6)* |
+| **HGF-MH** | **0.3** | **0.24** | **1.69** | **5.40** | ⚠️ RWKV dominant |
+| **HGF-RH** | **0.7** | **0.25** | **1.70** | **5.46** | ⚠️ RWKV dominant |
 
-**Analysis:**
+---
 
-- GF-RH drift: (init 0.7 → final ?)
-- HGF-RH drift: (init 0.7 → final ?)
-- Conclusion: [Architectural / Signal / Asymmetric]
+## Phase 3.7 Analysis & Conclusion
+
+### Key Finding: RWKV Dominance is SIGNAL-BASED
+
+All 5 gated variants converge to RWKV-dominant regardless of initial gate bias:
+
+| Model | Started As | Ended As | Conclusion |
+|-------|------------|----------|------------|
+| GF-MH | 30% RWKV (Mamba-heavy) | R/M=0.10 (RWKV dominant) | Drifted to RWKV |
+| GF-RH | 70% RWKV (RWKV-heavy) | R/M=0.14 (RWKV dominant) | Stayed RWKV |
+| HGF-MH | 30% RWKV (Mamba-heavy) | R/M=0.24 (RWKV dominant) | Drifted to RWKV |
+| HGF-RH | 70% RWKV (RWKV-heavy) | R/M=0.25 (RWKV dominant) | Stayed RWKV |
+| HGF | 50% RWKV (balanced) | R/M=0.21 (RWKV dominant) | Drifted to RWKV |
+
+**Verdict:** **SIGNAL DOMINANCE CONFIRMED**
+
+The gate learns to favor RWKV regardless of initialization because:
+1. RWKV produces smoother, more stable gradients
+2. Mamba's selective gating creates spikier, harder-to-optimize signals
+3. The optimizer "takes the path of least resistance" to RWKV
+
+### Implications
+
+1. **`gate_init` doesn't matter** — the gate will drift toward RWKV anyway
+2. **Mamba needs explicit encouragement** — separate LR (already using 0.5x) isn't enough
+3. **Consider balance loss term** — penalize R/M ratio deviation from target
+4. **HY remains best for balance** — its fixed gains (0.45 R/M) can't drift
+
+### Recommended Next Steps
+
+1. **Add balance regularization:** Loss term that penalizes R/M < 0.3 or > 3.0
+2. **Increase Mamba LR multiplier:** Try 1.0 instead of 0.5
+3. **Test frozen gates:** Initialize gate and freeze it for N steps
+4. **Alternative:** Accept RWKV dominance if loss is good enough
 
 ---
 

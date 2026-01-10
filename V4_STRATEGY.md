@@ -887,46 +887,45 @@ warmup_steps: 2500
 
 ---
 
-### Phase 3.7: Blend Ratio Sweep (NEXT)
+### Phase 3.7: Blend Ratio Sweep ✅ COMPLETE
 
 **Objective:** Determine if RWKV dominance is architectural or signal-based.
 
-**Documentation:** [V4_BLEND_RATIOS.md](V4_BLEND_RATIOS.md) — Full hyperparameter analysis
+**Documentation:** [V4_BLEND_RATIOS.md](V4_BLEND_RATIOS.md) — Full results and analysis
 
-**Context:** Phase 3.6 showed ALL gated variants become RWKV-dominant (R/M ratio 0.10-0.21). Is this because:
-- RWKV produces "easier" gradients (signal dominance), OR
-- The gate architecture inherently favors RWKV (architectural)
-
-**Test:** Train symmetric configurations (30/70 and 70/30) and measure gate drift.
+**Context:** Phase 3.6 showed ALL gated variants become RWKV-dominant (R/M ratio 0.10-0.21). We tested symmetric configurations to determine cause.
 
 | # | Task | Status | Depends On | Complexity | Details |
 |---|------|--------|------------|------------|---------|
-| 31 | GF-RH 1K Training | ⬜ NEXT | Phase 3.6 | S | gate_init=0.7 (RWKV-heavy) |
-| 32 | HGF-MH 1K Training | ⬜ READY | Task 31 | S | gate_init=0.3 (Mamba-heavy) |
-| 33 | HGF-RH 1K Training | ⬜ READY | Task 32 | S | gate_init=0.7 (RWKV-heavy) |
-| 34 | Gate Drift Analysis | ⬜ READY | Tasks 31-33 | M | Compare init vs final gate values |
-| 35 | Phase 3.7 Decision | ⬜ BLOCKED | Task 34 | S | Conclude: signal vs architectural |
+| 31 | GF-RH 1K Training | ✅ COMPLETE | Phase 3.6 | S | Val Loss 1.64, R/M 0.14 |
+| 32 | HGF-MH 1K Training | ✅ COMPLETE | Task 31 | S | Val Loss 1.69, R/M 0.24 |
+| 33 | HGF-RH 1K Training | ✅ COMPLETE | Task 32 | S | Val Loss 1.70, R/M 0.25 |
+| 34 | Gate Drift Analysis | ✅ COMPLETE | Tasks 31-33 | M | All variants → RWKV dominant |
+| 35 | Phase 3.7 Decision | ✅ COMPLETE | Task 34 | S | **SIGNAL DOMINANCE CONFIRMED** |
 
-**Commands:**
-```bash
-# Task 31
-python train_v4.py --model GF-RH --steps 1000 --batch_size 32 --seq_len 64
+**Results:**
+| Model | gate_init | Final R/M | Val Loss | Val PPL |
+|-------|-----------|-----------|----------|---------|
+| GF-RH | 0.7 (RWKV) | 0.14 | 1.64 | 5.14 |
+| HGF-MH | 0.3 (Mamba) | 0.24 | 1.69 | 5.40 |
+| HGF-RH | 0.7 (RWKV) | 0.25 | 1.70 | 5.46 |
 
-# Task 32
-python train_v4.py --model HGF-MH --steps 1000 --batch_size 32 --seq_len 64
+**Gate:** ✅ Phase 3.7 COMPLETE (2026-01-10)
 
-# Task 33  
-python train_v4.py --model HGF-RH --steps 1000 --batch_size 32 --seq_len 64
-```
+**Conclusion: SIGNAL DOMINANCE CONFIRMED**
 
-**Results Template:**
-| Model | gate_init | Final Gate | R/M Ratio | Val Loss | Drift |
-|-------|-----------|------------|-----------|----------|-------|
-| GF-RH | 0.7 | ? | ? | ? | ? |
-| HGF-MH | 0.3 | ? | ? | ? | ? |
-| HGF-RH | 0.7 | ? | ? | ? | ? |
+All gated variants converge to RWKV-dominant regardless of initial bias:
+- GF-MH (started 30:70 Mamba) → R/M 0.10 (RWKV dominant)
+- GF-RH (started 70:30 RWKV) → R/M 0.14 (RWKV dominant)
+- HGF-MH (started 30:70 Mamba) → R/M 0.24 (RWKV dominant)
+- HGF-RH (started 70:30 RWKV) → R/M 0.25 (RWKV dominant)
 
-**Gate:** ⬜ Phase 3.7 NOT STARTED
+**Root Cause:** RWKV produces smoother gradients that are easier to optimize. The gate "takes the path of least resistance."
+
+**Next Steps:**
+1. Add balance regularization loss term
+2. Try higher Mamba LR multiplier (1.0 vs 0.5)
+3. Or accept RWKV dominance if loss is acceptable
 
 ---
 

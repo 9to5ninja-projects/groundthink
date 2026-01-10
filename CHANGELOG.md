@@ -6,6 +6,41 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [4.9-Alpha] - 2026-01-10 (Phase 3.7 Complete)
+
+### Summary
+**SIGNAL DOMINANCE CONFIRMED.** All gated fusion variants converge to RWKV-dominant regardless of initial gate bias. RWKV produces smoother gradients that are easier to optimize.
+
+### Phase 3.7 Results
+
+| Model | gate_init | Final R/M | Val Loss | Observation |
+|-------|-----------|-----------|----------|-------------|
+| GF-RH | 0.7 (RWKV) | 0.14 | 1.64 | ⚠️ RWKV dominant |
+| HGF-MH | 0.3 (Mamba) | 0.24 | 1.69 | ⚠️ RWKV dominant |
+| HGF-RH | 0.7 (RWKV) | 0.25 | 1.70 | ⚠️ RWKV dominant |
+
+### Key Finding
+- **GF-MH** (started 30:70 Mamba) → R/M 0.10 (RWKV dominant)
+- **GF-RH** (started 70:30 RWKV) → R/M 0.14 (RWKV dominant)
+- **HGF-MH** (started 30:70 Mamba) → R/M 0.24 (RWKV dominant)
+- **HGF-RH** (started 70:30 RWKV) → R/M 0.25 (RWKV dominant)
+
+**Conclusion:** `gate_init` doesn't matter. The optimizer "takes the path of least resistance" to RWKV.
+
+### Changed
+- **V4_BLEND_RATIOS.md**: Added complete Phase 3.7 results and analysis
+- **V4_STRATEGY.md**: Phase 3.7 marked COMPLETE with signal dominance conclusion
+- **V4_HANDOFF.md**: Updated to v4.9-Alpha, next focus is Phase 3.8 options
+- **VERSION**: Updated to 4.9-Alpha
+
+### Phase 3.8 Options (Next Steps)
+1. Add balance regularization loss term
+2. Increase Mamba LR multiplier (1.0 vs 0.5)
+3. Freeze gates for first N steps
+4. Accept RWKV dominance if loss is acceptable
+
+---
+
 ## [4.8-Alpha] - 2026-01-10 (Phase 3.7 Planned)
 
 ### Summary

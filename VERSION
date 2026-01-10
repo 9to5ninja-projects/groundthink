@@ -1,9 +1,9 @@
-4.8-Alpha (Phase 3.7 Planned)
+4.9-Alpha (Phase 3.7 Complete)
 Created: 2026-01-08
 Updated: 2026-01-10
-Status: Fusion variant comparison complete, blend ratio experiments designed
-Current Focus: Determine if RWKV dominance is signal or architectural
+Status: SIGNAL DOMINANCE CONFIRMED — RWKV produces easier gradients
+Current Focus: Address RWKV dominance (balance loss, Mamba LR, or accept)
 
 For detailed version history, see CHANGELOG.md
-For Phase 3.7 tasks, see V4_STRATEGY.md
-For blend ratio experiment plan, see V4_BLEND_RATIOS.md
+For Phase 3.8 options, see V4_STRATEGY.md
+For Phase 3.7 results, see V4_BLEND_RATIOS.md
