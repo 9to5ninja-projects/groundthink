@@ -887,6 +887,49 @@ warmup_steps: 2500
 
 ---
 
+### Phase 3.7: Blend Ratio Sweep (NEXT)
+
+**Objective:** Determine if RWKV dominance is architectural or signal-based.
+
+**Documentation:** [V4_BLEND_RATIOS.md](V4_BLEND_RATIOS.md) — Full hyperparameter analysis
+
+**Context:** Phase 3.6 showed ALL gated variants become RWKV-dominant (R/M ratio 0.10-0.21). Is this because:
+- RWKV produces "easier" gradients (signal dominance), OR
+- The gate architecture inherently favors RWKV (architectural)
+
+**Test:** Train symmetric configurations (30/70 and 70/30) and measure gate drift.
+
+| # | Task | Status | Depends On | Complexity | Details |
+|---|------|--------|------------|------------|---------|
+| 31 | GF-RH 1K Training | ⬜ NEXT | Phase 3.6 | S | gate_init=0.7 (RWKV-heavy) |
+| 32 | HGF-MH 1K Training | ⬜ READY | Task 31 | S | gate_init=0.3 (Mamba-heavy) |
+| 33 | HGF-RH 1K Training | ⬜ READY | Task 32 | S | gate_init=0.7 (RWKV-heavy) |
+| 34 | Gate Drift Analysis | ⬜ READY | Tasks 31-33 | M | Compare init vs final gate values |
+| 35 | Phase 3.7 Decision | ⬜ BLOCKED | Task 34 | S | Conclude: signal vs architectural |
+
+**Commands:**
+```bash
+# Task 31
+python train_v4.py --model GF-RH --steps 1000 --batch_size 32 --seq_len 64
+
+# Task 32
+python train_v4.py --model HGF-MH --steps 1000 --batch_size 32 --seq_len 64
+
+# Task 33  
+python train_v4.py --model HGF-RH --steps 1000 --batch_size 32 --seq_len 64
+```
+
+**Results Template:**
+| Model | gate_init | Final Gate | R/M Ratio | Val Loss | Drift |
+|-------|-----------|------------|-----------|----------|-------|
+| GF-RH | 0.7 | ? | ? | ? | ? |
+| HGF-MH | 0.3 | ? | ? | ? | ? |
+| HGF-RH | 0.7 | ? | ? | ? | ? |
+
+**Gate:** ⬜ Phase 3.7 NOT STARTED
+
+---
+
 #### Task 25: LRD Test Script
 
 **Status:** ✅ COMPLETE (2026-01-10)  
