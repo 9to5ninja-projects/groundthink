@@ -17,29 +17,158 @@
 
 ---
 
+## 🐧 ENVIRONMENT: NATIVE LINUX
+
+**We are working in a native Linux (Ubuntu) environment via VS Code Remote-SSH.**
+
+**CRITICAL:**
+- Use Linux syntax for ALL commands (`/home/m_tes/groundthink`, not Windows paths)
+- Terminal commands use bash shell syntax
+- File operations use forward slashes `/`
+- Python virtual environment is at `.venv/` (already in .gitignore)
+- Git operations work normally
+
+**Example paths:**
+- ✅ Correct: `/home/m_tes/groundthink/train_v4.py`
+- ❌ Wrong: `C:\Users\...\train_v4.py` or `\home\m_tes\...`
+
+---
+
+## 📝 EDITING BEST PRACTICES
+
+**CRITICAL: Make small, incremental edits to prevent errors, truncation, and timeouts.**
+
+**When creating or editing files:**
+- ❌ **DO NOT** try to write 500+ line documents in one operation
+- ❌ **DO NOT** batch 10+ file edits together
+- ✅ **DO** break large documents into logical sections (50-150 lines each)
+- ✅ **DO** edit files one at a time
+- ✅ **DO** verify each edit before moving to the next
+
+**Why this matters:**
+- Large operations frequently timeout or get truncated
+- Errors in large batches are hard to diagnose
+- Incremental edits are easier to review and rollback
+- User can provide feedback between steps
+
+**Example workflow:**
+1. Create document outline/structure first
+2. Fill in section 1, commit
+3. Fill in section 2, commit
+4. Continue until complete
+
+---
+
+## 🚦 VALIDATION GATES (QUALITY CHECKPOINTS)
+
+**All V4+ development must pass validation gates before proceeding.**
+
+**Gate documentation:** See [V4_TESTING.md](V4_TESTING.md#validation-gates-quality-gates-for-all-v4-development) for full procedures.
+
+**Quick reference:**
+- **G1** (Forward pass): Run after building any model - ensures no NaN/shape errors
+- **G2** (Init entropy): Run before first training - checks initialization (2.0-5.0 = healthy)
+- **G3** (Train 1K steps): Run after 1000 steps - loss should decrease, grad norm 0.5-1.5
+- **G3.5** (State health): Run before extended training - checks state evolution (cosine <0.99)
+- **G4** (Component balance): Run when analyzing results - gradient ratio should be 0.3-3.0
+
+**When to check gates:**
+- After model build → G1
+- Before training → G1 + G2
+- After 1K steps → G3
+- Before extended training → G3.5 + G4
+- Before scaling up → Full suite G1-G4
+
+**Current status:** Task 5 passed G1-G2, need to verify G3 status for 5000 step run.
+
+---
+
 ## Current Status
 
-**Phase:** 1 - Foundation  
-**Active Task:** NONE - Pick first available task from V4_STRATEGY.md  
-**Blocking Issues:** None
+**Phase:** Phase 1 Tasks 8-12 COMPLETE → Task 13 (Extended Training) NEXT  
+**Last Updated:** 2026-01-09 (Build Session 10 continued)  
+**Status:** All optimizations applied, gradient imbalance FIXED. Ready for extended training.
 
-**Task Selection Rule:** 
-Pick the FIRST task in the backlog where:
-1. Status is ⬜ PENDING (not ✅ COMPLETE or 🔄 IN PROGRESS)
-2. All dependencies are ✅ COMPLETE
+**Completed This Session:**
+- ✅ Batch+AMP optimization: 186K tok/s (+586% vs baseline)
+- ✅ Gradient imbalance FIXED: mamba_lr_mult 2.0→0.5
+- ✅ train_v4.py updated with optimal config + AMP support
+- ✅ V4_STRATEGY.md updated (Tasks 8-12 complete)
 
-Tasks are ordered by priority. Do not skip ahead.
+**Optimized Metrics (Final):**
 
-**Last Session (2026-01-09):**
-- ✅ Task 3 COMPLETE - Built `hybrid_v4.py` - ParallelHybridBlock model verified working
-- ✅ Created `V4_BUILD_LOG.md` - Tracks spec vs implementation
-- ✅ Fixed environment issues (OpenMP, CUDA requirements)
-- ✅ Updated `V4_DESIGN.md` with runtime requirements and FLA API gotchas
+| Metric | Baseline | Optimized | Improvement |
+|--------|----------|-----------|-------------|
+| Throughput | 27,140 tok/s | 186,398 tok/s | **+586%** |
+| Peak VRAM | 46.9 MiB | 184.9 MiB | Still < 200 MiB |
+| Gradient Ratio | 0.15-0.16 ❌ | 0.7-1.3 ✅ | **FIXED** |
+| Loss (200 steps) | 9.17→3.22 | 9.17→2.51 | Faster convergence |
 
-**Currently Available Tasks (dependencies met):**
-- Task 1: Verify data_v030.py + tokenizer_v030.py work ← FIRST PRIORITY
-- Task 4: Define Training Configuration
-- Task 5: Pass Gate G1-G2
+**Config Changes Applied to train_v4.py:**
+- `batch_size`: 8 → 64
+- `seq_len`: 256 → 64 (for faster iteration)
+- `use_amp`: False → True
+- `mamba_lr_mult`: 2.0 → 0.5 (fixes G4 gradient imbalance)
+
+See [V4_BUILD_LOG.md - Session 10](V4_BUILD_LOG.md#build-session-10-2026-01-09) for details.
+
+---
+
+## Next Agent Instructions
+
+**Current Priority:** Task 13 - Extended Training Run (L complexity, ~4-8 hours)
+
+**Objective:** Run 5000+ steps with optimal config to validate convergence.
+
+**What to do:**
+1. Run `python train_v4.py` (config already optimized)
+2. Monitor loss curve, gradient ratio, throughput
+3. Verify G1-G4 gates pass throughout
+4. Save checkpoint at completion
+5. Document results in V4_BUILD_LOG.md Session 11
+
+**Expected metrics:**
+- Throughput: ~186K tok/s
+- Gradient ratio: 0.3-3.0 throughout
+- Loss: Decreasing and stabilizing
+
+**Before starting:**
+1. Read this document completely ✓
+2. Use `manage_todo_list` tool to write task breakdown (REQUIRED)
+3. Run training: `python train_v4.py`
+
+---
+
+## Completed Tasks Summary
+
+**Phase 0:** ✅ COMPLETE (Session 7-8)
+- All CUDA kernels integrated and validated (G0-G4 pass)
+
+**Task 7:** ✅ COMPLETE (Session 9)
+- benchmark_suite.py created
+- Baseline: 21K tok/s, 46.9 MiB, stability PASS
+- V4.5_FUSION_VARIANTS.md created (kernel fusion research)
+- data_loader.py + tokenizer.py standardized
+
+**Tasks 8-12:** ✅ COMPLETE (Session 10)
+- Task 8: Batch=64 + AMP = 186K tok/s (+586%)
+- Task 9: Combination tests completed
+- Task 10: Optimal config selected
+- Task 11: Training dynamics analyzed
+- Task 12: Gradient imbalance FIXED (mamba_lr_mult 2.0→0.5)
+
+**Key Fix:** Gradient ratio was 0.15 (RWKV weaker). Changed mamba_lr_mult from 2.0 to 0.5. Now stable at 0.7-1.3.
+
+---
+
+## Implementation History
+
+**Compiler fix applied:** CXX=/usr/bin/g++ CC=/usr/bin/gcc (absolute paths)
+**RWKV-6 CUDA:** Compiles on first use, caches for subsequent imports
+**Fallback mechanism:** Uses prototype if CUDA fails
+- Test coverage: 7 individual tests + 5 gate validations
+
+**Build Log:** See [V4_BUILD_LOG.md - Session 10](V4_BUILD_LOG.md#build-session-10-2026-01-09) for optimization details
 
 ---
 
@@ -52,14 +181,25 @@ Tasks are ordered by priority. Do not skip ahead.
 - [V4_STRATEGY.md](V4_STRATEGY.md) - Task backlog (ordered)
 - [V4_BUILD_LOG.md](V4_BUILD_LOG.md) - What was actually built vs spec
 - [V4_TESTING.md](V4_TESTING.md) - Testing framework
+- [V4.5_OPTIMIZATION.md](V4.5_OPTIMIZATION.md) - Performance optimization & monitoring guide
 
 **Code files:**
-- `hybrid_v4.py` - Model implementation (verified working)
-- `env_init.py` - Environment setup helper
+- `hybrid_v4.py` - Hybrid model (5M params, working)
+- `train_v4.py` - Training script with monitoring
+- `benchmark_suite.py` - Reusable B1/B2/B3 benchmarks
+- `data_loader.py` - Data pipeline (from archive)
+- `tokenizer.py` - Tokenization (from archive)
+- `fla_replacements.py` - Component bridge (CUDA first, fallback)
+- `rwkv6_prototype.py` - PyTorch RWKV-6 reference
+- `rwkv6_cuda_wrapper.py` - CUDA wrapper with JIT
+- `test_phase0_complete.py` - Gate validation suite
 
-**FLA library locations:**
-- RWKV-6: `fla/fla/layers/rwkv6.py` → `RWKV6Attention`
-- Mamba-2: `fla/fla/layers/mamba2.py` → `Mamba2`
+**New documentation:**
+- `V4.5_FUSION_VARIANTS.md` - Kernel fusion research & benchmarks
+
+**Component Status:**
+- RWKV-6: CUDA wrapper → PyTorch prototype (fallback)
+- Mamba-2: mamba-ssm native CUDA kernels
 
 ---
 
@@ -67,90 +207,57 @@ Tasks are ordered by priority. Do not skip ahead.
 
 V3 was scrapped because agents:
 1. Built RWKV-7 instead of RWKV-6 (ignored spec)
-2. Made up components instead of using FLA library
+2. Made up components instead of using real implementations
 3. Didn't read documentation before coding
 
-**V4 Rule:** Use FLA implementations. Do not substitute.
-
----
-
-## Active Task Section
-
-When you pick a task:
-1. Write the task number and title here
-2. Add your sub-task breakdown
-3. Clear when complete
-
-```
-TASK: [number] [title]
-Started: [date]
-Agent: [session identifier if known]
-
-Sub-tasks:
-- [ ] ...
-```
+**V4 Rule:** Use verified implementations (mamba-ssm, our RWKV-6 prototype). Do not substitute.
 
 ---
 
 ## Session Log
 
-Record what you did:
+**Most recent first:**
 
 ```
-[DATE] [TASK] - [OUTCOME]
----
-2026-01-09 LINUX MIGRATION - Migrated to native Linux. CUDA kernels (causal-conv1d, mamba-ssm) now working. 33K tok/s achieved.
-2026-01-09 FIRST TRAINING RUN - 3.8M model on Shakespeare. Loss 1.37, perplexity ~3.0. Gradient ratio WARN (0.15-0.16).
-2026-01-09 Task 3 (Build Model) - Created hybrid_v4.py, verified forward pass on CUDA. See V4_BUILD_LOG.md for spec comparison.
-2026-01-09 Environment fixes - Added env_init.py, documented OpenMP/CUDA requirements in V4_DESIGN.md
-2026-01-08 Documentation - Fixed V4_STRATEGY.md, V4_DESIGN.md, created V4_HANDOFF.md
-```
-
----
-
-## FLA API Gotchas (MUST READ)
-
-```python
-# 1. RWKV6Attention returns a TUPLE
-out_rwkv, _, _ = self.rwkv6(norm_x)  # NOT: out_rwkv = self.rwkv6(norm_x)
-
-# 2. Mamba2 returns tensor directly
-out_mamba = self.mamba2(norm_x)
-
-# 3. Mamba2 head formula is MANDATORY
-mamba_heads = (expand * hidden_size) // head_dim  # Must follow this exactly
-
-# 4. ALL tensors MUST be on CUDA (Triton requirement)
-model = model.to(device)
-x = torch.randint(..., device=device)
+2026-01-09 TASKS 9-12 COMPLETE - Gradient imbalance FIXED (mamba_lr_mult 2.0→0.5, ratio 0.7-1.3). train_v4.py optimized. 186K tok/s. Task 13 NEXT.
+2026-01-09 TASK 8 COMPLETE - Quick win optimizations: 6.1x throughput (27K→166K tok/s) via batch=64. AMP +19% at batch=32. torch.compile blocked by PyTorch bug.
+2026-01-09 TASK 7 COMPLETE - benchmark_suite.py created, baseline recorded: 21K tok/s, 46.9 MiB. Task 8 NEXT.
+2026-01-09 MODULE REORGANIZATION - data_loader.py, tokenizer.py moved from archive. V4.5_FUSION_VARIANTS.md created.
+2026-01-09 STRATEGY UPDATED - Task 7 (Baseline Profiling) sub-tasks defined, Task 8 (Quick Wins) linked to Task 7 benchmarks.
+2026-01-09 COMPREHENSIVE PHASE 0 TESTING - Integrated CUDA wrapper, added 7 tests + 5 gates. All gates running.
+2026-01-09 CUDA WRAPPER INTEGRATED - fla_replacements.py now tries CUDA wrapper first, falls back to prototype.
+2026-01-09 COMPILER FIX - rwkv6_cuda_wrapper.py now sets CXX=/usr/bin/g++ CC=/usr/bin/gcc (absolute paths).
+2026-01-09 PHASE 0 COMPLETE - Created fla_replacements.py, hybrid_v4.py forward pass works. All CUDA kernel tasks done.
+2026-01-09 RWKV-6 CUDA WRAPPER - Created rwkv6_cuda_wrapper.py, compiles with CXX=g++ env fix.
+2026-01-09 RWKV-6 PROTOTYPE - Created rwkv6_prototype.py, G1 gate passed (CPU + GPU).
+2026-01-09 MAMBA-2 VERIFIED - mamba-ssm already installed with working CUDA kernels.
 ```
 
 ---
 
 ## ✅ LINUX ENVIRONMENT (CURRENT)
 
-**We have migrated to native Linux.** CUDA kernels now work.
+**Native Linux with full CUDA kernel support.**
 
-| Package | Status |
-|---------|--------|
-| causal-conv1d v1.2.0 | ✅ Working |
-| mamba-ssm v2.2.0 | ✅ Working |
-| PyTorch 2.4.0+cu124 | ✅ Working |
+| Package | Version | Status |
+|---------|---------|--------|
+| PyTorch | 2.4.0+cu124 | ✅ Working |
+| mamba-ssm | 2.2.6 | ✅ Working (CUDA kernels) |
+| causal-conv1d | (via mamba-ssm) | ✅ Working |
+| CUDA Toolkit | 12.4 | ✅ Working |
+| GCC | 11.5.0 | ✅ Working |
+| nvtop | 3.0.2 | ✅ Installed |
 
-**Performance:** ~33K tokens/sec (vs ~2.6K on Windows/Triton)
+**Compiler Settings:**
+- CXX: `/usr/bin/g++` (required for torch extensions)
+- CC: `/usr/bin/gcc`
+- Set automatically in rwkv6_cuda_wrapper.py
 
-**Setup script:** `setup_hybrid_env.sh`
-
----
-
-## ⚠️ WINDOWS LIMITATIONS (HISTORICAL)
-
-**causal-conv1d and mamba-ssm CANNOT be installed on Windows:**
-- These packages use GCC/Clang C++ syntax (`and`, `or` operators)
-- MSVC doesn't support these - compile fails with "syntax error: missing ')' before identifier 'and'"
-- **No workaround exists** - code would need upstream patches
-
-**This is why we migrated to Linux.**
+**CUDA Configuration:**
+- GPU: RTX 4050 (sm_89)
+- Compute capability: 8.9
+- Registers available: ~65K per thread
+- Max shared memory: 96 KB per block
 
 ---
 
@@ -158,6 +265,4 @@ x = torch.randint(..., device=device)
 
 **ASK THE USER.** Do not guess. Do not substitute.
 
----
-
-*Next: Task 4 - Create train_v4.py. See V4_STRATEGY.md for details.*
+See [V4_STRATEGY.md](V4_STRATEGY.md) for ordered task backlog.

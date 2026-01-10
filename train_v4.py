@@ -11,30 +11,35 @@ os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 import math
 import torch
 import torch.nn.functional as F
+from torch.amp import autocast, GradScaler
 
 from hybrid_v4 import create_hybrid_5m
-from data_v030 import load_stateful_dataset
+from data_loader import load_stateful_dataset
 
 
 # ============ Config ============
 # Per V4_DESIGN.md Training Configuration + V3_CROSS_REFERENCE.md guidelines
+# Updated 2026-01-09: Task 8/10 optimizations applied
 CONFIG = {
     # Optimizer
     'lr': 3e-4,
     'min_lr': 3e-5,           # 10% of peak
     'weight_decay': 0.1,
     'betas': (0.9, 0.95),
-    'mamba_lr_mult': 2.0,     # Mamba needs higher LR per V4_DESIGN
+    'mamba_lr_mult': 0.5,     # REDUCED: RWKV is weaker, so reduce Mamba LR to balance
     
     # Schedule  
     'warmup_steps': 500,      # 10% of 5000 steps (adjust for longer runs)
     'lr_decay': 'cosine',
     
-    # Batch
-    'batch_size': 8,          # Batch size for training
-    'seq_len': 256,
-    'grad_accum': 1,          # effective batch = 8
+    # Batch (Task 8: batch=64 gives 6.1x throughput improvement)
+    'batch_size': 64,         # Was 8, now 64 per Task 8 benchmarks
+    'seq_len': 64,            # Reduced for faster iteration during testing
+    'grad_accum': 1,          # effective batch = 64
     'grad_clip': 1.0,
+    
+    # AMP (Task 8: +12% throughput at batch=64)
+    'use_amp': True,          # Enable mixed precision
     
     # Training
     'max_steps': 5000,        # 5000 steps for fusion comparison
@@ -360,6 +365,8 @@ if __name__ == "__main__":
     # Training loop with monitoring
     resume_info = f" (resuming from {start_step})" if start_step > 0 else ""
     print(f"\n=== Training 5000 steps (HY Fusion){resume_info} ===", flush=True)
+    if CONFIG.get('use_amp', False):
+        print("Mode: Mixed Precision (AMP)")
     import sys
     import time
     start_time = time.time()
@@ -377,6 +384,10 @@ if __name__ == "__main__":
     log_every = CONFIG['log_every']
     save_every = CONFIG['save_every']
     
+    # AMP setup
+    use_amp = CONFIG.get('use_amp', False)
+    scaler = GradScaler('cuda') if use_amp else None
+    
     for epoch in range(1000):  # Enough epochs
         for idx in range(len(dataset)):
             if step >= max_steps:
@@ -387,15 +398,27 @@ if __name__ == "__main__":
             batch_tokens = x.numel()
             
             optimizer.zero_grad()
-            logits = model(x)
-            loss = F.cross_entropy(logits.view(-1, logits.size(-1)), y.view(-1))
-            loss.backward()
             
-            # Component gradient check (before clipping)
-            rwkv_norm, mamba_norm, ratio = get_component_gradients(model)
+            # Forward with optional AMP
+            with autocast('cuda', enabled=use_amp):
+                logits = model(x)
+                loss = F.cross_entropy(logits.view(-1, logits.size(-1)), y.view(-1))
             
-            grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), CONFIG['grad_clip'])
-            optimizer.step()
+            # Backward with optional scaler
+            if use_amp:
+                scaler.scale(loss).backward()
+                # Component gradient check (before clipping)
+                scaler.unscale_(optimizer)
+                rwkv_norm, mamba_norm, ratio = get_component_gradients(model)
+                grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), CONFIG['grad_clip'])
+                scaler.step(optimizer)
+                scaler.update()
+            else:
+                loss.backward()
+                rwkv_norm, mamba_norm, ratio = get_component_gradients(model)
+                grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), CONFIG['grad_clip'])
+                optimizer.step()
+            
             scheduler.step()
             
             total_loss += loss.item()

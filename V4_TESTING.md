@@ -1,7 +1,230 @@
 # V4 Testing Strategy
 
 **Created:** 2026-01-08  
+**Updated:** 2026-01-09  
 **Purpose:** Testing framework for V4 architecture archetypes
+
+---
+
+## 📝 NOTE FOR AGENTS
+
+**When updating this document: Make incremental edits (50-150 lines at a time).**  
+Large batch edits cause timeouts and truncation. Work in small sections.
+
+---
+
+## Comprehensive Test Suite
+
+**Automated validation script:** [test_phase0_complete.py](test_phase0_complete.py)
+
+This script runs all gates and tests automatically. Use it after any model changes:
+```bash
+python test_phase0_complete.py
+```
+
+**Output includes:**
+- G0-G4 gate results
+- Component correctness tests
+- Gradient flow verification
+- Mini training run (100 steps)
+- Component balance analysis
+- State evolution check
+
+**Use this before claiming any phase is complete.**
+
+---
+
+## Validation Gates (Quality Gates for All V4+ Development)
+
+**Source:** V3 Section 9.5 (Proven methodology from prior builds)
+
+**Every gate must pass before proceeding to next development phase. No exceptions.**
+
+### Kernel Compatibility Check (G0 - Prerequisites)
+
+**Before running any tests, verify CUDA kernels are available:**
+
+```python
+def check_kernel_compatibility():
+    """Verify all required kernels are available"""
+    kernels = {
+        'causal-conv1d': False,
+        'selective_scan': False,
+        'rwkv6_wkv': False
+    }
+    
+    try:
+        import causal_conv1d_cuda
+        kernels['causal-conv1d'] = True
+    except ImportError:
+        print("WARNING: causal-conv1d CUDA kernel not found")
+    
+    try:
+        from mamba_ssm.ops.selective_scan_interface import selective_scan_fn
+        kernels['selective_scan'] = True
+    except ImportError:
+        print("WARNING: Mamba selective_scan kernel not found")
+    
+    try:
+        import rwkv6_cuda
+        kernels['rwkv6_wkv'] = True
+    except ImportError:
+        print("WARNING: RWKV-6 CUDA kernel not found")
+    
+    return kernels
+
+# Usage at start of testing
+kernels = check_kernel_compatibility()
+if not all(kernels.values()):
+    print("⚠ Running with PyTorch fallbacks (slower performance)")
+    print("✓ For kernel installation, see V4.5_CUDA_KERNELS.md")
+else:
+    print("✓ All CUDA kernels available")
+```
+
+**Cross-Reference:**
+- **Kernel installation:** See [V4.5_CUDA_KERNELS.md](V4.5_CUDA_KERNELS.md) for compilation instructions
+- **Troubleshooting:** See [V4.5_CUDA_KERNELS.md - Kernel Compilation Troubleshooting](V4.5_CUDA_KERNELS.md#kernel-compilation-troubleshooting)
+- **Performance targets:** See [V4_DIAGNOSTICS.md - Section III: Performance Benchmarking](V4_DIAGNOSTICS.md#iii-performance-benchmarking-suite)
+
+---
+
+### Core Validation Gates (G1-G4)
+
+| Gate | Test | Pass Criteria | Warn Threshold | Fail Condition |
+|------|------|---------------|----------------|----------------|
+| **G1** | Forward pass | No NaN, correct shapes | - | NaN or shape mismatch |
+| **G2** | Init entropy | 2.0-5.0 at step 0 | 6.0-7.0 | <1.0 or >8.0 |
+| **G3** | Train 1k steps | Loss decreasing, grad norm 0.5-1.5 | Grad 1.5-3.0 | Grad >5.0 or loss increasing |
+| **G3.5** | State health | Cosine <0.99, SVD >0.5, saturation <30% | Cosine 0.95-0.99 | Cosine >0.99 (frozen) |
+| **G4** | Component balance | Gradient ratio 0.3-3.0 | 0.1-0.3 or 3-10 | <0.1 or >10 (dead component) |
+
+### Gate Application Schedule
+
+**Apply gates at these checkpoints:**
+
+- **After model build:** Run G1 (forward pass sanity check)
+- **Before first training:** Run G1 + G2 (architecture + initialization)
+- **After 1K training steps:** Run G3 (training dynamics healthy)
+- **Before extended training:** Run G3.5 + G4 (state health + component balance)
+- **Before scaling up:** Re-run full gate suite (G1-G4) on larger model
+
+### Gate Check Procedures
+
+**G1 - Forward Pass:**
+```python
+# Test: Does model forward() work without crashes?
+x = torch.randint(0, vocab_size, (batch_size, seq_len))
+try:
+    logits = model(x)
+    assert not torch.isnan(logits).any(), "NaN detected in output"
+    assert logits.shape == (batch_size, seq_len, vocab_size), "Shape mismatch"
+    print("✓ G1 PASS: Forward pass healthy")
+except Exception as e:
+    print(f"✗ G1 FAIL: {e}")
+```
+
+**G2 - Initialization Entropy:**
+```python
+# Test: Is model initialized properly (not collapsed or chaotic)?
+import torch.nn.functional as F
+
+x = torch.randint(0, vocab_size, (1, 128))
+logits = model(x)
+probs = F.softmax(logits[0, -1], dim=-1)
+entropy = -(probs * torch.log(probs + 1e-9)).sum().item()
+
+if 2.0 <= entropy <= 5.0:
+    print(f"✓ G2 PASS: Init entropy = {entropy:.2f}")
+elif 6.0 <= entropy <= 7.0:
+    print(f"⚠ G2 WARN: Init entropy = {entropy:.2f} (high)")
+else:
+    print(f"✗ G2 FAIL: Init entropy = {entropy:.2f} (collapsed or chaotic)")
+```
+
+**G3 - Training 1K Steps:**
+```python
+# Test: Does loss decrease with stable gradients?
+# Run 1000 training steps, log loss and gradient norms
+
+loss_history = []  # Collect during training
+grad_norms = []    # Collect during training
+
+# After 1000 steps:
+loss_trend = loss_history[-100:] < loss_history[:100]  # Is it decreasing?
+avg_grad_norm = np.mean(grad_norms[-100:])
+
+if loss_trend and 0.5 <= avg_grad_norm <= 1.5:
+    print(f"✓ G3 PASS: Loss decreasing, grad norm = {avg_grad_norm:.2f}")
+elif 1.5 <= avg_grad_norm <= 3.0:
+    print(f"⚠ G3 WARN: Grad norm = {avg_grad_norm:.2f} (high)")
+else:
+    print(f"✗ G3 FAIL: Loss plateau or grad norm = {avg_grad_norm:.2f}")
+```
+
+**G3.5 - State Health:**
+```python
+# Test: Is hidden state evolving (not frozen)?
+# Requires running model on batch and capturing hidden states
+
+from sklearn.metrics.pairwise import cosine_similarity
+
+states = []  # Collect hidden states every 100 steps
+for i in range(10):
+    state = model.get_hidden_state()  # Capture after forward pass
+    states.append(state.detach().cpu().numpy())
+
+# Compute cosine similarity between consecutive states
+cosine_sim = cosine_similarity(states[:-1], states[1:]).diagonal().mean()
+
+if cosine_sim < 0.99:
+    print(f"✓ G3.5 PASS: State cosine = {cosine_sim:.4f} (evolving)")
+elif 0.95 <= cosine_sim <= 0.99:
+    print(f"⚠ G3.5 WARN: State cosine = {cosine_sim:.4f} (slow evolution)")
+else:
+    print(f"✗ G3.5 FAIL: State cosine = {cosine_sim:.4f} (frozen)")
+```
+
+**G4 - Component Balance:**
+```python
+# Test: Are RWKV and Mamba gradients balanced?
+# Check gradient ratio between components
+
+rwkv_grads = []
+mamba_grads = []
+
+for name, param in model.named_parameters():
+    if param.grad is not None:
+        if 'rwkv' in name.lower():
+            rwkv_grads.append(param.grad.norm().item())
+        elif 'mamba' in name.lower():
+            mamba_grads.append(param.grad.norm().item())
+
+rwkv_avg = np.mean(rwkv_grads) if rwkv_grads else 0
+mamba_avg = np.mean(mamba_grads) if mamba_grads else 0
+ratio = rwkv_avg / (mamba_avg + 1e-9)
+
+if 0.3 <= ratio <= 3.0:
+    print(f"✓ G4 PASS: Gradient ratio = {ratio:.2f} (balanced)")
+elif (0.1 <= ratio < 0.3) or (3.0 < ratio <= 10):
+    print(f"⚠ G4 WARN: Gradient ratio = {ratio:.2f} (imbalanced)")
+else:
+    print(f"✗ G4 FAIL: Gradient ratio = {ratio:.2f} (component dead)")
+```
+
+### Stopping Criteria (Additional Quality Checks)
+
+**Stop training immediately if:**
+- Val loss increasing >5-10% while train loss decreases (overfitting)
+- 2+ LR drops with no improvement (architecture saturated)
+- Oscillating loss (up-down >0.5) - indicates architecture conflict
+- One component's activations collapse to constant (check G4)
+- Gradient ratio <0.1 or >10 (one component is dead)
+
+**Continue training if:**
+- Val loss shows "heartbeat" (small dips every few hundred steps)
+- Both components have gradient variance (not collapsed)
+- Training loss still has tiny downward slope on log scale
 
 ---
 

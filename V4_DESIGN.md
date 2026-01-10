@@ -6,6 +6,19 @@
 
 ---
 
+## 🐧 ENVIRONMENT: NATIVE LINUX (UBUNTU)
+
+**We are working in native Linux via VS Code Remote-SSH.**
+
+- All file paths use Linux syntax: `/home/m_tes/groundthink/...`
+- Terminal commands are bash/Linux (not Windows/PowerShell)
+- Python venv at `.venv/` (use `source .venv/bin/activate`)
+- CUDA kernels (causal-conv1d, mamba-ssm) are installed and working
+
+**Do NOT use Windows paths or syntax in any commands or scripts.**
+
+---
+
 ## ⛔ CRITICAL: READ BEFORE DOING ANYTHING
 
 **V3 was scrapped because agents ignored the architecture spec and built RWKV-7 instead of RWKV-6 + Mamba-2.**

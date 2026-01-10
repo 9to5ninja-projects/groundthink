@@ -542,4 +542,185 @@ For multiple compute budgets (1M, 10M, 100M, 1B FLOPs), which architecture gives
 
 ---
 
+## III. Performance Benchmarking Suite
+
+**Purpose:** Benchmark RWKV-6 and Mamba-2 kernel performance to validate CUDA optimizations and measure throughput improvements.
+
+**Cross-Reference:** See [V4.5_CUDA_KERNELS.md](V4.5_CUDA_KERNELS.md) for kernel implementation details and optimization strategies.
+
+### Kernel Benchmark Class
+
+Complete benchmarking suite for CUDA kernel validation:
+
+```python
+import time
+import numpy as np
+from torch.cuda.amp import autocast
+
+class KernelBenchmark:
+    """Benchmark RWKV-6 and Mamba-2 kernels"""
+    
+    @staticmethod
+    def benchmark_rwkv6(model, batch_size=8, seq_len=2048, warmup=10, trials=50):
+        """Benchmark RWKV-6 forward pass"""
+        model.eval()
+        device = next(model.parameters()).device
+        
+        # Create dummy input
+        x = torch.randn(batch_size, seq_len, model.hidden_size, device=device)
+        state = None
+        
+        # Warmup
+        with torch.no_grad():
+            for _ in range(warmup):
+                output, new_state = model(x, state)
+                torch.cuda.synchronize()
+        
+        # Benchmark
+        times = []
+        torch.cuda.synchronize()
+        
+        for _ in range(trials):
+            start = time.perf_counter()
+            
+            with torch.no_grad(), autocast(enabled=True):
+                output, new_state = model(x, state)
+            
+            torch.cuda.synchronize()
+            end = time.perf_counter()
+            times.append((end - start) * 1000)  # ms
+        
+        # Calculate statistics
+        times = np.array(times)
+        avg_time = times.mean()
+        std_time = times.std()
+        tokens_per_sec = (batch_size * seq_len) / (avg_time / 1000)
+        
+        return {
+            'avg_ms': avg_time,
+            'std_ms': std_time,
+            'tokens_per_sec': tokens_per_sec,
+            'tokens_per_sec_per_param': tokens_per_sec / sum(p.numel() for p in model.parameters())
+        }
+    
+    @staticmethod
+    def profile_memory(model, batch_size=8, seq_len=2048):
+        """Profile GPU memory usage"""
+        torch.cuda.empty_cache()
+        torch.cuda.reset_peak_memory_stats()
+        
+        device = next(model.parameters()).device
+        x = torch.randn(batch_size, seq_len, model.d_model, device=device)
+        
+        with torch.no_grad():
+            output = model(x)
+        
+        torch.cuda.synchronize()
+        memory_used = torch.cuda.max_memory_allocated() / 1024**3  # GB
+        
+        return {
+            'memory_gb': memory_used,
+            'memory_per_token_mb': (memory_used * 1024) / (batch_size * seq_len)
+        }
+```
+
+### Usage Example
+
+```python
+# Benchmark PyTorch prototype vs CUDA kernels
+from rwkv6_prototype import RWKV6Attention_Prototype
+from hybrid_v4 import RWKV6Attention_CUDA
+
+# Create models
+prototype = RWKV6Attention_Prototype(hidden_size=512).cuda()
+cuda_model = RWKV6Attention_CUDA(hidden_size=512).cuda()
+
+# Benchmark
+proto_results = KernelBenchmark.benchmark_rwkv6(prototype, seq_len=2048)
+cuda_results = KernelBenchmark.benchmark_rwkv6(cuda_model, seq_len=2048)
+
+print(f"Prototype: {proto_results['tokens_per_sec']:.0f} tok/s")
+print(f"CUDA: {cuda_results['tokens_per_sec']:.0f} tok/s")
+print(f"Speedup: {cuda_results['tokens_per_sec'] / proto_results['tokens_per_sec']:.1f}x")
+
+# Memory profiling
+proto_mem = KernelBenchmark.profile_memory(prototype, seq_len=2048)
+cuda_mem = KernelBenchmark.profile_memory(cuda_model, seq_len=2048)
+
+print(f"Prototype memory: {proto_mem['memory_gb']:.2f} GB")
+print(f"CUDA memory: {cuda_mem['memory_gb']:.2f} GB")
+```
+
+### Expected Performance Targets
+
+**From V4.5_CUDA_KERNELS.md:**
+
+| Implementation | Seq Len | Tokens/Sec | Speedup vs Prototype |
+|----------------|---------|------------|----------------------|
+| PyTorch Prototype | 256 | ~5-10K | 1.0x (baseline) |
+| PyTorch Prototype | 1024 | ~2-5K | - |
+| Mamba-2 Official CUDA | 256 | ~100-200K | **10-20x** |
+| Mamba-2 Official CUDA | 1024 | ~80-150K | **15-30x** |
+| RWKV-6 Custom CUDA | 256 | TBD | **Target: 30-50x** |
+| RWKV-6 Custom CUDA | 1024 | TBD | **Target: 30-50x** |
+| Full CUDA Hybrid | 256 | **100-300K** | **Target: 20-30x** |
+
+### Integration with Monitoring Tools
+
+**Link to Task 6.5:** Test monitoring during kernel benchmarks
+
+```bash
+# Terminal 1: Start monitoring
+nvidia-smi damon -i 0 -f benchmark_gpu_monitor.csv &
+MONITOR_PID=$!
+
+# Terminal 2: Run benchmark
+python -c "
+from kernel_benchmark import KernelBenchmark
+from hybrid_v4 import HybridLanguageModel
+model = HybridLanguageModel().cuda()
+results = KernelBenchmark.benchmark_rwkv6(model, seq_len=1024, trials=100)
+print(results)
+"
+
+# Stop monitoring
+kill $MONITOR_PID
+```
+
+### Profiling with NSight Systems
+
+**Advanced profiling for kernel optimization:**
+
+```bash
+# Profile CUDA kernel execution
+nsys profile -o rwkv6_profile \
+    --stats=true \
+    --force-overwrite=true \
+    python benchmark_kernels.py
+
+# View results
+nsys stats rwkv6_profile.qdrep
+
+# Key metrics to check:
+# - Kernel launch overhead
+# - Memory bandwidth utilization
+# - SM occupancy
+# - Warp stall reasons
+```
+
+### Benchmark Validation Gates
+
+**Before declaring kernel optimization complete:**
+
+1. ✅ **Throughput:** >10x speedup over PyTorch prototype
+2. ✅ **Memory:** No memory leaks, <1.5x prototype VRAM usage
+3. ✅ **Stability:** Zero NaN/Inf in 1000-trial benchmark
+4. ✅ **Consistency:** Std dev <5% of mean latency
+5. ✅ **GPU Utilization:** >80% during compute phases
+6. ✅ **Numerical Accuracy:** Output matches prototype within 1e-3
+
+**See V4.5_CUDA_KERNELS.md for full validation protocol.**
+
+---
+
 *End of V4 Diagnostics Document*

@@ -6,6 +6,27 @@
 
 ---
 
+## � EDITING GUIDELINES FOR AGENTS
+
+**Make small, incremental edits. DO NOT create massive documents in one operation.**
+
+Large edits (500+ lines) frequently timeout, get truncated, or introduce errors. Break work into 50-150 line sections.
+
+---
+
+## �🐧 ENVIRONMENT: NATIVE LINUX
+
+**All training happens in native Linux (Ubuntu) environment.**
+
+- Paths: `/home/m_tes/groundthink/...` (Linux syntax)
+- Commands: bash/shell (not Windows/PowerShell)
+- Virtual env: `source .venv/bin/activate`
+- Training script: `python train_v4.py` (runs natively with CUDA kernels)
+
+**Agents: Use Linux syntax for ALL file operations and terminal commands.**
+
+---
+
 ## How to Use This Document
 
 1. **Before training**: Review Critical Rules and Pre-Flight Checklist
