@@ -1,9 +1,9 @@
 # V4 Agent Handoff Document
 
 **Purpose:** Single source of truth for agent continuity & versioning  
-**Current Version:** 4.3-Alpha (Phase 2.5 In Progress)  
+**Current Version:** 4.4-Alpha (Repo Reorganization)  
 **Updated:** 2026-01-10  
-**Last Agent Action:** Completed Tasks 18.1-18.2 (Model Registry + Config System)  
+**Last Agent Action:** Repo reorganization + naming scheme overhaul (tiny/small/medium)  
 **Repository:** https://github.com/9to5ninja-projects/groundthink  
 **Git Status:** ✅ Clean (all changes committed)
 
@@ -174,21 +174,21 @@ Implements Task 19. Phase 3 status: Task 19 complete, Task 20 next.
 - Task 18.2 ✅ COMPLETE: Centralized Config System (`configs/*.yaml`, `--config` CLI arg)
 - Task 18.3 ⬜ **NEXT**: NIAH Test Implementation
 - Task 18.4 ⬜ PENDING: Qualitative Eval Suite
-- Task 18.5 ⬜ PENDING: Baseline Eval on 5M checkpoint
+- Task 18.5 ⬜ PENDING: Baseline Eval on small checkpoint
 
 **Phase 3 (After 2.5):**
-- Task 19 ✅ COMPLETE: 8M model built (hybrid_v4_8m.py)
-- Task 20 ⬜ PENDING: Extended training (now just `--model 8M --config train_8m_50k.yaml`)
+- Task 19 ✅ COMPLETE: medium model built (`models/hybrid_v4_8m.py`)
+- Task 20 ⬜ PENDING: Extended training (`--model medium --config configs/train_medium_50k.yaml`)
 - Task 21 ⬜ PENDING: Post-training eval
 
 **Key Insight:**
 Tasks 18.1 + 18.2 are COMPLETE. Training any model is now:
 ```bash
 # With config file (preferred)
-python train_v4.py --config configs/train_8m_50k.yaml
+python train_v4.py --config configs/train_medium_50k.yaml
 
-# With CLI args
-python train_v4.py --model 8M --max-steps 1000
+# With CLI args  
+python train_v4.py --model medium --max-steps 1000
 
 # Quick test
 python train_v4.py --config configs/train_quick.yaml
@@ -203,9 +203,57 @@ See [V4_STRATEGY.md - Phase 2.5](V4_STRATEGY.md#phase-25-infrastructure--evaluat
 
 ---
 
+## 📁 New Project Structure (2026-01-10)
+
+**Repo was reorganized for clarity:**
+
+```
+groundthink/
+├── train_v4.py          # Main training entry point
+├── models/              # All model definitions
+│   ├── __init__.py      # Registry: get_model('small'), list_models()
+│   ├── hybrid_v4.py     # Base HY model
+│   ├── hybrid_v4_8m.py  # Medium scale
+│   └── hybrid_v4_*.py   # Fusion variants (GF, WS, RF, CP)
+├── data/                # Data loading & tokenization
+│   ├── __init__.py
+│   ├── data_loader.py
+│   ├── tokenizer.py
+│   └── shakespeare.txt
+├── configs/             # YAML training configs
+│   ├── train_medium_50k.yaml
+│   ├── train_quick.yaml
+│   └── train_default.yaml
+├── fla_replacements.py  # RWKV/Mamba component bridge
+├── rwkv6_*.py           # RWKV-6 implementations
+└── *.pt                 # Checkpoints (to be moved to checkpoints/)
+```
+
+**Naming Scheme:**
+| Name | Params | VRAM | Description |
+|------|--------|------|-------------|
+| `tiny` | 0.5M | ~50MB | Quick tests |
+| `small` | 3.6M | ~200MB | Phase 1-2 baseline |
+| `medium` | 7.9M | ~400MB | Phase 3 scale |
+| `large` | ~30M | ~1.5GB | Future |
+| `xl` | ~125M | ~6GB | Future |
+
+Legacy aliases (`1M`, `5M`, `8M`) still work for backward compatibility.
+
+---
+
 ## Next Agent Instructions
 
-**Current Priority:** Task 18.3 - NIAH Test Implementation
+**Current Priority:** Finish repo cleanup OR Task 18.3 (NIAH)
+
+**Repo Cleanup (partially complete):**
+- ✅ Stage 1: Models to `models/`
+- ✅ Stage 3: Data to `data/`
+- ✅ Naming scheme: tiny/small/medium
+- ⬜ Stage 4: Tests to `tests/`
+- ⬜ Stage 5: Checkpoints to `checkpoints/`
+- ⬜ Stage 6: Docs to `docs/`
+- ⬜ Stage 7: Final cleanup + README update
 
 **Infrastructure is READY.** Model registry and config system are complete.
 
@@ -289,7 +337,7 @@ See [V4_STRATEGY.md - Phase 2.5](V4_STRATEGY.md#phase-25-infrastructure--evaluat
 
 ## Quick Context
 
-**Goal:** Build RWKV-6 + Mamba-2 hybrid at 5M scale
+**Goal:** Build RWKV-6 + Mamba-2 hybrid, scaling from small (3.6M) to medium (7.9M)
 
 **Critical files:**
 - [V4_DESIGN.md](V4_DESIGN.md) - Architecture specification + runtime requirements
@@ -298,19 +346,17 @@ See [V4_STRATEGY.md - Phase 2.5](V4_STRATEGY.md#phase-25-infrastructure--evaluat
 - [V4_TESTING.md](V4_TESTING.md) - Testing framework
 - [V4.5_OPTIMIZATION.md](V4.5_OPTIMIZATION.md) - Performance optimization & monitoring guide
 
-**Code files:**
-- `hybrid_v4.py` - Hybrid model (5M params, working)
-- `hybrid_v4_8m.py` - Scaled 8M model for Phase 3
+**Code files (new structure):**
 - `train_v4.py` - Training script with `--model` and `--config` args
-- `models/__init__.py` - **NEW** Model registry (10 variants)
-- `configs/*.yaml` - **NEW** Training configs (8m_50k, quick, default)
-- `benchmark_suite.py` - Reusable B1/B2/B3 benchmarks
-- `data_loader.py` - Data pipeline (from archive)
-- `tokenizer.py` - Tokenization (from archive)
+- `models/` - All model definitions + registry
+  - `__init__.py` - Registry: `get_model('small')`, `list_models()`
+  - `hybrid_v4*.py` - Model variants (HY, GF, WS, RF, CP, ratio, 8m)
+- `data/` - Data loading & tokenization
+  - `data_loader.py`, `tokenizer.py`, `shakespeare.txt`
+- `configs/` - YAML training configs
+  - `train_medium_50k.yaml`, `train_quick.yaml`, `train_default.yaml`
 - `fla_replacements.py` - Component bridge (CUDA first, fallback)
-- `rwkv6_prototype.py` - PyTorch RWKV-6 reference
-- `rwkv6_cuda_wrapper.py` - CUDA wrapper with JIT
-- `test_phase0_complete.py` - Gate validation suite
+- `rwkv6_*.py` - RWKV-6 implementations (prototype + CUDA wrapper)
 
 **New documentation:**
 - `V4.5_FUSION_VARIANTS.md` - Kernel fusion research & benchmarks
@@ -338,6 +384,7 @@ V3 was scrapped because agents:
 **Most recent first:**
 
 ```
+2026-01-10 REPO REORGANIZATION - models/ and data/ directories created. Naming scheme: tiny/small/medium. Legacy aliases preserved.
 2026-01-10 TASKS 18.1-18.2 COMPLETE - Model Registry (models/__init__.py) + Config System (configs/*.yaml). Training guide updated. No more import edits needed.
 2026-01-10 PHASE 2.5 STARTED - Infrastructure & Evaluation phase added. Prioritizing tooling before extended training.
 2026-01-09 TASK 13 COMPLETE - Extended training 5000 steps. Loss 4.60→1.14 (-75%), PPL 92→3.1. 35K tok/s avg. G1-G4 passed. Phase 1 COMPLETE.
