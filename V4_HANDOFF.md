@@ -1,17 +1,30 @@
 # V4 Agent Handoff Document
 
-**Purpose:** Single source of truth for agent continuity  
+**Purpose:** Single source of truth for agent continuity & versioning  
+**Current Version:** 4.2-Alpha (Phase 2 Complete)  
 **Updated:** 2026-01-09  
-**Repository:** https://github.com/9to5ninja-projects/groundthink
+**Last Agent Action:** Librarian audit (README, CHANGELOG, VERSION created)  
+**Repository:** https://github.com/9to5ninja-projects/groundthink  
+**Git Status:** ✅ Committed (f7230b2)
 
 ---
 
 ## ⚠️ MANDATORY WORKFLOW
 
-**Before doing ANYTHING else:**
-1. Read this document completely
-2. Use `manage_todo_list` tool to write your task breakdown
-3. Only then begin work
+**CRITICAL WORKFLOW (Mandatory Order):**
+1. **Read** this document completely
+2. **Understand** current version status (above) and git commit hash
+3. **Audit** task list in V4_STRATEGY.md (check complexity ratings, use Task Assessment Matrix)
+4. **Use `manage_todo_list`** to write your task breakdown
+5. **Verify** documentation links work before starting implementation
+6. **Then** begin work
+
+**Before Finishing:**
+- Update this document with your changes
+- Update V4_STRATEGY.md task status
+- Commit all changes with descriptive message (see Versioning Protocol below)
+- Update VERSION and CHANGELOG.md files
+- Hand off to next agent or user with clear status
 
 **This is not optional. The user enforces this.**
 
@@ -31,6 +44,48 @@
 **Example paths:**
 - ✅ Correct: `/home/m_tes/groundthink/train_v4.py`
 - ❌ Wrong: `C:\Users\...\train_v4.py` or `\home\m_tes\...`
+
+---
+
+## Versioning & Git Approval Protocol
+
+**Every time you finish a major task or phase:**
+
+1. **Update VERSION file** with new version (e.g., 4.2-Alpha → 4.3-Alpha if Phase 3 started)
+2. **Update CHANGELOG.md** with your changes and date
+3. **Update this handoff file** (V4_HANDOFF.md) with:
+   - New version number at top
+   - Git commit hash of your final commit
+   - Date completed
+   - Brief summary of work done
+4. **Commit to git** with message following this format:
+   ```
+   feat(phase-N): Brief description of what was completed
+   
+   - Specific accomplishment 1
+   - Specific accomplishment 2
+   - Known issue or limitation (if any)
+   
+   Implements Task X-Y. Phase N status: [COMPLETE/IN PROGRESS]
+   ```
+5. **Hand off to user** with clear status and next steps
+
+**Example Commit Message:**
+```
+feat(phase-3): Scale GF-MH model to 8M parameters
+
+- Created hybrid_v4_8m.py with 8M parameter config
+- Updated training config for larger batch sizes
+- Validates against V4_DESIGN.md spec
+
+Implements Task 19. Phase 3 status: Task 19 complete, Task 20 next.
+```
+
+**Why This Matters:**
+- Prevents version confusion ("which agent ran which code?")
+- Enables easy rollback if something breaks
+- Creates audit trail for reproducibility
+- Next agent knows exactly where to start
 
 ---
 
@@ -274,6 +329,28 @@ V3 was scrapped because agents:
 - Compute capability: 8.9
 - Registers available: ~65K per thread
 - Max shared memory: 96 KB per block
+
+---
+
+## Quick Audit Checklist (Every Agent)
+
+**Before starting work, verify these once:**
+
+- ✅ **Documentation:** V4_DESIGN.md (architecture clear), V4_STRATEGY.md (tasks ordered), README.md (exists)
+- ✅ **Cross-references:** All links in markdown files are working (try 1-2 random links)
+- ✅ **Versioning:** VERSION file matches CHANGELOG.md (same version number)
+- ✅ **Git state:** No uncommitted changes (run `git status`)
+- ✅ **Task complexity:** Task Assessment Matrix in V4_STRATEGY.md makes sense (ask if confused)
+- ✅ **Current phase:** Understand what phase you're in (1=baseline, 2=fusion variants, 3=scaling, 4=long-context, 5=optimization)
+
+**If anything is missing or broken, fix it immediately:**
+- Update task complexity if you find errors
+- Fix broken links
+- Clarify vague acceptance criteria
+- Commit with `docs(sop):` message
+- Then proceed
+
+This takes 5 minutes and saves hours of wasted work.
 
 ---
 

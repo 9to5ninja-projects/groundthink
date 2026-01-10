@@ -37,6 +37,18 @@ All tasks are rated S/M/L/XL based on scope and time:
 
 **This is valuable work.** A well-organized backlog prevents wasted effort.
 
+**SOP Self-Improvement (Important):**
+If you notice any way to improve:
+- Task complexity ratings (adjust if estimates prove wrong)
+- Documentation clarity or missing links
+- Workflow guidance or decision criteria
+- Cross-references or validation gates
+- Agent handoff instructions or role definitions
+
+**THEN:** Update this document, the Handoff, or V4_DESIGN.md immediately. This prevents accumulated confusion. Document why you changed it. Commit with message: `docs(sop): [what improved]`
+
+**Example:** If an L-rated task actually takes 30min (should be M), change it AND note why (e.g., "simpler than expected"). The next agent learns from your assessment.
+
 ---
 
 ### Task Breakdown Criteria
@@ -56,6 +68,33 @@ All tasks are rated S/M/L/XL based on scope and time:
 - Estimated >2 hours
 
 **Rationale:** Small, well-defined tasks prevent timeout errors, enable incremental progress, and make handoffs smoother.
+
+---
+
+## Task Assessment Matrix
+
+**Reference for Librarians & Execution Agents:**
+
+| Complexity | Time | Scope | When to Use | Red Flags | Example |
+|------------|------|-------|------------|-----------|----------|
+| **S** | <30m | 1 file, <50 lines, clear steps | Simple changes, verifications, quick wins | None expected | Fix typo, verify import, run quick test |
+| **M** | 30m-2h | 2-3 files, <200 lines, some research | Feature additions, variant creation, benchmarking | "Research needed" without direction | Create new model file, write 1-2 functions |
+| **L** | 2-6h | 3-5 files, research + implementation | Architecture changes, full training runs | >2 hours with unclear steps | Build new component, run full benchmark suite |
+| **XL** | >6h | Many files, complex logic, experimentation | Extended training, optimization sweeps | Almost all XL needs breakdown into S/M/L | Scale to 8M params, long-context evaluation |
+
+**Assessment Rules:**
+1. **If estimating >2 hours, break into smaller tasks** (prevents timeout/context overflow)
+2. **If spanning >3 files, likely XL or should be split** (manage scope)
+3. **If vague ("research then implement"), add clarifying acceptance criteria** (prevents wasted work)
+4. **Always link to source documentation** (V4_DESIGN.md section, code examples, etc.)
+5. **Validate gates upfront** (G1-G4 from V3 Cross-Ref 9.5)
+
+**Priority Assessment (for Agent):**
+- 🔴 **BLOCKER** — Prevents other tasks (e.g., Phase 2 winner selection needed before Phase 3)
+- 🟠 **HIGH** — Required for phase completion
+- 🟡 **MEDIUM** — Valuable but can be deferred
+- 🟢 **LOW** — Nice-to-have, revisit later
+- ⚪ **OPTIONAL** — Exploratory, fun but not critical
 
 ---
 
