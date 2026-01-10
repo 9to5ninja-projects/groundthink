@@ -108,19 +108,23 @@ pip install -r requirements.txt
 pip install causal-conv1d mamba-ssm
 ```
 
-### Run All Variant Benchmarks
+### Run All Variant Benchmarks (5 Minute Quickstart)
+
+**See [GETTING_STARTED.md](GETTING_STARTED.md) for step-by-step instructions.**
 
 ```bash
+# 1. Setup
+git clone https://github.com/9to5ninja-projects/groundthink.git
+cd groundthink
+source .venv/bin/activate
+pip install -r requirements.txt
+
+# 2. Verify
+python test_phase0_complete.py
+
+# 3. Run benchmark
 python benchmark_variants.py
 ```
-
-This runs all 7 variants (5 fusion + 2 ratio) sequentially, 500 steps each, and outputs:
-- Loss curves for each variant
-- Throughput measurements
-- Final summary table
-- Checkpoint saves in `checkpoints/`
-
-**Runtime:** ~15-20 minutes on A100 (or scale proportionally)
 
 ### Test Individual Variant
 
@@ -141,13 +145,15 @@ print(f"Output shape: {logits.shape}")  # Should be [4, 64, 97]
 
 ## Documentation Map
 
-**Start here (in order):**
-1. **[ONBOARDING.md](ONBOARDING.md)** — What are RWKV and Mamba? Why combine them? (For everyone)
-2. **[README.md](README.md)** — This file: quick start and Phase 2 results
-3. **[V4_DESIGN.md](V4_DESIGN.md)** — Architecture specification, layer math, implementation details
+**Start here (in order by your goal):**
+1. **[ONBOARDING.md](ONBOARDING.md)** — What are RWKV and Mamba? Why combine them? (Conceptual foundation)
+2. **[GETTING_STARTED.md](GETTING_STARTED.md)** — Clone, install, run first benchmark (5 minutes)
+3. **[README.md](README.md)** — This file: quick reference and Phase 2 results
+4. **[V4_DESIGN.md](V4_DESIGN.md)** — Architecture specification and implementation details
 
 **For specific needs:**
-- **[V4_DESIGN.md](V4_DESIGN.md)** — Architecture specification, layer math, fusion options
+- **[DATA_FLOW.md](DATA_FLOW.md)** — Visual architecture diagrams (6 levels from token to output)
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** — How to add variants, report bugs, contribute improvements
 - **[V4_STRATEGY.md](V4_STRATEGY.md)** — Task backlog, complexity assessment, validation gates
 - **[V4_HANDOFF.md](V4_HANDOFF.md)** — Current status, audit summary, git approval protocol
 - **[CHANGELOG.md](CHANGELOG.md)** — Version history with dates and major changes
