@@ -1,11 +1,11 @@
 # V4 Agent Handoff Document
 
 **Purpose:** Single source of truth for agent continuity & versioning  
-**Current Version:** 4.4-Alpha (Repo Reorganization)  
+**Current Version:** 4.5-Alpha (HGF Variant + Fusion Docs)  
 **Updated:** 2026-01-10  
-**Last Agent Action:** Repo reorganization + naming scheme overhaul (tiny/small/medium)  
+**Last Agent Action:** Created HGF variant (per-pos + per-dim gating) + V4_FUSION_MODELS.md  
 **Repository:** https://github.com/9to5ninja-projects/groundthink  
-**Git Status:** ✅ Clean (all changes committed)
+**Git Status:** ✅ Clean (26 commits ahead of origin)
 
 ---
 
@@ -163,19 +163,20 @@ Implements Task 19. Phase 3 status: Task 19 complete, Task 20 next.
 
 **Phase:** Phase 2.5 IN PROGRESS (Infrastructure & Evaluation)  
 **Last Updated:** 2026-01-10  
-**Status:** Building proper infrastructure before extended training.
+**Status:** Infrastructure complete. New HGF variant ready for testing.
 
-**Why Phase 2.5?**
-- Rushing to train leads to tedious manual edits (imports, configs)
-- No way to evaluate model quality without training more
-- We have existing checkpoints - should test them FIRST
+**Session 12 Completed:**
+- ✅ Repo reorganized (`models/`, `data/`, `tests/`, `checkpoints/`)
+- ✅ Naming scheme fixed (tiny/small/medium with legacy aliases)
+- ✅ V4_FUSION_MODELS.md — Technical reference for all 7 fusion variants
+- ✅ **HGF variant created** — Per-position + per-dimension gating (new experimental)
 
 **Phase 2.5 Progress:**
-- Task 18.1 ✅ COMPLETE: Model Registry & Factory (`models/__init__.py`, `--model` CLI arg)
-- Task 18.2 ✅ COMPLETE: Centralized Config System (`configs/*.yaml`, `--config` CLI arg)
-- Task 18.3 ⬜ **NEXT**: NIAH Test Implementation
+- Task 18.1 ✅ COMPLETE: Model Registry & Factory (`models/__init__.py`)
+- Task 18.2 ✅ COMPLETE: Centralized Config System (`configs/*.yaml`)
+- Task 18.3 ⬜ PENDING: NIAH Test Implementation
 - Task 18.4 ⬜ PENDING: Qualitative Eval Suite
-- Task 18.5 ⬜ PENDING: Baseline Eval on small checkpoint
+- Task 18.5 🔄 **NEXT**: Run HGF through validation gates (G1-G4)
 
 **Phase 3 (After 2.5):**
 - Task 19 ✅ COMPLETE: medium model built (`models/hybrid_v4_8m.py`)
@@ -211,11 +212,12 @@ See [V4_STRATEGY.md - Phase 2.5](V4_STRATEGY.md#phase-25-infrastructure--evaluat
 ```
 groundthink/
 ├── train_v4.py          # Main training entry point
-├── models/              # All model definitions
-│   ├── __init__.py      # Registry: get_model('small'), list_models()
+├── models/              # All model definitions (16 variants)
+│   ├── __init__.py      # Registry: get_model('HGF'), list_models(show=True)
 │   ├── hybrid_v4.py     # Base HY model
+│   ├── hybrid_v4_HGF.py # NEW: Per-position + per-dimension gating
 │   ├── hybrid_v4_8m.py  # Medium scale
-│   └── hybrid_v4_*.py   # Fusion variants (GF, WS, RF, CP)
+│   └── hybrid_v4_*.py   # Other variants (GF, WS, RF, CP, ratio)
 ├── data/                # Data loading & tokenization
 │   ├── __init__.py
 │   ├── data_loader.py
@@ -225,9 +227,11 @@ groundthink/
 │   ├── train_medium_50k.yaml
 │   ├── train_quick.yaml
 │   └── train_default.yaml
+├── checkpoints/         # Model weights (gitignored)
+├── tests/               # Test suite
+├── V4_FUSION_MODELS.md  # NEW: Technical reference for all fusion variants
 ├── fla_replacements.py  # RWKV/Mamba component bridge
-├── rwkv6_*.py           # RWKV-6 implementations
-└── *.pt                 # Checkpoints (to be moved to checkpoints/)
+└── rwkv6_*.py           # RWKV-6 implementations
 ```
 
 **Naming Scheme:**
@@ -245,36 +249,47 @@ Legacy aliases (`1M`, `5M`, `8M`) still work for backward compatibility.
 
 ## Next Agent Instructions
 
-**Current Priority:** Finish repo cleanup OR Task 18.3 (NIAH)
+**Current Priority:** Run HGF variant through validation gates and benchmarks
 
-**Repo Cleanup (partially complete):**
-- ✅ Stage 1: Models to `models/`
-- ✅ Stage 3: Data to `data/`
-- ✅ Naming scheme: tiny/small/medium
-- ⬜ Stage 4: Tests to `tests/`
-- ⬜ Stage 5: Checkpoints to `checkpoints/`
-- ⬜ Stage 6: Docs to `docs/`
-- ⬜ Stage 7: Final cleanup + README update
+**Repo Cleanup: ✅ COMPLETE**
+- ✅ All stages done (models/, data/, tests/, checkpoints/)
+- ✅ README updated with new structure
+- ✅ Naming scheme: tiny/small/medium (legacy aliases work)
 
-**Infrastructure is READY.** Model registry and config system are complete.
+**NEW: HGF Variant Ready for Testing**
+
+HGF (Hybrid-Gated Fusion) combines per-position AND per-dimension gating:
+```python
+# GF: gate is [B, S, 1] — same blend for all dims at each position
+# HGF: gate is [B, S, 128] — different blend per dim per position
+from models import get_model
+model = get_model('HGF')      # Balanced init
+model = get_model('HGF-MH')   # Mamba-heavy init
+model = get_model('HGF-RH')   # RWKV-heavy init
+```
 
 **What to do next:**
-1. Create `eval/niah.py` - Needle-In-A-Haystack test for long-context retrieval
-2. Test existing 5M checkpoints (ckpt_HY_step1000.pt through ckpt_HY_final.pt)
-3. Establish baseline metrics before 8M extended training
-4. See V4_STRATEGY.md Task 18.3 for implementation details
+1. **G1 (Forward Pass)** — Verify HGF produces valid output, no NaN
+2. **G2 (Init Entropy)** — Check initialization is healthy (2.0-5.0)
+3. **G3 (Train 1K)** — Run 1000 steps, verify loss decreases
+4. **G4 (Balance)** — Check gradient ratio between RWKV/Mamba (0.3-3.0)
+5. **Benchmark** — Compare HGF vs GF-MH vs CP on 500-step runs
 
-**Available checkpoints:**
-- `ckpt_HY_step1000.pt` - Early training
-- `ckpt_HY_step2000.pt` - Mid training
-- `ckpt_HY_step3000.pt` - Later training
-- `ckpt_HY_step4000.pt` - Near convergence
-- `ckpt_HY_step5000.pt` - Final
-- `ckpt_HY_final.pt` - Final (copy)
+**Top 3 for Comparative Testing:**
+| Rank | Model | Why |
+|------|-------|-----|
+| 1 | **GF-MH** | Phase 2 winner (baseline) |
+| 2 | **CP** | Most expressive (33K fusion params) |
+| 3 | **HGF** | New: maximum control over learning shape |
+
+**Key Files:**
+- `V4_FUSION_MODELS.md` — Technical reference for all variants
+- `V4_TESTING.md` — Validation gate procedures
+- `tests/test_phase0_complete.py` — Environment validation
 
 **Before starting:**
 1. Read this document completely ✓
-2. Read V4_STRATEGY.md for Task 14 details
+2. Read V4_FUSION_MODELS.md for HGF details
 3. Use `manage_todo_list` tool to write task breakdown (REQUIRED)
 
 ---
