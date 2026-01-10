@@ -8,97 +8,19 @@
 
 ---
 
-## ⚠️ TASK COMPLEXITY ASSESSMENT (REQUIRED)
+## Complexity Ratings & Procedures
 
-### Complexity Rating Scale
+**Tasks are rated S/M/L/XL based on scope and time.** For detailed assessment matrix, Librarian role definition, and SOP self-improvement guidance, see [GETTING_STARTED.md](GETTING_STARTED.md#-task-complexity-assessment)
 
-All tasks are rated S/M/L/XL based on scope and time:
-
-| Rating | Time | Criteria | Examples |
-|--------|------|----------|----------|
-| **S** (Small) | <30 min | 1 file, <50 lines, clear steps | Install package, verify import, quick test |
-| **M** (Medium) | 30min-1hr | 2-3 files, <200 lines, some research | Add monitoring, write helper script |
-| **L** (Large) | 1-2 hours | 3-5 files, research needed, multiple steps | Build new model component, training run |
-| **XL** (Extra Large) | >2 hours | Many files, research + trial/error, complex | Architecture changes, hyperparameter sweep |
-
-**Rule:** If you pick an L or XL task, MUST use `manage_todo_list` to break it down before starting.
+**Quick Reference:**
+- **S** (Small): <30 min, 1 file, clear steps
+- **M** (Medium): 30m-2h, 2-3 files, some research
+- **L** (Large): 2-6h, 3-5 files, implementation needed
+- **XL** (Extra Large): >6h, many files — **MUST break into S/M/L subtasks before starting**
 
 ---
 
-### Librarian Agent Role
-
-**When you read this document first (before execution):**
-- Your job is **document curation**, not implementation
-- Check if tasks have proper complexity ratings
-- Verify tasks link to source documentation (V4_DESIGN.md, V4.5_OPTIMIZATION.md, etc.)
-- Break down XL tasks into smaller chunks
-- Fix unclear acceptance criteria or missing dependencies
-- Update this document, commit changes, then hand off to execution agent
-
-**This is valuable work.** A well-organized backlog prevents wasted effort.
-
-**SOP Self-Improvement (Important):**
-If you notice any way to improve:
-- Task complexity ratings (adjust if estimates prove wrong)
-- Documentation clarity or missing links
-- Workflow guidance or decision criteria
-- Cross-references or validation gates
-- Agent handoff instructions or role definitions
-
-**THEN:** Update this document, the Handoff, or V4_DESIGN.md immediately. This prevents accumulated confusion. Document why you changed it. Commit with message: `docs(sop): [what improved]`
-
-**Example:** If an L-rated task actually takes 30min (should be M), change it AND note why (e.g., "simpler than expected"). The next agent learns from your assessment.
-
----
-
-### Task Breakdown Criteria
-
-**Before accepting any task:**
-
-1. **Check complexity rating** in the task table
-2. **If M/L:** Read the detailed task description and linked source docs
-3. **If XL or unclear:** Break it down into S/M sub-tasks
-4. **Update this document** with any improvements
-
-**Signs a task needs breakdown:**
-- Spans >3 files
-- Involves both implementation + testing (split into separate tasks)
-- Vague acceptance criteria
-- No source documentation link
-- Estimated >2 hours
-
-**Rationale:** Small, well-defined tasks prevent timeout errors, enable incremental progress, and make handoffs smoother.
-
----
-
-## Task Assessment Matrix
-
-**Reference for Librarians & Execution Agents:**
-
-| Complexity | Time | Scope | When to Use | Red Flags | Example |
-|------------|------|-------|------------|-----------|----------|
-| **S** | <30m | 1 file, <50 lines, clear steps | Simple changes, verifications, quick wins | None expected | Fix typo, verify import, run quick test |
-| **M** | 30m-2h | 2-3 files, <200 lines, some research | Feature additions, variant creation, benchmarking | "Research needed" without direction | Create new model file, write 1-2 functions |
-| **L** | 2-6h | 3-5 files, research + implementation | Architecture changes, full training runs | >2 hours with unclear steps | Build new component, run full benchmark suite |
-| **XL** | >6h | Many files, complex logic, experimentation | Extended training, optimization sweeps | Almost all XL needs breakdown into S/M/L | Scale to 8M params, long-context evaluation |
-
-**Assessment Rules:**
-1. **If estimating >2 hours, break into smaller tasks** (prevents timeout/context overflow)
-2. **If spanning >3 files, likely XL or should be split** (manage scope)
-3. **If vague ("research then implement"), add clarifying acceptance criteria** (prevents wasted work)
-4. **Always link to source documentation** (V4_DESIGN.md section, code examples, etc.)
-5. **Validate gates upfront** (G1-G4 from V3 Cross-Ref 9.5)
-
-**Priority Assessment (for Agent):**
-- 🔴 **BLOCKER** — Prevents other tasks (e.g., Phase 2 winner selection needed before Phase 3)
-- 🟠 **HIGH** — Required for phase completion
-- 🟡 **MEDIUM** — Valuable but can be deferred
-- 🟢 **LOW** — Nice-to-have, revisit later
-- ⚪ **OPTIONAL** — Exploratory, fun but not critical
-
----
-
-## Key Insight
+## Architecture Notes
 
 At 5-8M parameters, Mamba2 layers are **~10x more parameter-efficient** than RWKV6 layers.
 
@@ -115,94 +37,32 @@ This dramatically changes hybrid ratio calculations.
 
 ---
 
-## Validation Gates (From V3 Section 9.5)
+## Validation & Training Reference
 
-**Every gate must pass before proceeding. No exceptions.**
+**For detailed gate procedures (G1-G4), stopping criteria, loss monitoring, and validation protocols, see [V4_TESTING.md](V4_TESTING.md) and [V4_TRAINING_GUIDE.md](V4_TRAINING_GUIDE.md).**
 
-| Gate | Test | Pass | Warn | Fail |
-|------|------|------|------|------|
-| G1 | Forward pass | No NaN, correct shapes | - | NaN or shape mismatch |
-| G2 | Init entropy | 2.0-5.0 at step 0 | 6.0-7.0 | <1.0 or >8.0 |
-| G3 | Train 1k steps | Loss decreasing, grad 0.5-1.5 | Grad 1.5-3.0 | Grad >5.0 or loss increasing |
-| G3.5 | State health | Cosine <0.99, SVD >0.5, sat <30% | Cosine 0.95-0.99 | Cosine >0.99 (frozen) |
-| G4 | Component balance | Gradient ratio 0.3-3.0 | 0.1-0.3 or 3-10 | <0.1 or >10 (imbalance) |
+**Quick Gate Reference:**
+- **G1:** Forward pass (no NaN, correct shapes)
+- **G2:** Init entropy (2.0-5.0 at step 0)
+- **G3:** Train 1K steps (loss decreasing, grad 0.5-1.5)
+- **G4:** Component balance (ratio 0.3-3.0)
 
 ---
 
-## Stopping Criteria (From V3 Section 9.7, Cross-Ref 1.2)
+## Using This Backlog
 
-### Stop Immediately If:
-- **Val loss increasing >5-10%** while train decreases (overfitting)
-- **2+ LR drops** with no improvement
-- **Oscillating loss** (up-down >0.5) - architecture conflict
-- **One component's activations collapse** to constant
-- **Gradient ratio <0.1 or >10** - one component is dead
+**This is the ordered task queue — check [V4_HANDOFF.md](V4_HANDOFF.md) for current phase and next task.** For workflow procedures and usage guidelines, see [GETTING_STARTED.md](GETTING_STARTED.md#-mandatory-workflow).
 
-### Continue If:
-- Val loss shows "heartbeat" (small dips every few hundred steps)
-- Both components have gradient variance
-- Training loss still has tiny downward slope on log scale
+**Quick start:**
+1. Check handoff for current phase
+2. Pick NEXT incomplete task below (in order)
+3. Use `manage_todo_list` tool to break down (required for L/XL tasks)
+4. Work ONE task at a time
+5. Mark complete and update handoff when done
 
 ---
 
-## Two Types of Loss (BOTH Required)
-
-1. **Train Loss** - Log every step
-2. **Val Loss** - Log every 100-1000 steps
-
-Both must be tracked, plotted, and checked for divergence.
-
----
-
-## V3 Materials (Archived)
-
-**All V3 documentation and code have been moved to `archive/` for reference.**
-
-V3 was scrapped because agents built RWKV-7 instead of RWKV-6. V4 uses FLA library implementations (RWKV6Attention + Mamba2) exclusively.
-
-**V3 files in archive:**
-- Documentation: V3_STRATEGY.md, V3_BUILD_LOG.md, V3_CROSS_REFERENCE.md, V3_RESEARCH_NOTES.md, V3_DEPRECATED.md
-- Code: train_v030.py, data_v030.py, layers_v030.py, tokenizer_v030.py, layers_v020.py
-- Old tests and diagnostics: check_*.py, test_*.py, verify_*.py, trace_*.py, gate_g35_diagnostic.py
-- Build scripts: build_causal.sh, build_step5.sh, fla_replacements.py, rwkv6_layer.py
-- V2 materials: V2_INSTRUCTIONS.md, design_v2_notes.txt, original_design_notes.txt
-
-**These can be referenced but should not be copied forward without careful review.**
-
----
-
-## How This Document Works
-
-**This is a BACKLOG, not a to-do list for one agent.**
-
-1. Agent checks V4_HANDOFF.md for active task
-2. If no active task: pick NEXT task from this backlog (in order)
-3. Copy task to V4_HANDOFF.md "Active Task" section
-4. **IMMEDIATELY use `manage_todo_list` tool** to create sub-task checklist
-5. Work on that ONE task until complete
-6. When done: clear from handoff, mark complete here, prepare for next agent
-
-### Why the Todo Tool is Required
-
-The `manage_todo_list` tool:
-- Keeps agent focused on ONE task
-- Provides user visibility into progress
-- Prevents context drift and scope creep
-- Creates natural checkpoints for multi-session work
-
-**First action after reading handoff = write todo list. No exceptions.**
-
-**Do NOT:**
-- Work on multiple tasks at once
-- Skip ahead in the backlog
-
-### When Stuck or Uncertain
-
-**ASK THE USER. Do not guess.**
-
----
-
-## Task Backlog
+## Task Backlog (Ordered by Phase)
 
 ### Phase 0: CUDA Kernel Integration (PRIORITY)
 
