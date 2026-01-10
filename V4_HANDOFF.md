@@ -87,6 +87,18 @@ BPE did NOT fix component balance as hypothesized. R/M improved from 0.08-0.11 t
 | 8 | 48 | Component balance investigation | ⬜ TODO | Compare Type A vs Type B variance |
 | ✅ | 49 | Propagate state API to all models | ✅ DONE | All 8 model files updated |
 | ✅ | 50 | Add state monitoring to train_v4.py | ✅ DONE | `--log-states` flag added |
+| 9 | 51 | True Mamba SSM state extraction | ⬜ LOW | Research: extract [B,nheads,headdim,d_state] |
+| **10** | 52 | Implement D1-D4 diagnostic tests | ⬜ TODO | Divergence, collapse, interaction, LRD |
+| **11** | 53 | Implement state tracking metrics | ⬜ TODO | Entropy, magnitude, cosine similarity |
+| 12 | 54 | Gradient-state coupling analyzer | ⬜ TODO | Correlation: state gradients ↔ loss |
+| 13 | 55 | Information flow tracer | ⬜ TODO | Mutual information: state → output |
+| **14** | 56 | Consolidate metric thresholds | ⬜ TODO | Single source of truth |
+| 15 | 57 | Enhance --log-states full suite | ⬜ TODO | Integrate Tasks 52-55 metrics |
+| 16 | 58 | Component ablation test | ⬜ TODO | Zero each state → measure loss |
+| 17 | 59 | Linear state evolution test | ⬜ TODO | Predictable state changes |
+| 18 | 60 | Long-context degradation test | ⬜ TODO | 64→128→256→512 curve |
+
+**See [V4_STRATEGY.md](V4_STRATEGY.md#phase-40-bpe-re-validation-new--required-before-scaling) for full task definitions.**
 
 ### Two Metrics to Track (Investigation Finding)
 
@@ -126,6 +138,32 @@ BPE did NOT fix component balance as hypothesized. R/M improved from 0.08-0.11 t
 
 **Gate:** Phase 4.0 PASS when S0-S4 pass AND all graduation criteria verified with BPE.
 
+### Task Dependencies (Critical Path)
+
+```
+COMPLETED                    NEXT                      THEN
+─────────────────────────────────────────────────────────────────
+Task 41a (API) ───┬─→ Task 41 (harness) ──→ Task 42 (run S0-S4)
+Task 49 (all models) ─┘        │
+Task 50 (--log-states) ────────┤
+                               │
+                               ├─→ Task 52 (D1-D4) ──→ Task 57 (enhance logs)
+                               │        │
+                               │        └─→ Task 53 (metrics) ──→ Task 57
+                               │
+                               ├─→ Task 56 (thresholds) ← DOCUMENTATION
+                               │
+                               ├─→ Tasks 43-46 (graduation tests)
+                               │
+                               └─→ Task 48 (balance investigation)
+                                        │
+                                        └─→ Task 58 (ablation)
+```
+
+**Parallelizable:** Tasks 52, 53, 56 can run in parallel  
+**Blockers:** Task 41 blocks all execution tasks  
+**Research:** Tasks 54, 55 are advanced (can defer)
+
 ---
 
 ## ⚠️ FOR NEXT AGENT
@@ -163,7 +201,23 @@ Execute via the test harness:
 python tests/test_tiny_graduation.py --test-states --tokenizer bpe
 ```
 
-**Priority 3: Investigate Component Balance (Task 48)**
+**Priority 3: Implement D1-D4 Diagnostic Tests (Task 52)**
+
+Critical for baseline before any training runs:
+- D1: State divergence detection
+- D2: State collapse detection  
+- D3: Component interaction test
+- D4: Long-range dependency test
+
+**See [V4_STRATEGY.md](V4_STRATEGY.md#task-52-implement-d1-d4-diagnostic-tests) for implementation details.**
+
+**Priority 4: Consolidate Metric Thresholds (Task 56)**
+
+Before running tests, document all pass/warn/fail thresholds in one place:
+- Currently scattered across CANARY_TESTS.md, VALIDATION_ROADMAP.md, STATEFUL_VALIDATION_GUIDE.md
+- Single source of truth prevents confusion
+
+**Priority 5: Investigate Component Balance (Task 48)**
 
 The 71x activation variance ratio is concerning:
 - RWKV var=8.58, Mamba var=0.12

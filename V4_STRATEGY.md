@@ -968,6 +968,15 @@ python train_v4.py --model GF-MH --data data/fineweb_5m.txt --tokenizer bpe --ma
 | 49 | Propagate state API to all models | ✅ DONE | M | 7 model files need return_states |
 | 50 | Add state monitoring to train_v4.py | ✅ DONE | M | Integrate return_states in training loop |
 | 51 | True Mamba SSM state extraction | ⬜ TODO (LOW) | L | Extract [B, nheads, headdim, d_state] |
+| 52 | Implement D1-D4 diagnostic tests | ⬜ TODO | M | State divergence, collapse, interaction, LRD |
+| 53 | Implement state tracking metrics | ⬜ TODO | M | Entropy, magnitude, cosine similarity |
+| 54 | Implement gradient-state coupling analyzer | ⬜ TODO | L | Correlation between state gradients and loss |
+| 55 | Implement information flow tracer | ⬜ TODO | L | Mutual information: state → output |
+| 56 | Consolidate pass/warn/fail thresholds | ⬜ TODO | S | Single source of truth for all metrics |
+| 57 | Enhance --log-states full metric suite | ⬜ TODO | M | Integrate Tasks 52-55 into training |
+| 58 | Component ablation test | ⬜ TODO | M | Zero each state → measure loss impact |
+| 59 | Linear state evolution test | ⬜ TODO | M | Predictable state changes with varied input |
+| 60 | Long-context degradation test | ⬜ TODO | M | 64→128→256→512 token degradation curve |
 
 **Tiny Model Graduation Criteria (per SCALING_MILESTONES.md):**
 | Test | Criteria | BPE Status |
@@ -990,8 +999,14 @@ python train_v4.py --model GF-MH --data data/fineweb_5m.txt --tokenizer bpe --ma
 7. ~~**Task 49** — Propagate state API to all model variants~~ ✅ DONE
 8. ~~**Task 50** — Add state monitoring to training loop~~ ✅ DONE
 9. **Task 51** — True Mamba SSM state (research, lower priority)
+10. **Tasks 52-55** — Advanced diagnostics (D1-D4, entropy, coupling, MI)
+11. **Task 56** — Consolidate all thresholds into single reference
+12. **Task 57** — Integrate advanced metrics into --log-states
+13. **Tasks 58-60** — Ablation, linear evolution, long-context tests
 
 **Gate:** Phase 4.0 PASS when S0-S4 pass AND all Tiny graduation criteria verified with BPE tokenization.
+
+**Note:** Tasks 52-60 are critical for establishing baseline metrics before any further training. Adding metrics retroactively deprecates previous work.
 
 **Next Phase:** If Phase 4.0 PASS → Continue to Phase 3.9 diagnostics with BPE. If FAIL → Debug architecture at 3.5M before scaling.
 
@@ -1137,6 +1152,263 @@ Step 500 | loss=1.59 | R/M=0.23 | rwkv_state_norm=221.3 | mamba_state_norm=4.8 |
 - C: Accept output proxy as "good enough" for validation
 
 **Decision:** Defer until Tasks 42-48 complete. Output proxy may be sufficient.
+
+---
+
+#### Task 52: Implement D1-D4 Diagnostic Tests
+
+**Status:** ⬜ TODO  
+**Complexity:** M (Medium)  
+**Time:** ~2-3 hours  
+**Dependencies:** Task 41a ✅, Task 50 ✅  
+**Cross-Reference:** [VALIDATION_ROADMAP.md](VALIDATION_ROADMAP.md) lines 105-167
+
+**Purpose:** Implement the four core diagnostic tests from VALIDATION_ROADMAP.md that detect state health issues.
+
+**Tests to Implement:**
+
+| Test | What It Detects | Pass Criteria |
+|------|-----------------|---------------|
+| D1: State Divergence | States exploding over time | Norm ratio <2x (step 1→1000) |
+| D2: State Collapse | States freezing/converging | Variance increases with training |
+| D3: Component Interaction | One component dominating | Neither >5x loss impact |
+| D4: Long-Range Dependency | State loses useful history | PPL ratio <2x (seq 64→256) |
+
+**Output:** `tests/test_diagnostics.py` with `test_d1()`, `test_d2()`, `test_d3()`, `test_d4()`
+
+**Usage:**
+```bash
+python tests/test_diagnostics.py --model GF-MH --checkpoint checkpoints/ckpt_GF-MH_step5000.pt
+```
+
+---
+
+#### Task 53: Implement State Tracking Metrics
+
+**Status:** ⬜ TODO  
+**Complexity:** M (Medium)  
+**Time:** ~2 hours  
+**Dependencies:** Task 41a ✅  
+**Cross-Reference:** [STATEFUL_VALIDATION_GUIDE.md](STATEFUL_VALIDATION_GUIDE.md) lines 230-300, [V4_DIAGNOSTICS.md](V4_DIAGNOSTICS.md) lines 18-26
+
+**Purpose:** Add metrics that track state dynamics over time, not just snapshots.
+
+**Metrics to Implement:**
+
+| Metric | Formula | What It Reveals |
+|--------|---------|-----------------|
+| State Entropy | `-Σ p log(p)` on softmax(state) | Information content in state |
+| State Update Magnitude | `\|state_t - state_{t-1}\|` | How much state changes per step |
+| Turn-to-Turn Similarity | `cos(state_t, state_{t-1})` | State stability (target >0.7) |
+| Norm Stability | `std(norm) / mean(norm)` | State growth consistency (target <0.1) |
+
+**Output:** `tools/state_metrics.py` with `StateMetricsTracker` class
+
+**Integration:** Called by `--log-states` in train_v4.py (Task 57)
+
+---
+
+#### Task 54: Implement Gradient-State Coupling Analyzer
+
+**Status:** ⬜ TODO  
+**Complexity:** L (Large)  
+**Time:** ~4 hours  
+**Dependencies:** Task 41a ✅  
+**Cross-Reference:** [VALIDATION_ROADMAP.md](VALIDATION_ROADMAP.md) lines 290-330
+
+**Purpose:** Measure correlation between state gradients and loss gradients to determine which component's state actually affects training.
+
+**What It Measures:**
+- `d(loss)/d(RWKV_state)` correlation with actual state values
+- `d(loss)/d(Mamba_state)` correlation with actual state values
+- Coupling strength: 0=independent, 1=perfectly correlated
+
+**Pass Criteria:**
+- Balanced coupling: both components 0.4-0.6
+- Acceptable imbalance: ratio <2.5x
+- Red flag: one component <0.2 (basically unused)
+
+**Output:** `tools/gradient_coupling_analyzer.py`
+
+**Usage:**
+```bash
+python tools/gradient_coupling_analyzer.py --model GF-MH --steps 100
+```
+
+---
+
+#### Task 55: Implement Information Flow Tracer
+
+**Status:** ⬜ TODO  
+**Complexity:** L (Large)  
+**Time:** ~4-6 hours  
+**Dependencies:** Task 41a ✅  
+**Cross-Reference:** [VALIDATION_ROADMAP.md](VALIDATION_ROADMAP.md) lines 340-380
+
+**Purpose:** Measure mutual information between states and outputs to determine if state is actually used for prediction.
+
+**What It Measures:**
+- `MI(state_{t-1} → output_t)` for each component
+- Information throughput per component
+- Bottleneck detection
+
+**Pass Criteria:**
+- Both components active: each >20% of total information flow
+- Red flag: one component <5% (essentially dead)
+
+**Output:** `tools/information_flow_tracer.py`
+
+**Note:** This is advanced analysis. May require approximation methods for MI estimation.
+
+---
+
+#### Task 56: Consolidate Pass/Warn/Fail Thresholds
+
+**Status:** ⬜ TODO  
+**Complexity:** S (Small)  
+**Time:** ~1 hour  
+**Dependencies:** None (documentation task)  
+**Cross-Reference:** [CANARY_TESTS.md](CANARY_TESTS.md), [VALIDATION_ROADMAP.md](VALIDATION_ROADMAP.md), [STATEFUL_VALIDATION_GUIDE.md](STATEFUL_VALIDATION_GUIDE.md)
+
+**Purpose:** Create single source of truth for all metric thresholds. Currently scattered across 4+ documents.
+
+**Thresholds to Consolidate:**
+
+| Metric | Pass | Warn | Fail | Source |
+|--------|------|------|------|--------|
+| State norm range | 0.01-100 | — | Outside range | CANARY_TESTS.md S1 |
+| State determinism | diff <1e-5 | — | diff >1e-5 | CANARY_TESTS.md S3 |
+| Activation ratio | 0.1-10x | 0.01-100x | Outside 0.01-100x | CANARY_TESTS.md S4 |
+| Norm stability | <10% std | 10-15% | >15% | STATEFUL_VALIDATION_GUIDE.md |
+| Turn similarity | >0.7 | 0.5-0.7 | <0.5 | STATEFUL_VALIDATION_GUIDE.md |
+| Divergence ratio | <2x | 2-5x | >5x | VALIDATION_ROADMAP.md D1 |
+| Coupling strength | 0.4-0.6 | 0.2-0.8 | <0.2 or >0.8 | VALIDATION_ROADMAP.md |
+| Information flow | >20% each | 10-20% | <10% | VALIDATION_ROADMAP.md |
+
+**Output:** Add `METRIC_THRESHOLDS.md` or append to existing doc
+
+---
+
+#### Task 57: Enhance --log-states Full Metric Suite
+
+**Status:** ⬜ TODO  
+**Complexity:** M (Medium)  
+**Time:** ~2-3 hours  
+**Dependencies:** Task 50 ✅, Task 53
+
+**Purpose:** Extend the current `--log-states` flag to capture the full metric suite from Tasks 52-55.
+
+**Current `--log-states` Output (Task 50):**
+```
+rwkv_state_norm, mamba_state_norm, state_ratio, gate
+```
+
+**Enhanced Output (Task 57):**
+```
+rwkv_state_norm, mamba_state_norm, state_ratio, gate,
+rwkv_state_var, mamba_state_var, activation_ratio,
+state_entropy, update_magnitude, norm_stability
+```
+
+**Integration Points:**
+- Import `StateMetricsTracker` from Task 53
+- Add columns to metrics CSV output
+- Add optional JSON export for analysis scripts
+
+**Output:** Updated `train_v4.py` with full metrics
+
+---
+
+#### Task 58: Component Ablation Test
+
+**Status:** ⬜ TODO  
+**Complexity:** M (Medium)  
+**Time:** ~2 hours  
+**Dependencies:** Task 41a ✅  
+**Cross-Reference:** [VALIDATION_ROADMAP.md](VALIDATION_ROADMAP.md) D3, [V4_DIAGNOSTICS.md](V4_DIAGNOSTICS.md) line 165
+
+**Purpose:** Zero out each component's state and measure loss impact to quantify contribution.
+
+**Test Procedure:**
+1. Run forward pass, capture baseline loss
+2. Zero RWKV state → measure loss delta
+3. Zero Mamba state → measure loss delta
+4. Compare: which component matters more?
+
+**Pass Criteria:**
+- Balanced: both components 0.3-0.7 of total impact
+- Acceptable: ratio <5x between components
+- Fail: one component >10x more important (other is dead)
+
+**Output:** `tests/test_ablation.py`
+
+**Usage:**
+```bash
+python tests/test_ablation.py --model GF-MH --samples 100
+```
+
+---
+
+#### Task 59: Linear State Evolution Test
+
+**Status:** ⬜ TODO  
+**Complexity:** M (Medium)  
+**Time:** ~2 hours  
+**Dependencies:** Task 41a ✅  
+**Cross-Reference:** [STATEFUL_VALIDATION_GUIDE.md](STATEFUL_VALIDATION_GUIDE.md) lines 660-700
+
+**Purpose:** Verify state changes are predictable (not chaotic) when input varies systematically.
+
+**Test Procedure:**
+1. Base input: "I prefer coffee. My budget is $500."
+2. Variations: change one word, change two words, add words
+3. Measure state vector distance for each variation
+4. Verify: changes scale proportionally with modification
+
+**Pass Criteria:**
+- Identical input → identical state (diff <1e-5)
+- Small change → small state change
+- Larger change → larger state change (monotonic)
+- No chaotic jumps (max change <5x min change for similar edits)
+
+**Output:** `tests/test_linear_evolution.py`
+
+**Usage:**
+```bash
+python tests/test_linear_evolution.py --model GF-MH
+```
+
+---
+
+#### Task 60: Long-Context Degradation Test
+
+**Status:** ⬜ TODO  
+**Complexity:** M (Medium)  
+**Time:** ~2 hours  
+**Dependencies:** Task 41a ✅, Task 25 ✅  
+**Cross-Reference:** [VALIDATION_ROADMAP.md](VALIDATION_ROADMAP.md) D4, [STATEFUL_VALIDATION_GUIDE.md](STATEFUL_VALIDATION_GUIDE.md) lines 720-760
+
+**Purpose:** Measure how performance degrades as context length increases beyond training length.
+
+**Test Procedure:**
+1. Generate sequences at lengths: 64, 128, 256, 512 tokens
+2. Measure perplexity at each length
+3. Plot degradation curve
+4. Calculate decay rate (slope)
+
+**Pass Criteria:**
+- Gentle slope: PPL ratio <2x from 64→256
+- Graceful degradation (linear, not exponential)
+- Fail: catastrophic cliff (>5x ratio)
+
+**Output:** `tests/test_long_context.py`
+
+**Note:** Extends Task 25 (LRD test) to longer sequences and tracks state health.
+
+**Usage:**
+```bash
+python tests/test_long_context.py --model GF-MH --lengths 64,128,256,512
+```
 
 ---
 
