@@ -395,8 +395,8 @@ Mamba-2 uses mamba-ssm native CUDA kernels. RWKV-6 uses prototype + CUDA wrapper
 
 | # | Task | Status | Depends On | Complexity | Details |
 |---|------|--------|------------|------------|---------|
-| 19 | Scale GF-MH to 8M Params | ⬜ **NEXT** | Task 18 | L | Use winning variant |
-| 20 | Extended Training (50K steps) | ⬜ PENDING | Task 19 | XL | Train to convergence |
+| 19 | Scale GF-MH to 8M Params | ✅ COMPLETE | Task 18 | L | hybrid_v4_8m.py (7.93M) |
+| 20 | Extended Training (50K steps) | ⬜ **NEXT** | Task 19 | XL | Train to convergence |
 | 21 | NIAH Test (Needle-in-a-Haystack) | ⬜ PENDING | Task 20 | M | Long-context memory test |
 
 **Gate:** Phase 3 complete when 8M model trained and validated.
