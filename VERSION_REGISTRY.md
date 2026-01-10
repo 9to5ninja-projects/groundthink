@@ -5,8 +5,9 @@
 # ==============================================================================
 
 PROJECT_NAME = "GroundThink"
-CURRENT_VERSION = "V2 (Scientific 125M)"
+CURRENT_VERSION = "V4.2-Alpha (Phase 2 Complete) — See CHANGELOG.md"
 DATE_INITIATED = "2026-01-07"
+LAST_UPDATED = "2026-01-09"
 
 # ==============================================================================
 # VERSION HISTORY

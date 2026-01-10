@@ -1,5 +1,7 @@
 # GroundThink A100 Training Guide
 
+**⚠️ LEGACY REFERENCE** — This guide covers older V0-V1 training scripts. For current Phase 2 models and benchmarking, see [README.md](README.md).
+
 ## 1. Setup on Vast.ai / RunPod
 Use a PyTorch 2.1+ Template (e.g., RunPod Pytorch 2.1 or vast.ai generic).
 

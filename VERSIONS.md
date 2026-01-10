@@ -1,5 +1,7 @@
 # GroundThink Model Versions
 
+**⚠️ LEGACY REFERENCE** — This file documents V0.1-0.2 (superseded). Current version is **V4.2-Alpha**. See [CHANGELOG.md](CHANGELOG.md) for V4 version history.
+
 ## Version Naming Convention
 `groundthink_v{major}.{minor}.{patch}_{params}_{tokens}`
 
