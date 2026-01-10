@@ -981,13 +981,13 @@ python train_v4.py --model GF-MH --data data/fineweb_5m.txt --tokenizer bpe --ma
 **Tiny Model Graduation Criteria (per SCALING_MILESTONES.md):**
 | Test | Criteria | BPE Status |
 |------|----------|------------|
-| **S0-S4 state tests** | State machinery verified | ⏳ **API ready, tests pending** |
-| Overfit 10-100 samples | Loss → near 0 | ❓ Not tested |
-| Val < naive baseline | Better than random | ❓ Not tested |
-| G1-G4 gates pass | Per V4_TESTING.md | ❓ Not tested with BPE |
-| Checkpoint/resume works | Save + reload | ❓ Not tested with BPE |
-| Gradient flow | All components receiving gradients | ✅ Task 40 shows gradients flowing |
-| Component balance documented | Ratio and variance recorded | ⚠️ Type A: 71x, Type B: 108583x |
+| **S0-S4 state tests** | State machinery verified | ✅ 5/5 PASS (Task 42) |
+| Overfit 10-100 samples | Loss → near 0 | ⬜ Task 43 |
+| Val < naive baseline | Better than random | ⬜ Task 44 |
+| G1-G4 gates pass | Per V4_TESTING.md | ⬜ Task 45 |
+| Checkpoint/resume works | Save + reload | ⬜ Task 46 |
+| Gradient flow | All components receiving gradients | ✅ Task 40 |
+| Component balance documented | Ratio and variance recorded | ✅ Type A: 71x, Type B: 108583x |
 
 **Order of Operations:**
 1. ~~**Task 41a** — Implement state extraction API (BLOCKER)~~ ✅ DONE
