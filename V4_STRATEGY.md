@@ -1,10 +1,10 @@
 # V4 Strategy Document - Task Backlog
 
 **Created:** 2026-01-08  
-**Updated:** 2026-01-10  
+**Updated:** 2026-01-10 (Audit Session)  
 **Repository:** https://github.com/9to5ninja-projects/groundthink  
 **Purpose:** Ordered queue of tasks to be completed one at a time  
-**Current Goal:** Build RWKV-6 + Mamba-2 hybrid at 5M scale, find best configuration
+**Current Goal:** Complete Phase 4.0 BPE Re-Validation before scaling
 
 ---
 
@@ -307,97 +307,43 @@ Mamba-2 uses mamba-ssm native CUDA kernels. RWKV-6 uses prototype + CUDA wrapper
 |---|------|--------|------------|------------|---------|
 | 18.1 | Model Registry & Factory | ✅ COMPLETE | Task 18 | M | models/__init__.py, --model CLI arg |
 | 18.2 | Centralized Config System | ✅ COMPLETE | Task 18.1 | M | YAML configs + CLI overrides working |
-| 18.3 | NIAH Test Implementation | ⬜ **NEXT** | Task 18.1 | L | Test existing 5M model first |
+| 18.3 | ~~NIAH Test Implementation~~ | ⚠️ DEPRIORITIZED | Task 18.1 | L | Not valid for char-level models |
 | 18.4 | Qualitative Eval Suite | ⬜ PENDING | Task 18.3 | M | Generation samples, perplexity, patterns |
 | 18.5 | Evaluation Baseline | ⬜ PENDING | Task 18.4 | M | Run eval suite on 5M winner (GF-MH) |
 
-**Gate:** Phase 2.5 complete when we can switch models via CLI and have baseline eval metrics.
+**Gate:** ✅ Phase 2.5 COMPLETE for core infrastructure (18.1, 18.2). Eval suite deferred to post-Phase 4.0.
 
 ---
 
-#### Task 18.1: Model Registry & Factory
+#### ~~Task 18.1: Model Registry & Factory~~ ✅ COMPLETE
 
-**Status:** ⬜ PENDING  
+**Status:** ✅ COMPLETE  
 **Complexity:** M (Medium)  
-**Time:** ~45 min  
-**Priority:** 🔴 HIGH - Fixes the import pain permanently
+**Completed:** 2026-01-09
 
-**Problem:** 
-Every time we switch models, we edit imports in train_v4.py. This is error-prone and tedious.
+~~Problem/Solution details redacted — implementation exists in `models/__init__.py`~~
 
-**Solution:** Create `models/__init__.py` with a registry pattern:
-
-```python
-# models/__init__.py
-from .hybrid_v4 import create_hybrid_5m
-from .hybrid_v4_8m import create_hybrid_8m
-from .hybrid_v4_GF import create_hybrid_GF
-from .hybrid_v4_ratio import create_hybrid_GF_MH, create_hybrid_GF_RH
-
-REGISTRY = {
-    '5M': create_hybrid_5m,
-    '8M': create_hybrid_8m,
-    'GF': create_hybrid_GF,
-    'GF-MH': create_hybrid_GF_MH,
-    'GF-RH': create_hybrid_GF_RH,
-}
-
-def get_model(name: str, vocab_size: int, **kwargs):
-    """Get model by name. Usage: model = get_model('8M', vocab_size=97)"""
-    if name not in REGISTRY:
-        raise ValueError(f"Unknown model: {name}. Available: {list(REGISTRY.keys())}")
-    return REGISTRY[name](vocab_size=vocab_size, **kwargs)
-```
-
-**Usage in train_v4.py:**
-```python
-from models import get_model
-model = get_model(args.model, vocab_size=tokenizer.vocab_size)
-```
-
-**Command line:**
+**Usage:**
 ```bash
 python train_v4.py --model 8M --steps 50000
 python train_v4.py --model GF-MH --steps 5000
 ```
 
-**Acceptance Criteria:**
-- [ ] `models/` directory created with `__init__.py`
-- [ ] All model variants moved to `models/` or imported
-- [ ] `get_model(name)` function works for all variants
-- [ ] train_v4.py uses `--model` argument
-- [ ] No more hardcoded imports to change
-
 ---
 
-#### Task 18.2: Centralized Config System
+#### ~~Task 18.2: Centralized Config System~~ ✅ COMPLETE
 
-**Status:** ⬜ PENDING  
+**Status:** ✅ COMPLETE  
 **Complexity:** M (Medium)  
-**Time:** ~30 min  
-**Priority:** 🟠 HIGH - Reduces config scatter
+**Completed:** 2026-01-09
 
-**Problem:**
-Config values are hardcoded in train_v4.py. Changing them requires editing the file.
-
-**Solution:** YAML config files + CLI overrides:
-
-```yaml
-# configs/train_8m_50k.yaml
-model: 8M
-max_steps: 50000
-warmup_steps: 2500
-batch_size: 32
-grad_accum: 4
-seq_len: 128
-lr: 3e-4
-min_lr: 3e-5
-use_amp: true
-eval_every: 500
-save_every: 5000
-```
+~~Problem/Solution details redacted — implementation exists in `config.py`~~
 
 **Usage:**
+```bash
+python train_v4.py --config configs/train_8m_50k.yaml
+python train_v4.py --config configs/train_8m_50k.yaml --lr 1e-4  # Override
+```
 ```bash
 python train_v4.py --config configs/train_8m_50k.yaml
 python train_v4.py --config configs/train_8m_50k.yaml --lr 1e-4  # Override
@@ -777,7 +723,7 @@ warmup_steps: 2500
 | 30 | Fusion Variant Ranking | ✅ COMPLETE | Task 29 | S | See Phase 3.6 Results below |
 | 30.1 | Fix Checkpoint Naming | ✅ COMPLETE | - | S | train_v4.py now uses ckpt_{MODEL}_*.pt |
 
-**Gate:** ✅ Phase 3.6 COMPLETE (2026-01-10)
+**Gate:** ✅ Phase 3.6 COMPLETE (2026-01-10) — ⚠️ Results are CHAR-LEVEL ONLY
 
 **Results Summary:**
 | Variant | Val Loss | R/M Ratio | Verdict |
@@ -1012,16 +958,16 @@ python train_v4.py --model GF-MH --data data/fineweb_5m.txt --tokenizer bpe --ma
 |---|------|--------|------------|---------|
 | 41 | Create test_tiny_graduation.py | ⬜ TODO | M | Include S0-S4 state tests + G1-G4 gates |
 | 41a | Implement state extraction API | ✅ DONE | M | GF-MH model has return_states=True |
-| 42 | Run S0-S4 state space tests | ⬜ TODO | S | Verify state machinery before capabilities |
+| 42 | Run S0-S4 state space tests | ⬜ **NEXT** | S | Verify state machinery before capabilities |
 | 43 | Run Tiny overfit test (BPE) | ⬜ TODO | S | 10-100 samples, loss → near 0 |
 | 44 | Run Tiny naive baseline test (BPE) | ⬜ TODO | S | Val loss < random prediction |
 | 45 | Run G1-G4 gates (BPE) | ⬜ TODO | M | Re-validate with BPE tokenization |
 | 46 | Checkpoint/resume test (BPE) | ⬜ TODO | S | Save + reload works |
 | 47 | Fusion variant re-ranking (BPE) | ⬜ TODO | L | 1K steps each: GF, GF-MH, HGF, HY, CP |
 | 48 | Component balance assessment | ⬜ TODO | M | Investigate 71x activation ratio |
-| 49 | Propagate state API to all models | ⬜ **NEW** | M | 7 model files need return_states |
-| 50 | Add state monitoring to train_v4.py | ⬜ **NEW** | M | Integrate return_states in training loop |
-| 51 | True Mamba SSM state extraction | ⬜ **NEW** | L | Extract [B, nheads, headdim, d_state] |
+| 49 | Propagate state API to all models | ✅ DONE | M | 7 model files need return_states |
+| 50 | Add state monitoring to train_v4.py | ✅ DONE | M | Integrate return_states in training loop |
+| 51 | True Mamba SSM state extraction | ⬜ TODO (LOW) | L | Extract [B, nheads, headdim, d_state] |
 
 **Tiny Model Graduation Criteria (per SCALING_MILESTONES.md):**
 | Test | Criteria | BPE Status |
@@ -1036,12 +982,12 @@ python train_v4.py --model GF-MH --data data/fineweb_5m.txt --tokenizer bpe --ma
 
 **Order of Operations:**
 1. ~~**Task 41a** — Implement state extraction API (BLOCKER)~~ ✅ DONE
-2. **Task 42** — Run S0-S4 state space tests
+2. **Task 42** — Run S0-S4 state space tests ⬜ **NEXT**
 3. **Tasks 43-46** — Run remaining graduation tests
 4. **Task 47** — Re-rank fusion variants with BPE
 5. **Task 48** — Deep-dive component balance investigation
-6. **Task 49** — Propagate state API to all model variants (can parallel with 42-48)
-7. **Task 50** — Add state monitoring to training loop
+6. ~~**Task 49** — Propagate state API to all model variants~~ ✅ DONE
+7. ~~**Task 50** — Add state monitoring to training loop~~ ✅ DONE
 8. **Task 51** — True Mamba SSM state (research, lower priority)
 
 **Gate:** Phase 4.0 PASS when S0-S4 pass AND all Tiny graduation criteria verified with BPE tokenization.
@@ -1269,69 +1215,30 @@ python tests/test_lrd.py --model HY --checkpoint checkpoints/ckpt_HY_step5000.pt
 
 ---
 
-#### Task 28: Quick Train Comparison
+#### ~~Task 28: Quick Train Comparison~~ ✅ COMPLETE
 
-**Status:** ⬜ PENDING  
-**Complexity:** M (Medium)  
-**Time:** ~45 min (1K steps × 5 variants)  
-**Depends On:** Task 26 (know which variants to focus on)
+**Status:** ✅ COMPLETE  
+**Completed:** 2026-01-10
 
-**Goal:** Run 1K training steps on each fusion variant, measure:
-- Final loss/PPL
-- Training speed (tok/s)
-- Gradient ratio
-- Memory usage
-
-**Config:**
-```yaml
-model: [variant]
-batch_size: 32
-seq_len: 64
-max_steps: 1000
-eval_every: 100
-```
+~~Detailed task description redacted — results in V4_FUSION_MODELS.md~~
 
 ---
 
-#### Task 29: Component Balance Tests
+#### ~~Task 29: Component Balance Tests~~ ✅ COMPLETE
 
-**Status:** ⬜ PENDING  
-**Complexity:** M (Medium)  
-**Time:** ~30 min  
-**Depends On:** Task 28
+**Status:** ✅ COMPLETE  
+**Completed:** 2026-01-10
 
-**Goal:** After 1K training, measure component balance for each variant:
-
-| Metric | Target Range | How to Measure |
-|--------|--------------|----------------|
-| Gradient ratio (Mamba/RWKV) | 0.3-3.0 | train_v4.py logs |
-| Activation variance ratio | <10x | Custom script |
-| Gate distribution | 0.3-0.7 mean | For GF/HGF variants |
-
-**Acceptance Criteria:**
-- [ ] All variants' balance metrics documented
-- [ ] Identify variants with poor balance
-- [ ] Recommend tuning for imbalanced variants
+~~Detailed task description redacted — results in V4_FUSION_MODELS.md~~
 
 ---
 
-#### Task 30: Fusion Variant Ranking
+#### ~~Task 30: Fusion Variant Ranking~~ ✅ COMPLETE
 
-**Status:** ⬜ PENDING  
-**Complexity:** S (Small)  
-**Time:** ~15 min  
-**Depends On:** Tasks 26, 28, 29
+**Status:** ✅ COMPLETE  
+**Completed:** 2026-01-10
 
-**Goal:** Create final ranking table combining all metrics:
-
-| Rank | Variant | LRD Score | Val Loss | Grad Ratio | Recommendation |
-|------|---------|-----------|----------|------------|----------------|
-| 1 | ? | ? | ? | ? | Extended training |
-| 2 | ? | ? | ? | ? | Extended training |
-| 3 | ? | ? | ? | ? | Monitor |
-| 4-5 | ? | ? | ? | ? | Deprioritize |
-
-**Output:** Update V4_FUSION_MODELS.md with ranking and recommendation.
+~~Detailed task description redacted — See Phase 3.6 Results Summary above~~
 
 ---
 

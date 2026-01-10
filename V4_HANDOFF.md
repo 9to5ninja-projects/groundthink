@@ -1,11 +1,11 @@
 # V4 Agent Handoff Document
 
 **Purpose:** Continuity snapshot (version & task status only)  
-**Current Version:** 4.11-Alpha (Phase 4.0 — BPE Re-Validation)  
-**Updated:** 2026-01-10 (End of Day)  
-**Last Agent Action:** Task 40 complete, strategic reframe — BPE is correct baseline, not a fix. Created Phase 4.0.  
+**Current Version:** 4.12-Alpha (Phase 4.0 — BPE Re-Validation)  
+**Updated:** 2026-01-10 (Session 17 — Audit)  
+**Last Agent Action:** Tasks 41a, 49, 50 complete. State extraction API implemented across all models. Training monitor added.  
 **Repository:** https://github.com/9to5ninja-projects/groundthink  
-**Git Status:** Modified (V4_STRATEGY.md, V4_HANDOFF.md updated)
+**Git Status:** Clean (commits d9853d9, dd99060, 74e7d44 pushed)
 
 ---
 
@@ -74,17 +74,19 @@ BPE did NOT fix component balance as hypothesized. R/M improved from 0.08-0.11 t
 
 | Order | # | Task | Status | Details |
 |-------|---|------|--------|---------|
-| **1a** | 41a-1 | Type A: Restructure `return_activations` | ⬜ **QUICK** | Rename to `return_states`, add gate values |
-| **1b** | 41a-2 | Type B: RWKV internal state extraction | ⬜ **RESEARCH** | Modify `_wkv_sequential()` to return state |
-| **1c** | 41a-3 | Type B: Mamba internal state extraction | ⬜ **RESEARCH** | Use `inference_params` mechanism |
-| **2** | 42 | Run S0-S4 state space tests | ⬜ TODO | Test with Type A first, then Type B |
-| **3** | 41 | Create test_tiny_graduation.py | ⬜ TODO | Include S0-S4 + G1-G4 |
-| 4 | 43 | Run Tiny overfit test (BPE) | ⬜ TODO | 10-100 samples, loss → 0 |
-| 5 | 44 | Run Tiny naive baseline (BPE) | ⬜ TODO | Val loss < random |
-| 6 | 45 | Run G1-G4 gates (BPE) | ⬜ TODO | Re-validate with BPE |
-| 7 | 46 | Checkpoint/resume test | ⬜ TODO | Save + reload works |
-| 8 | 47 | Fusion variant re-ranking | ⬜ TODO | 1K steps each with BPE |
-| 9 | 48 | Component balance investigation | ⬜ TODO | Compare Type A vs Type B variance |
+| ~~1a~~ | ~~41a-1~~ | ~~Type A: Restructure `return_activations`~~ | ✅ DONE | Merged into 41a |
+| ~~1b~~ | ~~41a-2~~ | ~~Type B: RWKV internal state extraction~~ | ✅ DONE | `_wkv_sequential()` returns state |
+| ~~1c~~ | ~~41a-3~~ | ~~Type B: Mamba internal state extraction~~ | ✅ DONE | Output proxy implemented |
+| **1** | 42 | Run S0-S4 state space tests | ⬜ **NEXT** | API ready, tests pending |
+| 2 | 41 | Create test_tiny_graduation.py | ⬜ TODO | Include S0-S4 + G1-G4 |
+| 3 | 43 | Run Tiny overfit test (BPE) | ⬜ TODO | 10-100 samples, loss → 0 |
+| 4 | 44 | Run Tiny naive baseline (BPE) | ⬜ TODO | Val loss < random |
+| 5 | 45 | Run G1-G4 gates (BPE) | ⬜ TODO | Re-validate with BPE |
+| 6 | 46 | Checkpoint/resume test | ⬜ TODO | Save + reload works |
+| 7 | 47 | Fusion variant re-ranking | ⬜ TODO | 1K steps each with BPE |
+| 8 | 48 | Component balance investigation | ⬜ TODO | Compare Type A vs Type B variance |
+| ✅ | 49 | Propagate state API to all models | ✅ DONE | All 8 model files updated |
+| ✅ | 50 | Add state monitoring to train_v4.py | ✅ DONE | `--log-states` flag added |
 
 ### Two Metrics to Track (Investigation Finding)
 
@@ -128,35 +130,29 @@ BPE did NOT fix component balance as hypothesized. R/M improved from 0.08-0.11 t
 
 ## ⚠️ FOR NEXT AGENT
 
-**Priority 1: Implement State Extraction API (Task 41a — BLOCKER)**
+~~**Priority 1: Implement State Extraction API (Task 41a — BLOCKER)**~~ ✅ **COMPLETE**
 
-The model currently has no way to return internal states. Implement:
+~~The model currently has no way to return internal states.~~ **DONE (2026-01-10).** All model files now support:
 
 ```python
-# In models/hybrid_v4_GF.py
-def forward(self, x, return_states=False):
-    # ... existing forward logic ...
-    
-    if return_states:
-        return output, {
-            'rwkv_state': rwkv_hidden,    # Internal RWKV state
-            'mamba_state': mamba_hidden,  # Internal Mamba state  
-            'gate_values': gate_output    # Fusion gate values
-        }
-    return output
+# Usage (all 8 model variants)
+logits, states = model(x, return_states=True)
+# states['rwkv_state'].shape = [B, H, S]
+# states['mamba_state'].shape = [B, hidden]
+# states['gate'] = float
 ```
 
-**Location:** [models/hybrid_v4_GF.py](models/hybrid_v4_GF.py)  
-**Impact:** Blocks ALL state monitoring (S0-S4, State Tracing, diagnostics)
+**Location:** All files in `models/` directory  
+**Impact:** ~~Blocks ALL state monitoring~~ S0-S4 tests now unblocked
 
-**Priority 2: Run S0-S4 State Space Tests (Task 42)**
+**Priority 1: Run S0-S4 State Space Tests (Task 42)** ⬜ **NEXT**
 
-Once state extraction works, verify state machinery:
+State extraction API is ready. Verify state machinery:
 ```bash
 python tests/test_tiny_graduation.py --test-states --tokenizer bpe
 ```
 
-**Priority 3: Create test_tiny_graduation.py (Task 41)**
+**Priority 2: Create test_tiny_graduation.py (Task 41)**
 
 Combine all tests:
 - S0-S4 state space fundamentals
@@ -165,7 +161,7 @@ Combine all tests:
 - Naive baseline test
 - Checkpoint/resume test
 
-**Priority 4: Investigate Component Balance (Task 48)**
+**Priority 3: Investigate Component Balance (Task 48)**
 
 The 71x activation variance ratio is concerning:
 - RWKV var=8.58, Mamba var=0.12
@@ -227,41 +223,46 @@ def forward(self, x, return_state=False):
 
 ---
 
-## 🚨 REMAINING BLOCKERS
+## 🚨 ~~REMAINING BLOCKERS~~ RESOLVED (2026-01-10)
 
-### Blocker 1: State Extraction API — CRITICAL (Task 41a)
-- **Scope Change:** Now requires BOTH Type A and Type B metrics
-- **Type A (Quick):** Rename/restructure `return_activations` → `return_states` for consistency
-- **Type B (Research):** Expose true internal states from RWKV and Mamba
-- **Location:** Multiple files (models/, fla_replacements.py, rwkv6_*.py)
-- **Status:** ⬜ **BLOCKER — INVESTIGATION COMPLETE, IMPLEMENTATION REQUIRED**
+### ~~Blocker 1: State Extraction API — CRITICAL (Task 41a)~~ ✅ COMPLETE
+~~- **Scope Change:** Now requires BOTH Type A and Type B metrics~~
+~~- **Type A (Quick):** Rename/restructure `return_activations` → `return_states` for consistency~~
+~~- **Type B (Research):** Expose true internal states from RWKV and Mamba~~
+~~- **Location:** Multiple files (models/, fla_replacements.py, rwkv6_*.py)~~
+- **Status:** ✅ **IMPLEMENTED** — All 8 model files updated, `--log-states` training flag added
 
-### Blocker 1a: RWKV Internal State Extraction
-- **Current:** `_wkv_sequential()` computes state but discards it
-- **Fix:** Return final state from `_wkv_sequential()`, propagate up through forward()
-- **CUDA Issue:** RWKV-CUDA kernel computes state internally; may need prototype fallback for state extraction
-- **Priority:** HIGH — this is the recurrent memory we're trying to validate
+### ~~Blocker 1a: RWKV Internal State Extraction~~ ✅ COMPLETE
+~~- **Current:** `_wkv_sequential()` computes state but discards it~~
+~~- **Fix:** Return final state from `_wkv_sequential()`, propagate up through forward()~~
+~~- **CUDA Issue:** RWKV-CUDA kernel computes state internally; may need prototype fallback for state extraction~~
+- **Status:** ✅ Prototype fallback implemented for state extraction when CUDA active
 
-### Blocker 1b: Mamba Internal State Extraction  
-- **Current:** Mamba2 supports state via `inference_params` but wrapper doesn't use it
-- **Fix:** Create inference_params object, pass to forward, extract ssm_state
-- **State Shape:** `[batch, nheads, headdim, d_state]`
-- **Priority:** HIGH — this is the SSM state we're trying to validate
+### ~~Blocker 1b: Mamba Internal State Extraction~~ ✅ COMPLETE (proxy)
+~~- **Current:** Mamba2 supports state via `inference_params` but wrapper doesn't use it~~
+~~- **Fix:** Create inference_params object, pass to forward, extract ssm_state~~
+- **Status:** ✅ Output proxy `[B, hidden]` implemented. True SSM state deferred to Task 51 (low priority)
 
-### Blocker 2: Component Balance (71x activation variance)
+### Blocker 2: Component Balance (71x activation variance) — OPEN
 - **Problem:** Activation variance ratio 71x between RWKV and Mamba outputs
-- **Note:** This is Type A metric. Type B metrics may show different pattern.
+- **Note:** This is Type A metric. Type B metrics now available via `return_states=True`
 - **Investigation:** Task 48 — compare Type A vs Type B variance ratios
+- **New Tool:** Use `--log-states` flag in training to monitor state norms
 
 ---
 
 ## 📁 Current Status Summary
 
 **Phase:** 4.0 BPE RE-VALIDATION  
-**Last Action:** Task 40 complete, strategic reframe, added S0-S4 state tests  
-**Next Action:** Task 41a — Implement state extraction API (BLOCKER)
+**Last Action:** Tasks 41a, 49, 50 complete — State extraction API ready  
+**Next Action:** Task 42 — Run S0-S4 state space tests
 
 **Phase 3.6-3.8 Status:** ⚠️ CHAR-LEVEL ONLY — Results unverified for production
+
+**Recent Commits:**
+- `74e7d44` — Task 50: State monitoring in training
+- `dd99060` — Task 49: Propagate state API to all models
+- `d9853d9` — Task 41a: State extraction API implementation
 
 **Checkpoint Files:**
 - `checkpoints/ckpt_GF-MH_step5000.pt` — Task 40 (BPE, 5K steps)
@@ -366,15 +367,36 @@ Each parameter scale is an **experimental regime with distinct objectives**:
 
 ## 📊 Documentation Governance (Librarian Role)
 
-**Recent Changes (This Session):**
-1. V4_STRATEGY.md — Added Phase 4.0, marked 3.6-3.8 as CHAR-LEVEL ONLY
-2. V4_HANDOFF.md — Complete rewrite with corrected framing
-3. Task 40 status — Updated from RUNNING to COMPLETE with results
+**Recent Changes (Audit Session 2026-01-10):**
+1. V4_HANDOFF.md — Redacted completed Task 41a blockers, updated priorities
+2. V4_STRATEGY.md — Marked Tasks 18.1-18.2 as COMPLETE, updated goal, cleaned Task 49-50 status
+3. Phase 4.0 task table — Updated to show 41a, 49, 50 as DONE
 
 **Core Documents (Sacred Status):**
 - SCALING_MILESTONES.md — Strategic foundation (verified still accurate)
 - V4_STRATEGY.md — Master task source (updated with Phase 4.0)
 - VALIDATION_ROADMAP.md — Execution timeline (deferred until Phase 4.0 complete)
+
+---
+
+## ✅ PRE-BASELINE CHECKLIST (per SCALING_MILESTONES.md)
+
+**Before testing baselines, verify all prerequisites are met:**
+
+| # | Requirement | Status | Reference |
+|---|-------------|--------|-----------|
+| 1 | **S0-S4 State tests ready** | ✅ API complete | [CANARY_TESTS.md](CANARY_TESTS.md#s0-s4-state-space-fundamentals-35m-only--required-first) |
+| 2 | **BPE tokenization** | ✅ Implemented | `--tokenizer bpe` flag |
+| 3 | **State extraction API** | ✅ All 8 models | `return_states=True` |
+| 4 | **Training state monitor** | ✅ Implemented | `--log-states` flag |
+| 5 | **test_tiny_graduation.py** | ⬜ TODO | Task 41 |
+| 6 | **Run S0-S4 tests** | ⬜ **NEXT** | Task 42 |
+| 7 | **Overfit test** | ⬜ Pending | Task 43 |
+| 8 | **Naive baseline test** | ⬜ Pending | Task 44 |
+| 9 | **G1-G4 gates (BPE)** | ⬜ Pending | Task 45 |
+| 10 | **Checkpoint/resume** | ⬜ Pending | Task 46 |
+
+**Order:** Complete items 5-10 before proceeding to Phase 3.9 diagnostics or scaling.
 
 ---
 
