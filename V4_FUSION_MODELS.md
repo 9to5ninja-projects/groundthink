@@ -176,40 +176,58 @@ fused = out_rwkv + alpha * out_mamba
 
 ---
 
-## Phase 3.6 Results: 1K Step Comparison (2026-01-10)
+## Complete Results: Phase 3.6 + 3.7 (2026-01-10)
 
 **Test conditions:** batch=32, seq_len=64, 1000 steps, Shakespeare char-level
 
-| Variant | Val Loss | Val PPL | R/M Ratio | Balance Status |
-|---------|----------|---------|-----------|----------------|
-| **GF-MH** | **1.59** | **4.90** | 0.10 | ⚠️ RWKV dominant |
-| **GF** | 1.61 | 5.00 | 0.12 | ⚠️ RWKV dominant |
-| **CP** | 1.61 | 4.98 | 0.19 | ⚠️ RWKV dominant |
-| **HGF** | 1.69 | 5.41 | 0.21 | ⚠️ RWKV dominant |
-| **HY** | 1.69 | 5.42 | 0.45 | ✅ Balanced |
+| Variant | Fusion Type | gate_init | Val Loss | Val PPL | R/M Ratio | Status |
+|---------|-------------|-----------|----------|---------|-----------|--------|
+| **GF-MH** | Per-position | 0.3 | **1.59** | **4.90** | 0.10 | ⚠️ Worst balance |
+| **GF** | Per-position | 0.5 | 1.61 | 5.00 | 0.12 | ⚠️ RWKV dominant |
+| **GF-RH** | Per-position | 0.7 | 1.64 | 5.14 | 0.14 | ⚠️ RWKV dominant |
+| **CP** | Projection | — | 1.61 | 4.98 | 0.19 | ⚠️ RWKV dominant |
+| **HGF** | Per-pos+dim | 0.5 | 1.69 | 5.41 | 0.21 | ⚠️ RWKV dominant |
+| **HGF-MH** | Per-pos+dim | 0.3 | 1.69 | 5.40 | 0.24 | ⚠️ Best gated balance |
+| **HGF-RH** | Per-pos+dim | 0.7 | 1.70 | 5.46 | 0.25 | ⚠️ RWKV dominant |
+| **HY** | Fixed per-dim | — | 1.69 | 5.42 | **0.45** | ✅ Best balance |
 
-**Key Findings:**
+---
 
-1. **GF-MH still wins on loss** (1.59) but has severe component imbalance (R/M=0.10)
-2. **HY has best gradient balance** (R/M=0.45) but worst loss (1.69)
-3. **All gated variants show RWKV dominance** — Mamba underutilized
-4. **Position-adaptive variants (GF, GF-MH, HGF, CP) outperform fixed blend (HY)** on pure loss
+## Key Findings (Phase 3.7 Analysis)
 
-**Tradeoff Identified:**
-- Lower loss ↔ Worse component balance
-- The fusion gate learns to rely on RWKV (smoother gradients)
-- Mamba's selective gating may need explicit encouragement
+### 1. Signal Dominance Confirmed
+ALL gated variants converge to RWKV-dominant regardless of initial gate bias.
+- GF-MH (started Mamba-heavy) → R/M 0.10 (RWKV dominant)
+- GF-RH (started RWKV-heavy) → R/M 0.14 (RWKV dominant)
+- **Root cause:** RWKV produces smoother gradients, easier to optimize
 
-**Recommendations:**
-1. For quick experiments: Use **GF-MH** (best loss)
-2. For balanced training: Use **HY** (best R/M ratio)
-3. For tuning experiments: Try **HGF with gate_init=0.3** (Mamba-heavy start)
+### 2. Per-Dimension Gating Preserves Mamba Better
+| Fusion Type | Avg R/M | Why |
+|-------------|---------|-----|
+| Per-position (GF) | 0.12 | One gate for all dims → total collapse |
+| Per-pos+dim (HGF) | 0.23 | 128 gates → some dims keep Mamba |
+| Fixed per-dim (HY) | 0.45 | Can't drift |
+
+### 3. Loss-Balance Pareto Frontier
+```
+Best Loss ←─────────────────────────────→ Best Balance
+  GF-MH (1.59, R/M 0.10) ... HGF-MH (1.69, R/M 0.24) ... HY (1.69, R/M 0.45)
+```
+
+### 4. Recommendations by Use Case
+
+| Goal | Model | Loss | R/M | Why |
+|------|-------|------|-----|-----|
+| Lowest loss | GF-MH | 1.59 | 0.10 | Best performance, accept imbalance |
+| Best balance | HY | 1.69 | 0.45 | Fixed gains can't drift |
+| Balance + adaptivity | HGF-MH | 1.69 | 0.24 | Best gated variant for balance |
+| Middle ground | CP | 1.61 | 0.19 | Good loss, moderate imbalance |
 
 ---
 
 ## The Missing Piece: HGF (Hybrid-Gated Fusion)
 
-**Proposed:** Combine HY's per-dimension control with GF's per-position adaptivity.
+**Implemented:** Combines HY's per-dimension control with GF's per-position adaptivity.
 
 ```python
 # Per-position, per-dimension gates

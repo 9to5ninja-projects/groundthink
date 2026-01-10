@@ -922,10 +922,82 @@ All gated variants converge to RWKV-dominant regardless of initial bias:
 
 **Root Cause:** RWKV produces smoother gradients that are easier to optimize. The gate "takes the path of least resistance."
 
-**Next Steps:**
-1. Add balance regularization loss term
-2. Try higher Mamba LR multiplier (1.0 vs 0.5)
-3. Or accept RWKV dominance if loss is acceptable
+---
+
+### Phase 3.7 Inferences (Data Analysis)
+
+**Complete Results Table:**
+| Model | Fusion Type | gate_init | R/M Ratio | Val Loss |
+|-------|-------------|-----------|-----------|----------|
+| GF-MH | Per-position gate | 0.3 | 0.10 | 1.59 |
+| GF | Per-position gate | 0.5 | 0.12 | 1.61 |
+| GF-RH | Per-position gate | 0.7 | 0.14 | 1.64 |
+| CP | Learned projection | — | 0.19 | 1.61 |
+| HGF | Per-pos+dim gate | 0.5 | 0.21 | 1.69 |
+| HGF-MH | Per-pos+dim gate | 0.3 | 0.24 | 1.69 |
+| HGF-RH | Per-pos+dim gate | 0.7 | 0.25 | 1.70 |
+| HY | Fixed per-dim gains | — | 0.45 | 1.69 |
+
+**Key Inferences:**
+
+1. **Per-dimension gating preserves Mamba better:**
+   - HGF variants: R/M 0.21-0.25 (~2x better than GF)
+   - GF variants: R/M 0.10-0.14 (worst balance)
+   - *Insight:* Dimension-level control prevents wholesale Mamba collapse
+
+2. **Loss and balance are inversely correlated (Pareto frontier):**
+   - Best loss (GF-MH 1.59) → Worst balance (R/M 0.10)
+   - Best balance (HY 0.45) → Higher loss (1.69)
+   - *Insight:* Can't have both without explicit intervention
+
+3. **Interpolation semantics > free projection:**
+   - HGF (33K params): R/M 0.21-0.25, constrained to [0,1] blend
+   - CP (33K params): R/M 0.19, arbitrary linear combination
+   - *Insight:* The sigmoid constraint in HGF helps balance
+
+4. **HGF is the best gated variant for balance:**
+   - HGF-MH: R/M 0.24, Loss 1.69 (same loss as HY, better than GF-MH's balance)
+   - If balance matters, HGF-MH > GF-MH
+
+**WS/RF not retested** — Phase 2 already showed too simple (loss 1.82-1.95)
+
+---
+
+### Phase 3.8: Balance Improvement Options
+
+**Objective:** Improve Mamba utilization without sacrificing loss
+
+| # | Task | Priority | Complexity | Approach |
+|---|------|----------|------------|----------|
+| 36 | Increase Mamba LR (1.0x) | 🔴 HIGH | S | Change mamba_lr_mult 0.5→1.0, retrain GF-MH |
+| 37 | Freeze gates for warmup | 🟠 MED | M | Freeze gate_proj for first 500 steps |
+| 38 | Balance regularization | 🟡 LOW | L | Add λ*(target_R/M - actual_R/M)² to loss |
+| 39 | Accept RWKV dominance | 🟢 OPTIONAL | S | Use GF-MH as-is, document trade-off |
+
+**Task 36: Increase Mamba LR (1.0x)**
+- **Rationale:** Currently using 0.5x LR for Mamba. Mamba may be underfitting.
+- **Command:** Edit train_v4.py: `mamba_lr_mult = 1.0`, then `python train_v4.py --model GF-MH --max-steps 1000`
+- **Expected:** R/M ratio should improve if Mamba is learning-rate starved
+
+**Task 37: Freeze Gates for Warmup**
+- **Rationale:** Early training may set gate bias before Mamba "warms up"
+- **Implementation:** Add `requires_grad=False` to gate_proj for steps 0-500
+- **Expected:** Gives Mamba time to develop before gate "decides"
+
+**Task 38: Balance Regularization Loss**
+- **Rationale:** Explicitly penalize R/M ratio deviation from target
+- **Implementation:**
+  ```python
+  # In training loop, after computing component outputs:
+  rwkv_var = out_rwkv.var()
+  mamba_var = out_mamba.var()
+  balance_ratio = rwkv_var / (mamba_var + 1e-8)
+  balance_loss = (balance_ratio - 1.0).pow(2)  # Target R/M = 1.0
+  total_loss = ce_loss + 0.01 * balance_loss
+  ```
+- **Expected:** Forces model to maintain balance at cost of some CE loss
+
+**Gate:** ⬜ Phase 3.8 NOT STARTED
 
 ---
 

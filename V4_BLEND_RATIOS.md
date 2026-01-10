@@ -77,57 +77,75 @@ Determine if RWKV dominance is architectural or signal-based by testing symmetri
 
 | # | Model | gate_init | Expected Start | Test Purpose |
 |---|-------|-----------|----------------|--------------|
-| 1 | GF-MH | 0.3 | 30:70 (Mamba) | ✅ Already done — baseline |
-| 2 | GF-RH | 0.7 | 70:30 (RWKV) | Does it stay RWKV-heavy? |
-| 3 | HGF | 0.5 | 50:50 | ✅ Already done — baseline |
-| 4 | HGF-MH | 0.3 | 30:70 (Mamba) | Per-dim gates + Mamba bias |
-| 5 | HGF-RH | 0.7 | 70:30 (RWKV) | Per-dim gates + RWKV bias |
-| 6 | HY | fixed 0.7:0.3 | 70:30 (RWKV) | ✅ Already done — compare to gated |
-
-### Key Question for Each Experiment
-
-After 1K steps, measure:
-1. **Final gate value** (or gain ratio for HY)
-2. **R/M gradient ratio** 
-3. **Val loss**
-
-If GF-RH (started 70:30 RWKV) drifts toward equal or Mamba-heavy → **Signal dominance**
-If GF-RH stays 70:30 RWKV → **Architectural persistence**
+| 1 | GF-MH | 0.3 | 30:70 (Mamba) | ✅ R/M 0.10 — RWKV dominant |
+| 2 | GF-RH | 0.7 | 70:30 (RWKV) | ✅ R/M 0.14 — RWKV dominant |
+| 3 | HGF | 0.5 | 50:50 | ✅ R/M 0.21 — RWKV dominant |
+| 4 | HGF-MH | 0.3 | 30:70 (Mamba) | ✅ R/M 0.24 — RWKV dominant |
+| 5 | HGF-RH | 0.7 | 70:30 (RWKV) | ✅ R/M 0.25 — RWKV dominant |
+| 6 | HY | fixed 0.7:0.3 | 70:30 (RWKV) | ✅ R/M 0.45 — best balance |
+| 7 | GF | 0.5 | 50:50 | ✅ R/M 0.12 — RWKV dominant |
+| 8 | CP | — | learned | ✅ R/M 0.19 — RWKV dominant |
 
 ---
 
-## Interpreting Results
+## Interpreting Results — SCENARIO A CONFIRMED
 
-### Scenario A: Signal Dominance (RWKV produces easier gradients)
+### Scenario A: Signal Dominance ✅ THIS IS WHAT HAPPENED
 
 ```
-GF-MH (start 30:70) → Final gate ~0.7 (learned RWKV preference)
-GF-RH (start 70:30) → Final gate ~0.7 (stayed RWKV)
+GF-MH (start 30:70 Mamba) → R/M 0.10 (RWKV dominant)
+GF-RH (start 70:30 RWKV)  → R/M 0.14 (RWKV dominant)
+HGF-MH (start 30:70 Mamba) → R/M 0.24 (RWKV dominant)
+HGF-RH (start 70:30 RWKV)  → R/M 0.25 (RWKV dominant)
 ```
+
 **Meaning:** Model naturally gravitates to RWKV regardless of init.
-**Action:** Need explicit Mamba encouragement (loss penalties, separate LRs)
-
-### Scenario B: Architectural Persistence (init matters)
-
-```
-GF-MH (start 30:70) → Final gate ~0.4 (drifted toward balance)
-GF-RH (start 70:30) → Final gate ~0.6 (drifted toward balance)
-```
-**Meaning:** Model converges to optimal blend from either direction.
-**Action:** 50/50 init is fine, balance is learned
-
-### Scenario C: Asymmetric (one direction stable)
-
-```
-GF-MH (start 30:70) → Final gate ~0.7 (RWKV won)
-GF-RH (start 70:30) → Final gate ~0.7 (RWKV stayed)
-```
-**Meaning:** RWKV "stickier" — Mamba needs head start.
-**Action:** Use Mamba-heavy init + balance loss
+**Root cause:** RWKV produces smoother gradients, easier to optimize.
 
 ---
 
-## Commands for Phase 3.7 Testing
+## Data-Driven Inferences
+
+### Inference 1: Per-Dimension Gating Preserves Mamba Better
+
+| Fusion Type | Variants | Avg R/M | Insight |
+|-------------|----------|---------|---------|
+| Per-position (GF) | GF, GF-MH, GF-RH | 0.12 | Worst balance — all dims collapse together |
+| Per-pos+dim (HGF) | HGF, HGF-MH, HGF-RH | 0.23 | ~2x better — some dims keep Mamba |
+| Fixed per-dim (HY) | HY | 0.45 | Best — can't drift |
+
+**Why?** GF applies same gate to all 128 dims. If gate→RWKV, ALL dims lose Mamba.
+HGF has 128 independent gates. Some dims can stay Mamba-heavy even if others drift.
+
+### Inference 2: Loss-Balance Pareto Frontier
+
+```
+Best Loss ←─────────────────────────────→ Best Balance
+  GF-MH (1.59, 0.10) ... CP (1.61, 0.19) ... HGF (1.69, 0.21) ... HY (1.69, 0.45)
+```
+
+You CAN'T have both without explicit intervention. Choose:
+- **GF-MH**: Best loss, sacrifice balance
+- **HY**: Best balance, accept higher loss
+- **HGF-MH**: Middle ground (1.69 loss, 0.24 balance)
+
+### Inference 3: Interpolation Semantics Help
+
+| Model | Fusion Params | Constraint | R/M |
+|-------|---------------|------------|-----|
+| CP | 33K | None (free linear) | 0.19 |
+| HGF | 33K | Sigmoid [0,1] | 0.21-0.25 |
+
+Same param count, but HGF's sigmoid constraint forces blend semantics.
+CP can learn to "cancel out" Mamba entirely. HGF can only blend.
+
+### Inference 4: HGF-MH is Best Gated Variant for Balance
+
+If you want gated fusion AND reasonable balance:
+- **HGF-MH**: R/M 0.24, Loss 1.69 ← RECOMMENDED
+- GF-MH: R/M 0.10, Loss 1.59 (better loss, worse balance)
+
+HGF-MH has same loss as HY but is position-adaptive.
 
 ```bash
 # Activate environment
