@@ -978,3 +978,140 @@ CONFIG = {
 **Key Achievement:** 6.1x throughput improvement (27K → 166K tok/s)
 
 ---
+
+## Build Session 11: 2026-01-10
+
+### Tasks 18.1-18.2: Model Registry & Config System
+
+**Objective:** Eliminate tedious manual edits when switching models/configs.
+
+---
+
+#### 11.1: Problem Statement
+
+**Before (Tasks 18.1-18.2):**
+```python
+# train_v4.py - HAD TO EDIT THIS EVERY TIME
+from hybrid_v4_8m import create_hybrid_8m as create_model  # Manual edit!
+
+CONFIG = {
+    'max_steps': 50000,  # Scattered in code!
+    'batch_size': 32,
+    ...
+}
+```
+
+**Issues:**
+- Switching models = edit imports in train_v4.py
+- Config values scattered throughout file
+- Error-prone, especially for new agents
+- No single source of truth
+
+---
+
+#### 11.2: Solution - Model Registry
+
+**Created:** `models/__init__.py`
+
+```python
+REGISTRY = {
+    '1M': ('hybrid_v4', 'create_hybrid_1m'),
+    '5M': ('hybrid_v4', 'create_hybrid_5m'),
+    'HY': ('hybrid_v4', 'create_hybrid_5m'),
+    'GF': ('hybrid_v4_GF', 'create_hybrid_GF'),
+    'WS': ('hybrid_v4_WS', 'create_hybrid_WS'),
+    'RF': ('hybrid_v4_RF', 'create_hybrid_RF'),
+    'CP': ('hybrid_v4_CP', 'create_hybrid_CP'),
+    'GF-RH': ('hybrid_v4_ratio', 'create_hybrid_GF_RH'),
+    'GF-MH': ('hybrid_v4_ratio', 'create_hybrid_GF_MH'),
+    '8M': ('hybrid_v4_8m', 'create_hybrid_8m'),
+}
+
+def get_model(name: str, vocab_size: int):
+    """Factory function - lazy loads models on demand."""
+```
+
+**Key Design:**
+- Lazy loading via `importlib` (only loads requested model)
+- `list_models()` for discoverability
+- Single point of registration for all variants
+
+---
+
+#### 11.3: Solution - Config System
+
+**Created:** `configs/` directory with YAML files:
+
+| File | Purpose |
+|------|---------|
+| `train_8m_50k.yaml` | Extended 50K training for 8M model |
+| `train_quick.yaml` | Quick test (200 steps, 5M model) |
+| `train_default.yaml` | Default 5K step baseline |
+
+**Added to train_v4.py:**
+```python
+def load_config(config_path: str) -> dict:
+    """Load YAML config, merge with defaults, apply CLI overrides."""
+```
+
+**Config Priority (highest to lowest):**
+1. CLI arguments (`--max-steps 100`)
+2. YAML config file (`--config configs/train_8m_50k.yaml`)
+3. DEFAULT_CONFIG in train_v4.py
+
+---
+
+#### 11.4: Validation
+
+**Test 1 - Registry works:**
+```
+$ python -c "from models import get_model, list_models; print(list_models())"
+['1M', '5M', 'HY', 'GF', 'WS', 'RF', 'CP', 'GF-RH', 'GF-MH', '8M']
+```
+
+**Test 2 - Config loading:**
+```
+$ python train_v4.py --config configs/train_8m_50k.yaml 2>&1 | head -10
+Device: cuda
+Loaded config from configs/train_8m_50k.yaml
+=== GroundThink Training ===
+Model: 8M
+Steps: 50000, Batch: 32, LR: 0.0003
+```
+
+**Test 3 - CLI overrides:**
+```
+$ python train_v4.py --config configs/train_8m_50k.yaml --max-steps 100 --lr 0.001
+Steps: 100, Batch: 32, LR: 0.001  # Overrides applied!
+```
+
+---
+
+#### 11.5: Files Created/Modified
+
+**New Files:**
+- `models/__init__.py` - Model registry with 10 variants
+- `configs/train_8m_50k.yaml` - 50K step config
+- `configs/train_quick.yaml` - Quick test config
+- `configs/train_default.yaml` - Default config
+
+**Modified:**
+- `train_v4.py` - Added `--model`, `--config`, `--max-steps`, `--batch-size`, `--lr`, `--resume` args
+- `V4_TRAINING_GUIDE.md` - Added Model Registry & Config System section
+
+---
+
+## Tasks 18.1-18.2 Status: ✅ COMPLETE
+
+**Deliverables:**
+- ✓ 18.1: Model Registry (`models/__init__.py`, `--model` CLI arg)
+- ✓ 18.2: Config System (YAML files, `--config` CLI arg, priority system)
+- ✓ Documentation updated (V4_TRAINING_GUIDE.md)
+- ✓ All tests passing
+
+**Key Achievement:** No more manual import edits. Training any model is now:
+```bash
+python train_v4.py --model 8M --config configs/train_8m_50k.yaml
+```
+
+---
