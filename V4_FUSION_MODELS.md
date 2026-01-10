@@ -377,6 +377,37 @@ R/M:    0.7-1.2    0.4-0.6    0.2-0.3    0.10-0.25
 
 ---
 
+### Observation 9: V3-Compliant Warmup Scheduler (Phase 3.8)
+
+**Background:** V3 archive research revealed our warmup was non-compliant:
+- V3 guideline: 5-10% of total training steps
+- Our config: Fixed 500 steps (50% for 1K runs — grossly excessive)
+
+**Change Made:** `warmup_steps: 500` → `warmup_ratio: 0.1` (10% of max_steps)
+
+| Config | Warmup | Val Loss | R/M Range | Activation Variance |
+|--------|--------|----------|-----------|---------------------|
+| Previous | 500 steps (50%) | 1.59 | 0.10 | ~100x |
+| V3-Compliant | 100 steps (10%) | **1.578** | 0.08-0.11 | ~80x |
+
+**Detailed Metrics (1K step run):**
+- Final train loss: 1.555
+- Final val loss: 1.578 (PPL 4.85)
+- R/M gradient ratio: 0.08-0.13 (fluctuates, mostly ~0.10)
+- Activation variance ratio: 65-110x (RWKV var ~10-13, Mamba var ~0.12)
+- Training speed: 9.02 steps/s, 18480 tok/s
+- VRAM: 646 MB
+
+**Inferences:**
+1. **Marginal loss improvement** (1.59→1.578): Faster warmup slightly beneficial
+2. **R/M ratio unchanged** (~0.10): Confirms imbalance is NOT scheduler-related
+3. **Activation variance still high** (80x): Mamba consistently under-contributing
+4. **Pattern holds through training**: R/M starts at 0.32 (step 50), drops to ~0.10 by step 200, stable thereafter
+
+**Conclusion:** Scheduler warmup duration does not affect component balance. The RWKV dominance is **architectural/gradient-based**, not a hyperparameter tuning problem. Task 37 (per-group warmup schedules) may still be worth exploring but unlikely to fix the fundamental imbalance.
+
+---
+
 ### Summary Table: Fusion Variant Characteristics
 
 | Variant | Loss | R/M | Position-Adapt | Dim-Adapt | Params | Best For |
