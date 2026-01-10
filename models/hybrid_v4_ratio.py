@@ -106,12 +106,31 @@ class ParallelHybridBlock_GF_Ratio(nn.Module):
             nn.Linear(ffn_hidden, hidden_size, bias=False),
         )
     
-    def forward(self, x: torch.Tensor, return_activations: bool = False, rwkv_drop_prob: float = 0.0):
+    def forward(self, x: torch.Tensor, return_activations: bool = False, 
+                return_states: bool = False, rwkv_drop_prob: float = 0.0):
+        """
+        Forward pass through hybrid block.
+        
+        Args:
+            x: Input tensor [B, T, hidden_size]
+            return_activations: If True, return component outputs (Type A metrics)
+            return_states: If True, return internal states (Type B metrics for S0-S4)
+            rwkv_drop_prob: Probability of dropping RWKV during training
+            
+        Returns:
+            If return_activations=False and return_states=False: output tensor
+            If return_activations=True: (output, activations_dict)
+            If return_states=True: (output, states_dict)
+        """
         norm_x = self.ln(x)
         
-        # PARALLEL pathways
-        out_rwkv, _, _ = self.rwkv6(norm_x)
-        out_mamba = self.mamba2(norm_x)
+        # PARALLEL pathways with optional state extraction
+        if return_states:
+            out_rwkv, _, rwkv_state_dict = self.rwkv6(norm_x, return_state=True)
+            out_mamba, mamba_state_dict = self.mamba2(norm_x, return_state=True)
+        else:
+            out_rwkv, _, _ = self.rwkv6(norm_x)
+            out_mamba = self.mamba2(norm_x)
         
         # RWKV Dropout: During training, randomly suppress RWKV to force Mamba learning
         if self.training and rwkv_drop_prob > 0.0:
@@ -125,6 +144,14 @@ class ParallelHybridBlock_GF_Ratio(nn.Module):
         
         x = x + fused
         x = x + self.ffn(self.ffn_ln(x))
+        
+        if return_states:
+            states = {
+                'rwkv_state': rwkv_state_dict.get('rwkv_state') if rwkv_state_dict else None,
+                'mamba_state': mamba_state_dict.get('mamba_state') if mamba_state_dict else None,
+                'gate': gate.mean().item(),
+            }
+            return x, states
         
         if return_activations:
             return x, {'rwkv': out_rwkv, 'mamba': out_mamba, 'gate': gate.mean().item()}
@@ -182,13 +209,32 @@ class HybridModel_GF_Ratio(nn.Module):
             elif isinstance(module, nn.Embedding):
                 nn.init.normal_(module.weight, mean=0.0, std=0.02)
     
-    def forward(self, x: torch.Tensor, return_activations: bool = False, rwkv_drop_prob: float = 0.0):
+    def forward(self, x: torch.Tensor, return_activations: bool = False, 
+                return_states: bool = False, rwkv_drop_prob: float = 0.0):
+        """
+        Forward pass through hybrid model.
+        
+        Args:
+            x: Input token IDs [B, T]
+            return_activations: If True, return component outputs (Type A metrics)
+            return_states: If True, return internal states (Type B metrics for S0-S4)
+            rwkv_drop_prob: Probability of dropping RWKV during training
+            
+        Returns:
+            If return_activations=False and return_states=False: logits tensor
+            If return_activations=True: (logits, list of activation dicts per layer)
+            If return_states=True: (logits, states_dict) with aggregated states from last layer
+        """
         h = self.embed(x)
         
         all_activations = [] if return_activations else None
+        all_states = [] if return_states else None
         
         for block in self.blocks:
-            if return_activations:
+            if return_states:
+                h, states = block(h, return_states=True, rwkv_drop_prob=rwkv_drop_prob)
+                all_states.append(states)
+            elif return_activations:
                 h, acts = block(h, return_activations=True, rwkv_drop_prob=rwkv_drop_prob)
                 all_activations.append(acts)
             else:
@@ -196,6 +242,11 @@ class HybridModel_GF_Ratio(nn.Module):
         
         h = self.ln_out(h)
         logits = self.head(h)
+        
+        if return_states:
+            # Aggregate states from last layer (S0-S4 tests use this)
+            last_states = all_states[-1] if all_states else {}
+            return logits, last_states
         
         if return_activations:
             return logits, all_activations

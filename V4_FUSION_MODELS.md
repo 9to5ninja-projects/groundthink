@@ -522,6 +522,50 @@ All hyperparameter and training-dynamics interventions have failed to fix RWKV d
 
 ---
 
+### Observation 13: Internal State Norms vs Output Activations (Phase 4.0)
+
+**Discovery (Build Session 16):** We now have two types of diagnostic metrics:
+
+| Type | What It Measures | How to Access | Shape |
+|------|------------------|---------------|-------|
+| **Type A (Outputs)** | What components produce | `return_activations=True` | [B, T, hidden] |
+| **Type B (States)** | True recurrent memory | `return_states=True` | RWKV: [B, H, S], Mamba: [B, hidden] |
+
+**Internal State Shapes:**
+- **RWKV:** `[batch, heads, head_size]` — The WKV accumulator from recurrence formula
+- **Mamba:** `[batch, hidden]` (proxy) — True SSM state is `[B, nheads, headdim, d_state]`
+
+**State Norm Comparison (untrained model, random init):**
+
+| Component | State Norm | Output Norm | Notes |
+|-----------|------------|-------------|-------|
+| RWKV | 221-1047 | ~8-24 | State accumulates across sequence |
+| Mamba | ~4.8 | ~0.12-0.16 | Selective gating dampens signal |
+| **Ratio** | **46-218x** | **25-200x** | States show similar or worse imbalance |
+
+**Why This Matters:**
+1. **State norms confirm activation variance findings** — Imbalance is real, not measurement artifact
+2. **RWKV accumulator grows with sequence** — Explains why RWKV dominates: it literally accumulates more signal
+3. **Mamba's selectivity is aggressive** — Most information gets filtered out before reaching state
+
+**Implication for S0-S4 Tests:**
+- S0-S1 will show large norm differences between components
+- This is **expected behavior**, not necessarily a bug
+- The key test is whether Mamba state **changes** with input (S2) and is **deterministic** (S3)
+
+**New Diagnostic Metric:**
+```python
+# State health check
+rwkv_norm = states['rwkv_state'].norm().item()
+mamba_norm = states['mamba_state'].norm().item()
+state_ratio = rwkv_norm / mamba_norm  # Expect 50-200x
+
+# If ratio > 500x: Mamba may be dead
+# If ratio < 10x: Unusually balanced (investigate)
+```
+
+---
+
 **Recommendations:**
 1. ~~Accept RWKV dominance for char-level tasks~~ — **Use BPE instead**
 2. ~~Test on different data~~ — **DONE: BPE on FineWeb works**

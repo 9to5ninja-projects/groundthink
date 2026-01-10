@@ -85,16 +85,19 @@ class RWKV6Attention_Prototype(nn.Module):
         nn.init.orthogonal_(self.ffn_key.weight, gain=1.0)
         nn.init.orthogonal_(self.ffn_value.weight, gain=1.0)
         
-    def forward(self, x, state=None):
+    def forward(self, x, state=None, return_state=False):
         """
         Forward pass through RWKV-6 time-mixing block.
         
         Args:
             x: Input tensor [batch, seq_len, hidden_size]
             state: Optional recurrent state (not used in this prototype)
+            return_state: If True, return internal recurrent state for state extraction
             
         Returns:
-            Tuple of (output, None, None) - matches expected interface
+            If return_state=False: Tuple of (output, None, None) - matches expected interface
+            If return_state=True: Tuple of (output, None, state_dict) where state_dict contains
+                                  'rwkv_state' with shape [B, H, S]
         """
         B, T, C = x.shape
         H, S = self.n_head, self.head_size
@@ -110,7 +113,7 @@ class RWKV6Attention_Prototype(nn.Module):
         
         # RWKV recurrence computation (pure PyTorch, non-optimized)
         # This is the core WKV kernel in sequential form
-        wkv = self._wkv_sequential(k, v)  # [B, H, T, S]
+        wkv, final_state = self._wkv_sequential(k, v)  # [B, H, T, S], [B, H, S]
         
         # Apply receptance gating and output projection
         # receptance acts as a learned gate (sigmoid applied)
@@ -126,6 +129,11 @@ class RWKV6Attention_Prototype(nn.Module):
         # Squared ReLU is an RWKV design choice for channel mixing
         ffn_out = self.ffn_value(F.relu(self.ffn_key(x_ln)) ** 2)
         x = x + ffn_out
+        
+        if return_state:
+            # Return state dict for S0-S4 tests
+            state_dict = {'rwkv_state': final_state}  # [B, H, S]
+            return x, None, state_dict
         
         return x, None, None  # Match expected tuple format
     
@@ -146,6 +154,7 @@ class RWKV6Attention_Prototype(nn.Module):
             
         Returns:
             wkv: Weighted key-value output [B, H, T, S]
+            final_state: Final recurrent state [B, H, S] for state extraction
         """
         B, H, T, S = k.shape
         device = k.device
@@ -181,7 +190,8 @@ class RWKV6Attention_Prototype(nn.Module):
                 state = time_decay * state + wt * vt
                 wkv[:, :, t] = state
         
-        return wkv.to(dtype)
+        # Return both output and final state for state extraction
+        return wkv.to(dtype), state.to(dtype)
 
 
 # Alias for compatibility with hybrid_v4.py import expectations

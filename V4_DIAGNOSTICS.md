@@ -115,6 +115,35 @@ Instead:
 
 ## Diagnostic Implementation
 
+### State Extraction API (Implemented — Build Session 16)
+
+The model now supports `return_states=True` for internal state extraction:
+
+```python
+from models.hybrid_v4_ratio import create_hybrid_GF_MH_5m
+
+model = create_hybrid_GF_MH_5m(vocab_size=16000).cuda()
+x = torch.randint(0, 16000, (2, 64)).cuda()
+
+# Type B: Internal States (for S0-S4 tests)
+logits, states = model(x, return_states=True)
+print(states['rwkv_state'].shape)   # [2, 4, 32] = [B, H, S]
+print(states['mamba_state'].shape)  # [2, 128] = [B, hidden]
+print(states['gate'])               # ~0.3 for GF-MH
+
+# Type A: Output Activations (component outputs)
+logits, activations = model(x, return_activations=True)
+# activations is list of per-layer dicts with 'rwkv', 'mamba', 'gate' keys
+```
+
+**State Shapes:**
+| Component | Internal State | Output Activation | Notes |
+|-----------|----------------|-------------------|-------|
+| RWKV | `[B, H, S]` | `[B, T, hidden]` | H=heads, S=head_size |
+| Mamba | `[B, hidden]` (proxy) | `[B, T, hidden]` | True SSM: `[B, nheads, headdim, d_state]` |
+
+### Conceptual DiagnosticWrapper (For Future Implementation)
+
 ```python
 class DiagnosticWrapper(nn.Module):
     def __init__(self, model):
@@ -124,8 +153,8 @@ class DiagnosticWrapper(nn.Module):
         self.gradient_norms = []
 
     def forward(self, x):
-        output, state = self.model(x)
-        entropy = self.compute_entropy(state)
+        output, state = self.model(x, return_states=True)
+        entropy = self.compute_entropy(state['rwkv_state'])
         self.state_entropy_history.append(entropy)
         return output
 

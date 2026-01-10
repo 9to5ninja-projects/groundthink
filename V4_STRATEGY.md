@@ -1011,7 +1011,7 @@ python train_v4.py --model GF-MH --data data/fineweb_5m.txt --tokenizer bpe --ma
 | # | Task | Status | Complexity | Details |
 |---|------|--------|------------|---------|
 | 41 | Create test_tiny_graduation.py | ⬜ TODO | M | Include S0-S4 state tests + G1-G4 gates |
-| 41a | Implement state extraction API | ⬜ **BLOCKER** | M | Add return_states to model forward() |
+| 41a | Implement state extraction API | ✅ DONE | M | GF-MH model has return_states=True |
 | 42 | Run S0-S4 state space tests | ⬜ TODO | S | Verify state machinery before capabilities |
 | 43 | Run Tiny overfit test (BPE) | ⬜ TODO | S | 10-100 samples, loss → near 0 |
 | 44 | Run Tiny naive baseline test (BPE) | ⬜ TODO | S | Val loss < random prediction |
@@ -1019,11 +1019,14 @@ python train_v4.py --model GF-MH --data data/fineweb_5m.txt --tokenizer bpe --ma
 | 46 | Checkpoint/resume test (BPE) | ⬜ TODO | S | Save + reload works |
 | 47 | Fusion variant re-ranking (BPE) | ⬜ TODO | L | 1K steps each: GF, GF-MH, HGF, HY, CP |
 | 48 | Component balance assessment | ⬜ TODO | M | Investigate 71x activation ratio |
+| 49 | Propagate state API to all models | ⬜ **NEW** | M | 7 model files need return_states |
+| 50 | Add state monitoring to train_v4.py | ⬜ **NEW** | M | Integrate return_states in training loop |
+| 51 | True Mamba SSM state extraction | ⬜ **NEW** | L | Extract [B, nheads, headdim, d_state] |
 
 **Tiny Model Graduation Criteria (per SCALING_MILESTONES.md):**
 | Test | Criteria | BPE Status |
 |------|----------|------------|
-| **S0-S4 state tests** | State machinery verified | ❓ **Not tested (API missing)** |
+| **S0-S4 state tests** | State machinery verified | ⏳ **API ready, tests pending** |
 | Overfit 10-100 samples | Loss → near 0 | ❓ Not tested |
 | Val < naive baseline | Better than random | ❓ Not tested |
 | G1-G4 gates pass | Per V4_TESTING.md | ❓ Not tested with BPE |
@@ -1032,15 +1035,159 @@ python train_v4.py --model GF-MH --data data/fineweb_5m.txt --tokenizer bpe --ma
 | Component balance documented | Ratio and variance recorded | ⚠️ 71x variance (severe) |
 
 **Order of Operations:**
-1. **Task 41a** — Implement state extraction API (BLOCKER)
+1. ~~**Task 41a** — Implement state extraction API (BLOCKER)~~ ✅ DONE
 2. **Task 42** — Run S0-S4 state space tests
 3. **Tasks 43-46** — Run remaining graduation tests
 4. **Task 47** — Re-rank fusion variants with BPE
 5. **Task 48** — Deep-dive component balance investigation
+6. **Task 49** — Propagate state API to all model variants (can parallel with 42-48)
+7. **Task 50** — Add state monitoring to training loop
+8. **Task 51** — True Mamba SSM state (research, lower priority)
 
 **Gate:** Phase 4.0 PASS when S0-S4 pass AND all Tiny graduation criteria verified with BPE tokenization.
 
 **Next Phase:** If Phase 4.0 PASS → Continue to Phase 3.9 diagnostics with BPE. If FAIL → Debug architecture at 3.5M before scaling.
+
+---
+
+#### Task 41a: State Extraction API
+
+**Status:** ✅ COMPLETE (2026-01-10, Build Session 16)  
+**Complexity:** M (Medium)  
+**Time:** ~2 hours  
+
+**Purpose:** Enable S0-S4 state tests by exposing internal states through model forward().
+
+**Implementation:**
+- RWKV: Modified `_wkv_sequential()` to return final state `[B, H, S]`
+- Mamba: Returns output activation proxy `[B, hidden]` (true SSM state deferred)
+- Model: Added `return_states=True` parameter to forward()
+
+**API:**
+```python
+logits, states = model(x, return_states=True)
+# states['rwkv_state'].shape = [batch, heads, head_size]
+# states['mamba_state'].shape = [batch, hidden_size]  
+# states['gate'] = float (avg gate value)
+```
+
+**Files Modified:** rwkv6_prototype.py, fla_replacements.py, models/hybrid_v4_ratio.py
+
+**Limitation:** Only GF-MH model modified. Task 49 propagates to all variants.
+
+---
+
+#### Task 49: Propagate State API to All Models
+
+**Status:** ⬜ TODO  
+**Complexity:** M (Medium)  
+**Time:** ~2 hours  
+**Dependencies:** Task 41a ✅
+
+**Purpose:** All model variants need the same `return_states` API for uniform testing.
+
+**Files to Modify:**
+
+| File | Model(s) | Block Class |
+|------|----------|-------------|
+| `models/hybrid_v4.py` | HY, TINY, SMALL | `ParallelHybridBlock` |
+| `models/hybrid_v4_GF.py` | GF | `ParallelHybridBlock_GF` |
+| `models/hybrid_v4_WS.py` | WS | `ParallelHybridBlock_WS` |
+| `models/hybrid_v4_RF.py` | RF | `ParallelHybridBlock_RF` |
+| `models/hybrid_v4_CP.py` | CP | `ParallelHybridBlock_CP` |
+| `models/hybrid_v4_HGF.py` | HGF, HGF-MH, HGF-RH | `ParallelHybridBlock_HGF` |
+| `models/hybrid_v4_8m.py` | MEDIUM | (check block class) |
+
+**Pattern to Apply:**
+```python
+# In each block's forward():
+def forward(self, x, return_activations=False, return_states=False, ...):
+    if return_states:
+        out_rwkv, _, rwkv_state_dict = self.rwkv6(norm_x, return_state=True)
+        out_mamba, mamba_state_dict = self.mamba2(norm_x, return_state=True)
+    else:
+        out_rwkv, _, _ = self.rwkv6(norm_x)
+        out_mamba = self.mamba2(norm_x)
+    ...
+    if return_states:
+        return x, {'rwkv_state': ..., 'mamba_state': ..., 'gate': ...}
+
+# In each model's forward():
+def forward(self, x, return_activations=False, return_states=False, ...):
+    if return_states:
+        for block in self.blocks:
+            h, states = block(h, return_states=True, ...)
+            all_states.append(states)
+        return logits, all_states[-1]
+```
+
+---
+
+#### Task 50: State Monitoring in Training
+
+**Status:** ⬜ TODO  
+**Complexity:** M (Medium)  
+**Time:** ~1.5 hours  
+**Dependencies:** Task 41a ✅
+
+**Purpose:** Add state monitoring alongside activation monitoring in train_v4.py.
+
+**Current State:** `get_activation_diagnostics()` uses `return_activations=True`
+
+**Changes Needed:**
+
+1. Add `get_state_diagnostics()` function:
+```python
+@torch.no_grad()
+def get_state_diagnostics(model, x):
+    """Capture internal states for S0-S4 style monitoring."""
+    model.eval()
+    logits, states = model(x, return_states=True)
+    
+    diagnostics = {
+        'rwkv_state_norm': states['rwkv_state'].norm().item() if states.get('rwkv_state') is not None else None,
+        'mamba_state_norm': states['mamba_state'].norm().item() if states.get('mamba_state') is not None else None,
+        'state_ratio': ...,  # rwkv_norm / mamba_norm
+        'gate': states.get('gate', 0.5),
+    }
+    model.train()
+    return diagnostics
+```
+
+2. Add periodic state logging in training loop (every eval_interval)
+
+3. Add CLI flag `--log-states` to enable state monitoring
+
+**Output Format:**
+```
+Step 500 | loss=1.59 | R/M=0.23 | rwkv_state_norm=221.3 | mamba_state_norm=4.8 | ratio=46.1x
+```
+
+---
+
+#### Task 51: True Mamba SSM State Extraction
+
+**Status:** ⬜ TODO (RESEARCH)  
+**Complexity:** L (Large)  
+**Time:** ~4-8 hours  
+**Dependencies:** Task 41a ✅
+**Priority:** Low (output proxy works for diagnostics)
+
+**Purpose:** Extract true Mamba SSM internal state `[B, nheads, headdim, d_state]` instead of output proxy.
+
+**Current Limitation:** Mamba2 forward() only returns states via `inference_params` mechanism designed for generation.
+
+**Research Needed:**
+1. Study `mamba_chunk_scan_combined` with `return_final_states=True`
+2. Understand `inference_params.key_value_memory_dict` structure
+3. Determine if training-time state extraction is possible without perf impact
+
+**Implementation Options:**
+- A: Modify `mamba_chunk_scan_combined` call in Mamba2.forward()
+- B: Create separate state extraction method (slower, for diagnostics only)
+- C: Accept output proxy as "good enough" for validation
+
+**Decision:** Defer until Tasks 42-48 complete. Output proxy may be sufficient.
 
 ---
 

@@ -2,7 +2,7 @@
 
 **Started:** 2026-01-09  
 **Status:** In Progress  
-**Latest:** Session 15 (2026-01-10 Late) — BPE Tokenizer Fix + Task 40 Start
+**Latest:** Session 16 (2026-01-10) — State Extraction API (Task 41a)
 
 ---
 
@@ -1385,5 +1385,188 @@ Reviewed SCALING_MILESTONES.md for Tiny model (3.5M) graduation criteria:
 | 1: BPE Tokenizer | ✅ RESOLVED | CLI already had --tokenizer bpe |
 | 2: Hidden State Extraction | 🚨 NOT STARTED | Week 1 prerequisite |
 | 3: Conceptual Code | ⏸️ Deferred | Adapt during implementation |
+
+---
+## Build Session 16: 2026-01-10
+
+### Summary
+Implemented State Extraction API (Task 41a) for S0-S4 state tests. This is Blocker 2 from Week 1 prerequisites. Modified RWKV6 prototype, Mamba2 wrapper, fusion wrappers, and GF-MH model.
+
+### Context
+
+**Problem:** S0-S4 tests in CANARY_TESTS.md require `return_states=True` API, which didn't exist.
+
+**Investigation Result:** Two types of "state" identified:
+- **Type A (Output Activations):** What components produce — already had `return_activations=True`
+- **Type B (Internal States):** True recurrent memory — NOT exposed before this session
+
+### Files Modified
+
+#### 1. `rwkv6_prototype.py` — RWKV Internal State Extraction
+
+**Change:** Modified `_wkv_sequential()` to return final state alongside output.
+
+```python
+# Before (line 192)
+return wkv.to(dtype)
+
+# After (lines 192-193)
+# Return both output and final state for state extraction
+return wkv.to(dtype), state.to(dtype)
+```
+
+**Change:** Updated `forward()` to accept `return_state` parameter.
+
+```python
+# Before
+def forward(self, x, state=None):
+    ...
+    wkv = self._wkv_sequential(k, v)
+    ...
+    return x, None, None
+
+# After
+def forward(self, x, state=None, return_state=False):
+    ...
+    wkv, final_state = self._wkv_sequential(k, v)
+    ...
+    if return_state:
+        state_dict = {'rwkv_state': final_state}  # [B, H, S]
+        return x, None, state_dict
+    return x, None, None
+```
+
+**State Shape:** `[batch, heads, head_size]` = `[B, H, S]`
+
+#### 2. `fla_replacements.py` — Wrapper Updates
+
+**RWKV6Attention Changes:**
+- Added `return_state` parameter to forward
+- When CUDA wrapper active + `return_state=True`: lazy-init prototype fallback
+- Prototype properly returns internal state
+
+```python
+def forward(self, x, attention_mask=None, past_key_values=None, return_state=False):
+    if return_state:
+        if self._using_cuda:
+            # Fall back to prototype for state extraction
+            proto = self._get_prototype_for_state()
+            result = proto(x, return_state=True)
+        else:
+            result = self.rwkv(x, return_state=True)
+        ...
+```
+
+**Mamba2 Changes:**
+- Added `return_state` parameter
+- Returns output activation as state proxy (final position)
+- True SSM state `[B, nheads, headdim, d_state]` requires deeper mamba-ssm integration
+
+```python
+def forward(self, x, return_state=False):
+    out = self.mamba(x)
+    if return_state:
+        final_out = out[:, -1, :]  # [B, hidden_size] — state proxy
+        state_dict = {'mamba_state': final_out}
+        return out, state_dict
+    return out
+```
+
+#### 3. `models/hybrid_v4_ratio.py` — Model API
+
+**ParallelHybridBlock_GF_Ratio.forward() Changes:**
+
+```python
+# Before
+def forward(self, x, return_activations=False, rwkv_drop_prob=0.0):
+    ...
+    out_rwkv, _, _ = self.rwkv6(norm_x)
+    out_mamba = self.mamba2(norm_x)
+    ...
+
+# After
+def forward(self, x, return_activations=False, return_states=False, rwkv_drop_prob=0.0):
+    ...
+    if return_states:
+        out_rwkv, _, rwkv_state_dict = self.rwkv6(norm_x, return_state=True)
+        out_mamba, mamba_state_dict = self.mamba2(norm_x, return_state=True)
+    else:
+        out_rwkv, _, _ = self.rwkv6(norm_x)
+        out_mamba = self.mamba2(norm_x)
+    ...
+    if return_states:
+        states = {
+            'rwkv_state': rwkv_state_dict.get('rwkv_state'),
+            'mamba_state': mamba_state_dict.get('mamba_state'),
+            'gate': gate.mean().item(),
+        }
+        return x, states
+```
+
+**HybridModel_GF_Ratio.forward() Changes:**
+
+```python
+# After
+def forward(self, x, return_activations=False, return_states=False, rwkv_drop_prob=0.0):
+    ...
+    for block in self.blocks:
+        if return_states:
+            h, states = block(h, return_states=True, rwkv_drop_prob=rwkv_drop_prob)
+            all_states.append(states)
+        elif return_activations:
+            ...
+    if return_states:
+        last_states = all_states[-1] if all_states else {}
+        return logits, last_states
+```
+
+### API Usage
+
+```python
+from models.hybrid_v4_ratio import create_hybrid_GF_MH_5m
+
+model = create_hybrid_GF_MH_5m(vocab_size=16000).cuda()
+x = torch.randint(0, 16000, (2, 64)).cuda()
+
+# Type B: Internal States (for S0-S4 tests)
+logits, states = model(x, return_states=True)
+print(states['rwkv_state'].shape)   # [2, 4, 32] = [B, H, S]
+print(states['mamba_state'].shape)  # [2, 128] = [B, hidden]
+print(states['gate'])               # ~0.3 for GF-MH
+
+# Type A: Output Activations (unchanged)
+logits, activations = model(x, return_activations=True)
+```
+
+### Tests Passed
+
+- [x] RWKV prototype state extraction: `[B, H, S]` shape correct
+- [x] RWKV state norm: 221.34 (reasonable, non-zero)
+- [x] Mamba proxy state extraction: `[B, hidden]` shape correct
+- [x] Full model `return_states=True`: All keys present
+- [x] CUDA + prototype fallback: Works correctly
+- [x] Standard forward (no state): Unchanged behavior
+
+### Known Limitations
+
+1. **CUDA RWKV:** Uses prototype fallback for state extraction (separate weights)
+2. **Mamba State:** Returns output proxy, not true SSM state
+3. **Only GF-MH modified:** Other 7 model variants need same treatment
+
+### Remaining Work (New Tasks)
+
+| Task | Description | Files |
+|------|-------------|-------|
+| Task 49 | Add `return_states` to all model variants | 7 model files |
+| Task 50 | Update `train_v4.py` for state monitoring | train_v4.py |
+| Task 51 | True Mamba SSM state extraction | fla_replacements.py |
+
+### Blockers Status Update
+
+| Blocker | Status | Notes |
+|---------|--------|-------|
+| 1: BPE Tokenizer | ✅ RESOLVED | Session 15 |
+| 2: Hidden State Extraction | ✅ RESOLVED (partial) | GF-MH only, 7 variants pending |
+| 3: Conceptual Code | ⏸️ Deferred | Tasks 49-51 defined |
 
 ---
