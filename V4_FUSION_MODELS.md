@@ -452,6 +452,56 @@ R/M:    0.7-1.2    0.4-0.6    0.2-0.3    0.10-0.25
 
 ---
 
+### Observation 11: RWKV Dropout (40%→10% Anneal) — FAILED
+
+**Hypothesis:** Randomly suppressing RWKV output during training forces Mamba to learn independently, preventing RWKV dominance.
+
+**Implementation:** 
+- `rwkv_drop_prob` parameter in forward pass
+- Linear anneal from 40% at step 0 → 10% at final step
+- When dropped, `out_rwkv = torch.zeros_like(out_rwkv)`
+
+| Metric | Baseline | RWKV Dropout | Change |
+|--------|----------|--------------|--------|
+| Val Loss | 1.578 | 1.598 | **+0.020 (worse)** |
+| R/M Ratio | 0.08-0.11 | 0.03-0.08 | **Worse** |
+| Activation Variance | ~80x | ~60x | Slightly better |
+| Mamba activation var | 0.12 | 0.12 | No change |
+| RWKV activation var | ~10 | ~8 | Lower |
+
+**Why It Failed:**
+1. **Gate already learned RWKV preference**: Dropout comes too late — gate weights already biased
+2. **Binary dropout is disruptive**: Complete suppression creates inconsistent training signal
+3. **Mamba passivity is structural**: Even with RWKV off, Mamba produces same low-variance outputs
+4. **Loss degradation**: Randomly removing the better-performing component hurts optimization
+
+**Key Insight:** Mamba's low activation variance (0.12) is constant regardless of intervention. This suggests Mamba's architecture itself is producing near-uniform outputs, not that it's being suppressed by the gate.
+
+---
+
+## Summary: What We've Learned (Phase 3.8)
+
+All hyperparameter and training-dynamics interventions have failed to fix RWKV dominance:
+
+| Intervention | R/M Effect | Loss Effect | Conclusion |
+|-------------|------------|-------------|------------|
+| Higher Mamba LR (1.0x) | Worse | Better | Not LR-starved |
+| Faster warmup (10%) | Same | Same | Not scheduler-related |
+| 10x Mamba gradients | Worse | Worse | Not gradient magnitude |
+| RWKV dropout (40%→10%) | Worse | Worse | Not training opportunity |
+
+**Root Cause Diagnosis:**
+- Mamba produces constant low-variance outputs (~0.12) regardless of input or training intervention
+- This is likely **architectural** — Mamba's selective SSM may not be suited for character-level prediction
+- RWKV's smooth exponential decay is naturally better for local character patterns
+
+**Recommendations:**
+1. **Accept RWKV dominance** for char-level tasks — Mamba may shine at BPE/word-level
+2. **Test on different data** — Try BPE tokenization where Mamba's selectivity matters
+3. **Consider removing Mamba** — If it's not contributing, it's just adding params
+
+---
+
 ## The Missing Piece: HGF (Hybrid-Gated Fusion)
 
 **Implemented:** Combines HY's per-dimension control with GF's per-position adaptivity.

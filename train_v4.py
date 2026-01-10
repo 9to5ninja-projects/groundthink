@@ -34,8 +34,13 @@ DEFAULT_CONFIG = {
     'mamba_lr_mult': 0.5,     # Balance RWKV/Mamba gradients (1.0 tested, made worse)
     'mamba_grad_scale': 1.0,  # Gradient scaling for Mamba (1.0 = no scaling, >1 = boost Mamba grads)
     
+    # RWKV Dropout (Force Mamba Learning)
+    'rwkv_dropout_start': 0.0,  # Initial RWKV dropout prob (0.4 = drop 40% of time)
+    'rwkv_dropout_end': 0.0,    # Final RWKV dropout prob (anneals linearly)
+    
     # Schedule  
     'warmup_ratio': 0.1,      # 10% of max_steps (V3 guideline: 5-10%)
+    'lr_decay': 'cosine',
     'lr_decay': 'cosine',
     
     # Batch
@@ -336,6 +341,8 @@ if __name__ == "__main__":
                         help='Learning rate')
     parser.add_argument('--mamba-grad-scale', type=float, default=None, dest='mamba_grad_scale',
                         help='Gradient scale for Mamba params (default 1.0, try 10.0 for balance)')
+    parser.add_argument('--rwkv-dropout', type=float, default=None, dest='rwkv_dropout_start',
+                        help='RWKV dropout start prob (e.g., 0.4 = 40%% chance of suppressing RWKV)')
     parser.add_argument('--resume', type=str, default=None, 
                         help='Checkpoint to resume from')
     
@@ -348,6 +355,8 @@ if __name__ == "__main__":
         'batch_size': args.batch_size,
         'lr': args.lr,
         'mamba_grad_scale': args.mamba_grad_scale,
+        'rwkv_dropout_start': args.rwkv_dropout_start,
+        'rwkv_dropout_end': 0.1 if args.rwkv_dropout_start else None,  # Anneal to 10% if enabled
     }
     
     # Load config with overrides
@@ -488,6 +497,13 @@ if __name__ == "__main__":
     print(f"\n=== Training 5000 steps (HY Fusion){resume_info} ===", flush=True)
     if CONFIG.get('use_amp', False):
         print("Mode: Mixed Precision (AMP)")
+    
+    # RWKV Dropout setup (annealing schedule)
+    rwkv_drop_start = CONFIG.get('rwkv_dropout_start', 0.0)
+    rwkv_drop_end = CONFIG.get('rwkv_dropout_end', 0.0)
+    if rwkv_drop_start > 0:
+        print(f"RWKV Dropout: {rwkv_drop_start:.0%} -> {rwkv_drop_end:.0%} (linear anneal)")
+    
     import sys
     import time
     start_time = time.time()
@@ -518,11 +534,15 @@ if __name__ == "__main__":
             x, y = x.to(device), y.to(device)
             batch_tokens = x.numel()
             
+            # Compute current RWKV dropout probability (linear anneal)
+            progress = step / max(1, max_steps - 1)
+            rwkv_drop_prob = rwkv_drop_start + (rwkv_drop_end - rwkv_drop_start) * progress
+            
             optimizer.zero_grad()
             
-            # Forward with optional AMP
+            # Forward with optional AMP and RWKV dropout
             with autocast('cuda', enabled=use_amp):
-                logits = model(x)
+                logits = model(x, rwkv_drop_prob=rwkv_drop_prob)
                 loss = F.cross_entropy(logits.view(-1, logits.size(-1)), y.view(-1))
             
             # Backward with optional scaler

@@ -106,12 +106,17 @@ class ParallelHybridBlock_GF_Ratio(nn.Module):
             nn.Linear(ffn_hidden, hidden_size, bias=False),
         )
     
-    def forward(self, x: torch.Tensor, return_activations: bool = False):
+    def forward(self, x: torch.Tensor, return_activations: bool = False, rwkv_drop_prob: float = 0.0):
         norm_x = self.ln(x)
         
         # PARALLEL pathways
         out_rwkv, _, _ = self.rwkv6(norm_x)
         out_mamba = self.mamba2(norm_x)
+        
+        # RWKV Dropout: During training, randomly suppress RWKV to force Mamba learning
+        if self.training and rwkv_drop_prob > 0.0:
+            if torch.rand(1).item() < rwkv_drop_prob:
+                out_rwkv = torch.zeros_like(out_rwkv)
         
         # GF Fusion
         combined = torch.cat([out_rwkv, out_mamba], dim=-1)
@@ -177,17 +182,17 @@ class HybridModel_GF_Ratio(nn.Module):
             elif isinstance(module, nn.Embedding):
                 nn.init.normal_(module.weight, mean=0.0, std=0.02)
     
-    def forward(self, x: torch.Tensor, return_activations: bool = False):
+    def forward(self, x: torch.Tensor, return_activations: bool = False, rwkv_drop_prob: float = 0.0):
         h = self.embed(x)
         
         all_activations = [] if return_activations else None
         
         for block in self.blocks:
             if return_activations:
-                h, acts = block(h, return_activations=True)
+                h, acts = block(h, return_activations=True, rwkv_drop_prob=rwkv_drop_prob)
                 all_activations.append(acts)
             else:
-                h = block(h)
+                h = block(h, rwkv_drop_prob=rwkv_drop_prob)
         
         h = self.ln_out(h)
         logits = self.head(h)
