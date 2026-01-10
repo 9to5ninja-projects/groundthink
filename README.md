@@ -120,7 +120,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 
 # 2. Verify
-python test_phase0_complete.py
+python -m tests.test_phase0_complete
 
 # 3. Run benchmark
 python benchmark_variants.py
@@ -130,9 +130,13 @@ python benchmark_variants.py
 
 ```python
 import torch
-from hybrid_v4_ratio import HybridModel_GF_MH
+from models import get_model, list_models
 
-model = HybridModel_GF_MH(vocab_size=97, hidden_size=128, n_layers=8)
+# List available models
+list_models()  # Shows: tiny (0.5M), small (3.6M), medium (7.9M)
+
+# Load a model
+model = get_model('medium')  # or 'small', 'tiny', 'GF-MH', etc.
 model = model.to('cuda')
 
 # Forward pass
@@ -218,25 +222,35 @@ model_config = {
 
 ```
 groundthink/
-├── hybrid_v4_ratio.py           # Phase 2 winner (GF-MH)
-├── hybrid_v4_GF.py              # Gated Fusion variant
-├── hybrid_v4_CP.py              # Concat+Project variant
-├── hybrid_v4_WS.py              # Weighted Sum variant
-├── hybrid_v4_RF.py              # Residual Fusion variant
-├── hybrid_v4.py                 # Baseline (HY) variant
+├── models/                      # Model implementations
+│   ├── __init__.py              # Registry: get_model('medium'), list_models()
+│   ├── hybrid_v4_ratio.py       # Phase 2 winner (GF-MH)
+│   ├── hybrid_v4_GF.py          # Gated Fusion variant
+│   ├── hybrid_v4_CP.py          # Concat+Project variant
+│   ├── hybrid_v4_WS.py          # Weighted Sum variant
+│   ├── hybrid_v4_RF.py          # Residual Fusion variant
+│   └── hybrid_v4.py             # Baseline (HY) variant
+│
+├── data/                        # Data loading & tokenization
+│   ├── __init__.py              # load_stateful_dataset()
+│   ├── data_loader.py           # Shakespeare dataset
+│   ├── tokenizer.py             # Character-level tokenizer
+│   └── shakespeare.txt          # Training data
+│
+├── configs/                     # Training configurations (YAML)
+│   ├── train_medium_50k.yaml    # 50K step extended training
+│   ├── train_quick.yaml         # Fast validation (500 steps)
+│   └── train_default.yaml       # Standard training
+│
+├── checkpoints/                 # Saved model weights (gitignored)
+│
+├── tests/                       # Test suite
+│   ├── test_phase0_complete.py  # Environment validation
+│   └── test_monitoring.py       # Monitoring tests
 │
 ├── benchmark_variants.py        # Comprehensive benchmark suite
-├── data_loader.py               # Shakespeare dataset loading
-├── tokenizer.py                 # Character-level tokenization
-│
-├── train.py                     # Training loop (legacy)
-├── train_v4.py                  # V4-specific training
-│
-└── docs/
-    ├── V4_DESIGN.md             # Architecture spec
-    ├── V4_STRATEGY.md           # Task backlog
-    ├── CHANGELOG.md             # Version history
-    └── VERSION                  # Semantic version
+├── train_v4.py                  # V4 training script
+└── train.py                     # Training loop (legacy)
 ```
 
 ### Adding a New Variant
