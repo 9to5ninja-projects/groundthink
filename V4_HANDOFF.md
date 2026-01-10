@@ -3,9 +3,9 @@
 **Purpose:** Single source of truth for agent continuity & versioning  
 **Current Version:** 4.3-Alpha (Phase 3 Started)  
 **Updated:** 2026-01-10  
-**Last Agent Action:** Task 19 benchmarks complete - Recommended config: batch=32, grad_accum=4, FP16 (45K tok/s, 972 MiB)  
+**Last Agent Action:** Added workflow reminders (top/mid/bottom checkpoints) to handoff  
 **Repository:** https://github.com/9to5ninja-projects/groundthink  
-**Git Status:** ✅ Committed (f771653)
+**Git Status:** ✅ Committed (f6af83b)
 
 ---
 
@@ -27,6 +27,25 @@
 - Hand off to next agent or user with clear status
 
 **This is not optional. The user enforces this.**
+
+---
+
+## 🚨 STOP: Are You About to Ask the User a Question?
+
+**If you're about to ask the user something, STOP and check:**
+
+1. **Is this a new task?** → Check [V4_STRATEGY.md](V4_STRATEGY.md) task backlog first
+2. **Are you confused about current state?** → Re-read this handoff and your todo list
+3. **Is the task unclear?** → Assume **Librarian Role** (see V4_STRATEGY.md) to clarify before proceeding
+4. **About to hand off?** → Update this handoff document FIRST, then ask
+
+**The pattern:** Questions often signal task boundaries. Before asking:
+- ✅ Update your `manage_todo_list` with current progress
+- ✅ Check if V4_STRATEGY.md needs status updates
+- ✅ Consider if Librarian audit is needed (documentation clarity, task breakdowns)
+- ✅ Prepare clear handoff for next agent/session
+
+**Then** ask your question with full context.
 
 ---
 
@@ -199,6 +218,23 @@ See [V4_BUILD_LOG.md - Session 10](V4_BUILD_LOG.md#build-session-10-2026-01-09) 
 1. Read this document completely ✓
 2. Read V4_STRATEGY.md for Task 14 details
 3. Use `manage_todo_list` tool to write task breakdown (REQUIRED)
+
+---
+
+## 🔄 MID-TASK CHECKPOINT
+
+**Every time you complete a sub-task or hit a decision point:**
+
+1. **Update your todo list** — Mark completed items, add new discoveries
+2. **Check if you're drifting** — Is this still the same task? Or have you discovered a new one?
+3. **Consider Librarian role** — If docs are unclear or outdated, fix them NOW (see V4_STRATEGY.md)
+4. **Prepare for handoff** — You may be interrupted; keep this document current
+
+**Signs you should pause and reassess:**
+- 🚩 "I need to ask the user about this..." → Likely a new task or scope change
+- 🚩 "The docs don't match the code..." → Librarian audit needed
+- 🚩 "This is taking longer than expected..." → Check Task Assessment Matrix in V4_STRATEGY.md
+- 🚩 "I'm not sure if this is done..." → Review acceptance criteria in task definition
 
 ---
 
@@ -417,6 +453,26 @@ V3 was scrapped because agents:
 - Then proceed
 
 This takes 5 minutes and saves hours of wasted work.
+
+---
+
+## 📝 END-OF-SESSION PROTOCOL
+
+**Before asking the user a question OR ending your session:**
+
+1. **Update todo list** — `manage_todo_list` with final status of all items
+2. **Update V4_STRATEGY.md** — Mark tasks complete, update NEXT pointer
+3. **Update this handoff** — Change "Last Agent Action", git status, any new context
+4. **Commit changes** — `git add` and `git commit` with descriptive message
+5. **Consider Librarian role** — If you learned something that should be documented, do it now
+
+**Your question to the user should include:**
+- What you accomplished (reference commit hash)
+- What's blocking you (specific issue)
+- What you recommend as next step
+- Current state of todo list
+
+**Remember:** The next agent (or you in a new session) will read this document first. Make it clear where things stand.
 
 ---
 
