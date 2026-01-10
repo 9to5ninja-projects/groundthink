@@ -2,6 +2,7 @@
 
 **Started:** 2026-01-09  
 **Status:** In Progress  
+**Latest:** Session 15 (2026-01-10 Late) — BPE Tokenizer Fix + Task 40 Start
 
 ---
 
@@ -1224,5 +1225,165 @@ $ python -c "from models import list_models; list_models(show=True)"
 1. **GF-MH** — Current Phase 2 winner
 2. **CP** — Most expressive (33K fusion params)
 3. **HGF** — New, maximum control over learning shape
+
+---
+
+## Build Session 14: 2026-01-10
+
+### Documentation: Stateful Validation Framework
+
+**Created:** `STATEFUL_VALIDATION_GUIDE.md` (32K, comprehensive implementation reference)
+
+**Rationale:** User provided concrete guidance on testing stateful vs attention-based components. Standard LLM validation (loss curves) misses state dynamics.
+
+**What's Included:**
+
+1. **State Tracing Module** — Capture RWKV + Mamba hidden states across conversation turns
+2. **Grounding Score Calculator** — Measure fact-grounding accuracy vs hallucination
+3. **Conversation Genome Analyzer** — Identify patterns in state evolution across conversation types
+4. **4 Concrete Diagnostic Tests:**
+   - Linear State Evolution (predictability)
+   - Infinite Context Simulation (graceful degradation)
+   - State-Text Alignment (consistency)
+   - Multi-State Tracking (isolation)
+
+**Quick Tests for Current 8M Model:**
+
+| Test | Purpose | Expected | Implementation Time |
+|------|---------|----------|------------------|
+| Short-term memory | 1-2 turn recall | Should pass | 30 min |
+| Medium-term memory | 5 intervening sentences | Check stability | 30 min |
+| State correction | Can model update facts? | Should re-ground | 30 min |
+| State separation | Different context states? | Should isolate | 30 min |
+
+**Phase 3.9 Integration:**
+- Week 1: State Tracing + Diagnostics → Statefulness Report
+- Week 2: Build Validation Tools → Baseline Metrics
+- Week 3: Fix + Go/No-Go → Scaling Decision
+
+**Cross-References Updated:**
+- V4.5_VALIDATION.md — Added reference link
+- VALIDATION_ROADMAP.md — Added reference link
+- V4_STRATEGY.md Phase 3.9 — Added implementation guide link
+
+---
+
+## Build Session 15: 2026-01-10
+
+### Documentation: Strategic Additions (Entries V6-V8, Canary Tests, Checkpoint Strategy)
+
+**Created:**
+
+1. **CANARY_TESTS.md** (25K) — Architecture-specific behavioral test suite
+   - C1: State Persistence (1-10 turn progression)
+   - C2: Long-Context Grounding (multi-position facts)
+   - C3: Conversational State Tracking (dialogue evolution)
+   - C4: Instruction Following with Persistence
+   - C5: Role/Persona Consistency
+   - C6: State Bleeding Detection (conversation isolation)
+   - Test composition: Minimal (2min), Standard (20min), Extended (45min)
+   - Scaling thresholds: 3.5M through 125M
+
+**Updated:**
+
+1. **V4.5_VALIDATION.md**
+   - Added V6: Role Anchoring Emergence & Checkpoint Strategy
+   - Added V7: Architecture-Specific Canary Tests
+   - Added V8: Code Data Composition & Pattern Learning
+   - Updated index table with new entries
+
+2. **V4_STRATEGY.md**
+   - Added "Milestone Goals" section (3.5M-125M with specific tests)
+   - Added "Evaluation Infrastructure" section (tools to build in Phases 3.9-4)
+   - Added "When to Graduate" decision matrix (0-3 scoring with thresholds)
+
+3. **V4_TRAINING_GUIDE.md**
+   - Expanded "Checkpointing Strategy" with decision matrix
+   - Added Fresh Start vs Checkpoint Expansion protocol
+   - Added parallel validation approach for novel architectures
+
+4. **DOCUMENTATION_MAP.md**
+   - Added STATEFUL_VALIDATION_GUIDE.md, CANARY_TESTS.md to validation ecosystem
+
+**Key Insights Documented:**
+
+| Topic | Document | Status |
+|-------|----------|--------|
+| Role emergence timeline | V4.5_VALIDATION V6 | 🟡 Framework |
+| Checkpoint expansion protocol | V4_TRAINING_GUIDE | ✅ Complete |
+| Canary test suite | CANARY_TESTS.md | ✅ Complete (6 test categories) |
+| Code data guidance | V4.5_VALIDATION V8 | 🟡 Framework |
+| Evaluation infrastructure | V4_STRATEGY.md | ✅ Complete (5 tools) |
+| Scaling decision matrix | V4_STRATEGY.md | ✅ Complete |
+
+**Phase 3.9 Readiness:**
+- ✅ State Tracing guide + code complete
+- ✅ Canary tests defined (minimal-to-extended)
+- ✅ Evaluation tools list created
+- ✅ Scaling decision criteria established
+- 🟡 Ready for implementation (Week 1 starts)
+
+---
+
+## Build Session 15: 2026-01-10 (Late Night)
+
+### Summary
+Reviewed previous agent's strategy audit. Found and fixed Blocker 1 (BPE tokenizer). Started Task 40. Assessed "back to fundamentals" approach.
+
+### Code Changes
+
+**Modified: `data/tokenizer.py`**
+- Added `force_bpe` parameter to `get_tokenizer_for_scale()` function
+- Purpose: Cleaner API for forcing BPE tokenization regardless of model scale
+- Lines changed: ~10 lines (function signature + early return block)
+
+```python
+# Before
+def get_tokenizer_for_scale(scale: str, corpus_path: str = None) -> GroundThinkTokenizer:
+
+# After  
+def get_tokenizer_for_scale(scale: str, corpus_path: str = None, force_bpe: bool = False) -> GroundThinkTokenizer:
+    # Force BPE mode (for Task 40 BPE validation experiments)
+    if force_bpe:
+        tok = BPETokenizer()
+        if corpus_path:
+            tok.train([corpus_path], vocab_size=16000)
+        return tok
+```
+
+**Discovery:** CLI already had `--tokenizer bpe` flag in train_v4.py (line 348-380). The "blocker" was documentation, not code.
+
+### Task 40 Started
+
+- **Command:** `python train_v4.py --model GF-MH --data data/fineweb_5m.txt --tokenizer bpe --max-steps 5000`
+- **PID:** 164396
+- **Log:** `logs/task40_bpe_run.log`
+- **Early validation:** R/M ratio 0.20-0.64 at step 450 (confirms BPE hypothesis)
+
+### Strategic Assessment
+
+Reviewed SCALING_MILESTONES.md for Tiny model (3.5M) graduation criteria:
+- Overfit 10-100 samples — ❓ No explicit test exists
+- Val < naive baseline — ❓ No explicit test exists
+- G1-G4 gates pass — ✅ test_phase0_complete.py
+- Checkpoint/resume works — ❓ No explicit test exists
+
+**Gap identified:** No `test_tiny_graduation.py` for fundamentals validation.
+
+### Documents Updated
+
+1. **V4_HANDOFF.md** — Complete rewrite with:
+   - Session summary
+   - Strategic assessment (Path A: Phase 3.9 vs Path B: Fundamentals)
+   - Task 40 status
+   - Clear decision points for next agent
+
+### Blockers Status
+
+| Blocker | Status | Notes |
+|---------|--------|-------|
+| 1: BPE Tokenizer | ✅ RESOLVED | CLI already had --tokenizer bpe |
+| 2: Hidden State Extraction | 🚨 NOT STARTED | Week 1 prerequisite |
+| 3: Conceptual Code | ⏸️ Deferred | Adapt during implementation |
 
 ---

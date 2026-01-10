@@ -212,7 +212,7 @@ class BPETokenizer(GroundThinkTokenizer):
         return self._tokenizer.decode(ids)
 
 
-def get_tokenizer_for_scale(scale: str, corpus_path: str = None) -> GroundThinkTokenizer:
+def get_tokenizer_for_scale(scale: str, corpus_path: str = None, force_bpe: bool = False) -> GroundThinkTokenizer:
     """
     Get appropriate tokenizer for model scale.
     
@@ -224,9 +224,17 @@ def get_tokenizer_for_scale(scale: str, corpus_path: str = None) -> GroundThinkT
     Args:
         scale: Model name (tiny/small/medium or variant names)
         corpus_path: Path to training corpus (for BPE training)
+        force_bpe: If True, use BPE tokenizer regardless of scale (for Task 40 validation)
     """
     # Normalize to uppercase for matching
     scale_upper = scale.upper() if isinstance(scale, str) else scale
+    
+    # Force BPE mode (for Task 40 BPE validation experiments)
+    if force_bpe:
+        tok = BPETokenizer()
+        if corpus_path:
+            tok.train([corpus_path], vocab_size=16000)
+        return tok
     
     # All small/medium scales use char-level tokenization
     CHAR_SCALES = {

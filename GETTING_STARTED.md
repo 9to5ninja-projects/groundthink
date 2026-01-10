@@ -147,7 +147,8 @@ Val Loss: 1.6700 (-1.8% vs balanced GF)
 **Still stuck?** Check:
 1. [ONBOARDING.md](ONBOARDING.md) Part 10 "Librarian's Note"
 2. [V4_HANDOFF.md](V4_HANDOFF.md) "When Stuck"
-3. Open an issue on GitHub
+3. [LIBRARIAN_REVIEW.md](LIBRARIAN_REVIEW.md) (documentation consistency, role definition)
+4. Open an issue on GitHub
 
 **Time to run benchmarks:** ~20 minutes (A100), ~2 hours (RTX 4050)  
 **Time to understand the project:** ~1 hour (ONBOARDING + README + first benchmark)

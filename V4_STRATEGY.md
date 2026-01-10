@@ -1,22 +1,70 @@
 # V4 Strategy Document - Task Backlog
 
 **Created:** 2026-01-08  
-**Updated:** 2026-01-09  
+**Updated:** 2026-01-10  
 **Repository:** https://github.com/9to5ninja-projects/groundthink  
 **Purpose:** Ordered queue of tasks to be completed one at a time  
 **Current Goal:** Build RWKV-6 + Mamba-2 hybrid at 5M scale, find best configuration
 
 ---
 
+## Scaling Philosophy & Confidence Criteria
+
+**Foundation:** See [SCALING_MILESTONES.md](SCALING_MILESTONES.md) for strategic framework on what each scale should achieve and confidence criteria for graduation.
+
+**Quick Summary:**
+- **3.5M:** Sanity check (can training system work?)
+- **8M:** Proof of concept (can architecture learn real patterns?)
+- **30M:** Scaling laws (do predictions hold? do capabilities emerge?)
+- **125M:** MVP delivery (is this production-ready?)
+
+Each scale is a distinct experimental regime with specific learning objectives. Graduating to the next scale requires meeting technical, scientific, capability, and forecasting confidence criteria.
+
+---
+
 ## Complexity Ratings & Procedures
 
-**Tasks are rated S/M/L/XL based on scope and time.** For detailed assessment matrix, Librarian role definition, and SOP self-improvement guidance, see [GETTING_STARTED.md](GETTING_STARTED.md#-task-complexity-assessment)
+**Tasks are rated S/M/L/XL based on scope and time.** For detailed assessment matrix and SOP self-improvement guidance, see [GETTING_STARTED.md](GETTING_STARTED.md#-task-complexity-assessment)
 
 **Quick Reference:**
 - **S** (Small): <30 min, 1 file, clear steps
 - **M** (Medium): 30m-2h, 2-3 files, some research
 - **L** (Large): 2-6h, 3-5 files, implementation needed
 - **XL** (Extra Large): >6h, many files — **MUST break into S/M/L subtasks before starting**
+
+---
+
+## Librarian Role (Document Curator)
+
+**Responsibilities by Documentation Scope:**
+
+**Tier 1 (Always Required):**
+- Assess task complexity (S/M/L/XL) and time estimates
+- Track task completion status and phase transitions
+- Update [V4_HANDOFF.md](V4_HANDOFF.md) with version/phase snapshots
+
+**Tier 2 (At >50K documents):**
+- Maintain navigation maps ([DOCUMENTATION_MAP.md](DOCUMENTATION_MAP.md))
+- Recommend document splits (when >1000 lines)
+- Audit cross-references for accuracy
+- Flag ambiguous or temporal language
+
+**Tier 3 (At >100K documents):**
+- Enforce consistency across strategy/implementation/test layers
+- Verify documents addressing same topic distinguish their scope
+- Standardize language and formatting
+
+**Tier 4 (Before Scaling Decisions):**
+- Verify all planning documents updated for new phase
+- Cross-check decision matrices across related docs
+- Confirm success criteria are measurable and aligned
+
+**Current Level:** Tier 2-3 (Phase 3.9 planning, >140K docs)
+
+**Curated Artifacts:**
+- [DOCUMENTATION_MAP.md](DOCUMENTATION_MAP.md) — Navigation by layer
+- [LIBRARIAN_REVIEW.md](LIBRARIAN_REVIEW.md) — Audit reports
+- [V4_HANDOFF.md](V4_HANDOFF.md) — Version snapshots
 
 ---
 
@@ -708,7 +756,9 @@ warmup_steps: 2500
 
 ---
 
-### Phase 3.6: Pre-Training Benchmark Suite ("Training for Training")
+### Phase 3.6: Pre-Training Benchmark Suite ("Training for Training") ⚠️ CHAR-LEVEL ONLY
+
+**⚠️ WARNING:** All Phase 3.6 experiments used **char-level tokenization** (Shakespeare). This was appropriate for quick sanity checks but does NOT represent production conditions. Results must be re-validated with BPE before use. See Phase 4.0 for re-validation plan.
 
 **Rationale:** Before expensive training runs, we test fusion variants on cheap diagnostic benchmarks. This finds optimal "brain mix" without wasting GPU hours.
 
@@ -747,7 +797,9 @@ warmup_steps: 2500
 
 ---
 
-### Phase 3.7: Blend Ratio Sweep ✅ COMPLETE
+### Phase 3.7: Blend Ratio Sweep ✅ COMPLETE ⚠️ CHAR-LEVEL ONLY
+
+**⚠️ WARNING:** All Phase 3.7 experiments used **char-level tokenization**. The "RWKV dominance" finding may be a char-level artifact. Re-validation with BPE is required. See Phase 4.0.
 
 **Objective:** Determine if RWKV dominance is architectural or signal-based.
 
@@ -830,9 +882,10 @@ All gated variants converge to RWKV-dominant regardless of initial bias:
 | # | Task | Priority | Complexity | Status | Result |
 |---|------|----------|------------|--------|--------|
 | 36 | Increase Mamba LR (1.0x) | 🔴 HIGH | S | ✅ DONE | **WORSE** - R/M 0.10→0.08 |
-| 37 | Differential warmup schedules | 🟠 MED | L | ⬜ RESEARCH | Needs documentation |
-| 38 | Balance regularization | 🟡 LOW | L | ⬜ | — |
-| 39 | Accept RWKV dominance | 🟢 OPTIONAL | S | ⬜ | — |
+| 37 | Differential warmup schedules | 🟠 MED | L | ⬜ | Deprioritized — requires re-evaluation |
+| 38 | Balance regularization | 🟡 LOW | L | ⬜ | Deprioritized — requires re-evaluation |
+| 39 | ~~Accept RWKV dominance~~ | — | — | ⚠️ INCONCLUSIVE | See Task 40 results |
+| 40 | BPE benchmark validation | 🔴 HIGH | M | ✅ COMPLETE | See results below |
 
 **Task 36: Increase Mamba LR (1.0x)** ✅ COMPLETE
 - **Rationale:** Currently using 0.5x LR for Mamba. Mamba may be underfitting.
@@ -840,12 +893,20 @@ All gated variants converge to RWKV-dominant regardless of initial bias:
 - **Result:** R/M **WORSE** (0.10→0.08), Val loss improved (1.59→1.53)
 - **Conclusion:** Mamba is NOT LR-starved. Higher LR accelerates convergence to RWKV-dominant state.
 
-**Task 37: Differential Warmup Schedules** ⚠️ NEEDS RESEARCH
+**Task 37: Differential Warmup Schedules** ⚠️ DEPRIORITIZED — RESEARCH SHOWS TOKENIZATION IS ROOT CAUSE
 - **Original idea:** Freeze gates for 500 steps
 - **User insight:** RWKV and Mamba may have fundamentally different warmup requirements
 - **Current state:** Single warmup schedule (500 steps) applied to ALL parameter groups equally
 
-**Hypothesis:** If Mamba needs longer warmup:
+⚠️ **DECISION (2026-01-10):** Task 37 research was completed (see below) but is now **DEPRIORITIZED** based on V4.5_VALIDATION.md Entries V3-V4. Root cause analysis proved:
+- Component imbalance is NOT a learning rate/warmup problem (Entry V3: higher Mamba LR worsens balance)
+- Component imbalance IS a tokenization problem (Entry V4: BPE fixes balance to 0.20-0.46 vs char-level 0.08-0.11)
+- **Action:** Use BPE tokenization instead of differential warmup (Task 40 BPE benchmark)
+- **Status:** Research materials preserved below for reference; do NOT implement without re-evaluation
+
+**Hypothesis** (Historical — preserved for reference):
+
+If Mamba needs longer warmup:
 - RWKV hits full LR at step 500
 - Mamba still ramping → falls behind → gates lock to RWKV early
 
@@ -890,7 +951,96 @@ All gated variants converge to RWKV-dominant regardless of initial bias:
   ```
 - **Expected:** Forces model to maintain balance at cost of some CE loss
 
-**Gate:** 🔄 Phase 3.8 IN PROGRESS (Task 36 complete, Task 37 next)
+**Task 40: BPE Benchmark Validation** ✅ COMPLETE (2026-01-10)
+
+**Command:**
+```bash
+python train_v4.py --model GF-MH --data data/fineweb_5m.txt --tokenizer bpe --max-steps 5000
+```
+
+**Final Results:**
+| Metric | Value | Expected | Status |
+|--------|-------|----------|--------|
+| R/M Ratio | 0.21 | 0.20-0.46 | ✅ In range (barely) |
+| Train Loss | 4.92 | Decreasing | ✅ Decreasing |
+| Val Loss | 6.22 | — | Higher than char-level |
+| Train PPL | ~138 | — | — |
+| Val PPL | ~505 | — | — |
+| Throughput | ~31K tok/s | — | ✅ Stable |
+| Steps | 5000/5000 | — | ✅ Complete |
+
+**Critical Observation:** 
+- R/M ratio 0.21 is at the **lower bound** of target range (0.20-0.46)
+- Activation variance ratio: 71x (RWKV var=8.58, Mamba var=0.12)
+- **RWKV still dominates even with BPE tokenization**
+- Val loss (6.22) is significantly higher than char-level runs (~1.6)
+
+**Conclusion:** 
+⚠️ **BPE did NOT fix component balance as hypothesized.** R/M ratio improved from 0.08-0.11 (char-level) to 0.20-0.21 (BPE), but this is still in WARN territory and activation variance shows severe imbalance (71x).
+
+**Implications:**
+1. Char-level vs BPE comparison was valid for showing tokenization matters
+2. But BPE alone does NOT solve component balance
+3. Fusion variant rankings from Phase 3.6-3.7 need re-validation with BPE
+4. Tasks 37-38 (differential warmup, regularization) may still be needed
+
+**Checkpoints saved:**
+- `checkpoints/ckpt_GF-MH_step5000.pt`
+- `checkpoints/ckpt_GF-MH_final.pt`
+
+**Gate:** ⚠️ Phase 3.8 INCONCLUSIVE — BPE improves balance 2x vs char-level but does not resolve imbalance
+
+---
+
+### Phase 4.0: BPE Re-Validation (NEW — REQUIRED BEFORE SCALING)
+
+**Purpose:** All prior validation (Phases 3.6-3.7) used char-level tokenization. Before proceeding to 30M scaling, we must:
+1. **Verify state space fundamentals (S0-S4)** — State machinery works
+2. Verify 3.5M Tiny model graduation criteria with BPE
+3. Re-run G1-G4 gates with BPE
+4. Re-validate fusion variant rankings with BPE
+5. Determine if component imbalance is truly architectural or still signal-based
+
+**Rationale:** Char-level was appropriate for quick infrastructure validation, but BPE is the correct baseline for production models. State space monitoring should have been our first priority, not capabilities.
+
+**Key Learning from Task 40:**
+- Activation variance ratio: 71x (RWKV var=8.58, Mamba var=0.12)
+- This indicates the state machinery may not be functioning as designed
+- We need to understand state spaces before testing capabilities
+
+| # | Task | Status | Complexity | Details |
+|---|------|--------|------------|---------|
+| 41 | Create test_tiny_graduation.py | ⬜ TODO | M | Include S0-S4 state tests + G1-G4 gates |
+| 41a | Implement state extraction API | ⬜ **BLOCKER** | M | Add return_states to model forward() |
+| 42 | Run S0-S4 state space tests | ⬜ TODO | S | Verify state machinery before capabilities |
+| 43 | Run Tiny overfit test (BPE) | ⬜ TODO | S | 10-100 samples, loss → near 0 |
+| 44 | Run Tiny naive baseline test (BPE) | ⬜ TODO | S | Val loss < random prediction |
+| 45 | Run G1-G4 gates (BPE) | ⬜ TODO | M | Re-validate with BPE tokenization |
+| 46 | Checkpoint/resume test (BPE) | ⬜ TODO | S | Save + reload works |
+| 47 | Fusion variant re-ranking (BPE) | ⬜ TODO | L | 1K steps each: GF, GF-MH, HGF, HY, CP |
+| 48 | Component balance assessment | ⬜ TODO | M | Investigate 71x activation ratio |
+
+**Tiny Model Graduation Criteria (per SCALING_MILESTONES.md):**
+| Test | Criteria | BPE Status |
+|------|----------|------------|
+| **S0-S4 state tests** | State machinery verified | ❓ **Not tested (API missing)** |
+| Overfit 10-100 samples | Loss → near 0 | ❓ Not tested |
+| Val < naive baseline | Better than random | ❓ Not tested |
+| G1-G4 gates pass | Per V4_TESTING.md | ❓ Not tested with BPE |
+| Checkpoint/resume works | Save + reload | ❓ Not tested with BPE |
+| Gradient flow | All components receiving gradients | ✅ Task 40 shows gradients flowing |
+| Component balance documented | Ratio and variance recorded | ⚠️ 71x variance (severe) |
+
+**Order of Operations:**
+1. **Task 41a** — Implement state extraction API (BLOCKER)
+2. **Task 42** — Run S0-S4 state space tests
+3. **Tasks 43-46** — Run remaining graduation tests
+4. **Task 47** — Re-rank fusion variants with BPE
+5. **Task 48** — Deep-dive component balance investigation
+
+**Gate:** Phase 4.0 PASS when S0-S4 pass AND all Tiny graduation criteria verified with BPE tokenization.
+
+**Next Phase:** If Phase 4.0 PASS → Continue to Phase 3.9 diagnostics with BPE. If FAIL → Debug architecture at 3.5M before scaling.
 
 ---
 
@@ -1036,15 +1186,158 @@ eval_every: 100
 
 ---
 
-### Phase 4: Advanced Long-Context Evaluation (Optional - "Later Game")
+### Phase 3.9: Validation-First Approach (Prerequisite to Phase 4)
 
-**Prerequisites:** Must pass Phase 4 NIAH tests (>80% accuracy at 16K tokens) before attempting these benchmarks.
+**Goal:** Master 8M model completely before scaling to 30M. Deploy diagnostic tools to understand stateful component behavior.
+
+**Principle:** Every architectural weakness magnifies with scale. Fix at 8M (cheap) rather than 30M (expensive).
+
+**Timeline:** 3 weeks (Jan 10-31)  
+**Status:** ⬜ PLANNING (detailed roadmap in [VALIDATION_ROADMAP.md](VALIDATION_ROADMAP.md))
+
+#### Tasks (Weekly Breakdown)
+
+| Week | Task | Status | Complexity | Deliverable |
+|------|------|--------|------------|------------|
+| 1 | Deploy State Tracing Module | ⬜ | M | `tools/state_tracing.py` |
+| 1 | Run 4 Diagnostic Tests | ⬜ | M | `eval/diagnostic_tests.py` + results |
+| 1 | Create Statefulness Report | ⬜ | S | `reports/statefulness_report_week1.md` |
+| 2 | Build 3 Validation Tools | ⬜ | L | Health Monitor, Coupling Analyzer, Info Flow Tracer |
+| 2 | Establish Baselines | ⬜ | M | `metrics/baseline_8m_metrics.json` |
+| 2 | Define Thresholds | ⬜ | S | "Good enough" metrics for 8M graduation |
+| 3 | Fix Issues (if any) | ⬜ | L/M | Architectural adjustments based on Week 1-2 findings |
+| 3 | Re-validate (if fixes) | ⬜ | M | Confirm fixes work, metrics improve |
+| 3 | Go/No-Go Decision | ⬜ | S | `VALIDATION_GATE_PASS.md` or `VALIDATION_GATE_FAIL.md` |
+
+#### Success Criteria for 30M Scaling
+
+✅ **All Go/No-Go conditions met:**
+- State health metrics pass (no divergence/collapse)
+- Component coupling balanced (ratio 0.2-5.0)
+- Information flow shows both components active (>0.2 each)
+- All 4 diagnostic tests pass
+- Extended training (10K steps) remains stable
+- BPE validation (Task 40) shows expected results
+
+❌ **No-Go triggers:**
+- State divergence detected
+- One component dead (coupling <0.1)
+- Diagnostic test failure
+- Unexpected behavior under stress
+
+#### Why This Phase Matters
+
+Three weeks of validation now prevent weeks of debugging at 30M scale.
+
+#### Related Documents
+
+- **Strategic Framework:** [V4.5_VALIDATION.md](V4.5_VALIDATION.md) — Mindset shift, open-source opportunities
+- **Execution Plan:** [VALIDATION_ROADMAP.md](VALIDATION_ROADMAP.md) — Detailed 3-week breakdown
+- **Implementation Guide:** [STATEFUL_VALIDATION_GUIDE.md](STATEFUL_VALIDATION_GUIDE.md) — Concrete test code, state tracing module, grounding calculator, diagnostic tests
+
+---
+
+### Phase 4: Conditional Scaling & Extended Evaluation (After Phase 3.9 Gate)
+
+**Prerequisite:** Must pass Phase 3.9 validation gate.
+
+**Overview:**
+- If Phase 3.9 PASS: Proceed with 30M model design
+- If Phase 3.9 FAIL: Return to Phase 3 architecture redesign
+
+**Conditional Tasks:**
+
+| Task | Depends On | Status | Complexity | Details |
+|------|------------|--------|------------|---------|
+| 30M Model Design | Phase 3.9 PASS | ⬜ | M | Scale architecture with lessons learned from 8M |
+| 30M Training (50K steps) | Task 30M Design | ⬜ | XL | Extended training with validation tools active |
+| NIAH Evaluation (16K tokens) | Task 30M Training | ⬜ | L | Long-context retrieval test |
+| LongBench Evaluation | NIAH PASS | ⬜ | L | Multitask real-world memory (50K-100K tokens) |
+| InfiniteBench Evaluation | LongBench PASS | ⬜ | XL | Ultra-long context (100K-200K tokens) |
+
+**Gate:** Phase 4 complete when 30M model trained and shows expected scaling behavior vs 8M baseline.
+
+---
+
+## Milestone Goals: Scale-Specific Objectives
+
+**Strategic Framework:** Each scale target has specific architectural validation, conversational goals, and context limits. Success criteria must be met before scaling.
+
+| Scale | Architecture Test | Conversational Goal | Context Target | Success Metric |
+|-------|------------------|-------------------|-----------------|----------------|
+| **3.5M** | Fusion stable training | Basic Q&A coherence | 512 tokens | C1a: >95% pass (1-turn recall) |
+| **8M** | State persistence >3 turns | Role anchoring | 1024 tokens | C3a+C3b: >85% pass (state tracking) |
+| **30M** | Multi-document grounding | Persona consistency | 2048 tokens | C2a+C5b: >80% pass (grounding+persona) |
+| **125M** | Infinite-context patterns | Expert-level dialogue | 4096+ tokens | C6a+C2b: >75% pass (isolation+synthesis) |
+
+**Test Suite Reference:** See [CANARY_TESTS.md](CANARY_TESTS.md) for detailed implementations. [VALIDATION_ROADMAP.md](VALIDATION_ROADMAP.md) specifies which suite (minimal/standard/extended) runs each week.
+
+---
+
+## Evaluation Infrastructure: Critical Tools to Build
+
+**Rationale:** Most teams under-invest in evaluation. For state-based architecture, evaluation is harder than training.
+
+### Early Builds (Phase 3.9)
+
+| Tool | Purpose | Week | Priority | Impact |
+|------|---------|------|----------|--------|
+| State Visualization | Visualize hidden states across conversations | 1 | 🔴 CRITICAL | Reveals state dynamics (e.g., divergence, collapse) |
+| Context Heat Map | Show which context parts are "attended" | 2 | 🟡 HIGH | Identifies attention patterns in state updates |
+| Drift Detector | Automatically flag persona inconsistencies | 2 | 🟡 HIGH | Early warning of role degradation |
+| Canary Test Harness | Run C1-C6 tests, collect JSON results | 1 | 🔴 CRITICAL | Objective scaling decisions |
+
+### Later Builds (Phase 4)
+
+| Tool | Purpose | Phase | Priority | Impact |
+|------|---------|-------|----------|--------|
+| Long-Context Benchmark Suite | Custom dataset of progressively harder grounding tasks | 4 | 🟡 HIGH | Validates 2K-10K token reasoning |
+| Episodic Memory Tracer | Track how conversational facts are encoded in state | 4 | 🟡 HIGH | Unique advantage for hybrid architecture |
+| Checkpoint Comparator | Contrast checkpoint expansion vs fresh training | 4 | 🟡 HIGH | Validates Phase 4 scaling strategy |
+
+**Build Order:** State Visualization → Canary Test Harness → Drift Detector → Context Heat Map
+
+---
+
+## When to Graduate: Decision Matrix
+
+**For each scale-up decision, score on 0-3 scale:**
+
+| Category | 0 (Stop) | 1 (Risk) | 2 (OK) | 3 (Excellent) | Weight |
+|----------|----------|----------|--------|---------------|---------
+| **Architecture Stability** | NaN/Inf losses | Spiky training | Smooth curves | Very stable | x1.5 |
+| **Canary Performance** | <50% pass | 50-75% pass | 75-85% pass | >85% pass | x1.5 |
+| **Scaling Law Fit** | No pattern | Noisy | Clear trend | Linear/predictable | x1.0 |
+| **Resource Prediction Confidence** | "No idea" | ±50% | ±20% | ±10% | x1.0 |
+
+**Decision Rule:**
+- **GO (Graduate):** Total ≥10 AND no category is 0
+- **CAUTION:** Total 8-9 (review highest-risk category)
+- **HOLD (Don't Scale):** Any category is 0 OR total <8
+
+**Example:**
+```
+3.5M → 8M decision:
+- Architecture Stability: 3 (very smooth training)
+- Canary Performance: 3 (C1a-C1b both >90%)
+- Scaling Law Fit: 2 (clear loss trend, some noise)
+- Resource Prediction: 2 (±20% VRAM estimate)
+
+Total = 3×1.5 + 3×1.5 + 2×1.0 + 2×1.0 = 13 ✅ GO
+```
+
+---
+
+### Phase 5: Advanced Long-Context Evaluation (Optional - "Later Game")
+
+**Prerequisites:** Must pass Phase 4 evaluation (NIAH >80% accuracy at 16K tokens) before attempting these benchmarks.
 
 | # | Task | Status | Depends On | Gates | Complexity | Source/Details |
 |---|------|--------|------------|-------|------------|----------------|
-| 25 | LongBench Evaluation | ⬜ PENDING | Task 22 (NIAH pass) | - | L | [V4.5_OPTIMIZATION.md](V4.5_OPTIMIZATION.md) - Multitask 50K-100K |
+| 25 | LongBench Evaluation | ⬜ PENDING | Phase 4 PASS | - | L | [V4.5_OPTIMIZATION.md](V4.5_OPTIMIZATION.md) - Multitask 50K-100K |
 | 26 | Analyze LongBench Results | ⬜ PENDING | Task 25 | F1 >0.6 @ 100K | M | Needs detailed description |
 | 27 | InfiniteBench Evaluation | ⬜ PENDING | Task 26 (LongBench pass) | - | XL | [V4.5_OPTIMIZATION.md](V4.5_OPTIMIZATION.md) - Ultra-long 100K-200K |
+
 | 28 | Long-Context Optimization Pass | ⬜ PENDING | Task 27 | - | XL | Memory tuning, 1-2 weeks |
 | 29 | Document Long-Context Capabilities | ⬜ PENDING | Task 28 | - | M | Needs detailed description |
 

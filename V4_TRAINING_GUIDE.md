@@ -311,6 +311,8 @@ From `archive/layers_v030.py` (lines 618-658), V3 used **three parameter groups*
 
 ### Per-Group Schedules (NEW — Not in V3)
 
+⚠️ **DEPRECATED APPROACH:** The following section (Task 37) was explored but deprioritized after V4.5_VALIDATION.md Entries V3-V4 proved the component balance issue is **tokenization-based, not warmup-based**. See [V4_STRATEGY.md line 881](V4_STRATEGY.md#L881) for decision gate. **Do not implement Task 37 without explicit approval.**
+
 V3 implemented **per-group base LR** but used a **single scheduler** applied uniformly. Task 37 proposes extending this to **per-group warmup durations**:
 
 ```python
@@ -550,6 +552,59 @@ for step in range(max_steps):
 
 ## Checkpointing Strategy
 
+### Overview: Fresh Start vs Checkpoint Expansion
+
+When scaling models (8M → 30M, 30M → 125M), choose strategy based on conditions:
+
+| Scenario | Strategy | Rationale | Risk |
+|----------|----------|-----------|------|
+| Architecture unchanged, data stable, clean scaling | **Checkpoint Expansion** | Fast convergence | Inherits 8M limitations |
+| Architecture modified or data shifted | **Fresh Start** | Detect emergent abilities | Wastes compute |
+| Scaling with same hyperparams | **Progressive (Checkpoint)** | Validate continuity | May mask issues |
+| Scaling at novel scale | **Hybrid** | Run both in parallel (subset) | More complex |
+
+### Decision Rules
+
+**Use Checkpoint Expansion if:**
+1. ✅ Architecture unchanged (same model, same component balance)
+2. ✅ Data composition stable (same tokenization, same data mix)
+3. ✅ 8M shows clean scaling curves (smooth, predictable loss)
+4. ✅ Gradient health throughout 8M training (ratio 0.3-3.0)
+
+**Use Fresh Start if:**
+1. ❌ Any architectural modification (gate mechanism, fusion ratio, component size)
+2. ❌ Data strategy change (BPE tokens size, code percentage, curriculum)
+3. ❌ 8M shows concerning behavior (spiky training, unexplained loss jumps)
+4. ❌ Component balance issues (ratio drift, activation collapse)
+
+### Implementation
+
+**Checkpoint Expansion (30M from 8M):**
+```bash
+# Expand weights: RWKV/Mamba embeddings, projections (scale by 1.5x-2x)
+# Keep training with higher LR (warm-up to 8M convergence)
+python train_v4.py --config configs/train_30m_from_8m.yaml \
+  --resume ckpt_8m_best.pt \
+  --expand-embeddings \
+  --scale-factor 2.0
+```
+
+**Fresh Start (30M independent):**
+```bash
+# Start completely new model, independent training
+python train_v4.py --config configs/train_30m_fresh.yaml
+```
+
+**Parallel Validation (Recommended for Novel Architectures):**
+```bash
+# Run both: checkpoint expansion AND fresh start on small subset (5K steps)
+# Cost: ~1 hour per method on A100, reveals convergence patterns early
+# Compare convergence speed, final loss, component balance
+# Use result to inform full-scale decision
+```
+
+### Standard Checkpoint Protocol
+
 1. **Best checkpoint**: Save whenever val_loss improves
 2. **Periodic checkpoint**: Every 10K steps regardless
 3. **Always save**: optimizer state + scheduler state + step count
@@ -562,6 +617,19 @@ torch.save({
     'scheduler_state_dict': scheduler.state_dict(),
     'best_val_loss': best_val_loss,
     'config': CONFIG,
+}, f'checkpoint_step_{step}.pt')
+```
+
+**For Checkpoint Expansion, also save:**
+```python
+torch.save({
+    # ... above ...
+    'scaling_metadata': {
+        'source_scale': '8M',
+        'source_checkpoint': 'ckpt_8m_best.pt',
+        'expansion_method': 'linear_scale',
+        'target_scale': '30M'
+    }
 }, f'checkpoint_step_{step}.pt')
 ```
 
@@ -578,6 +646,7 @@ Before starting a real training run:
 - [ ] Checkpoint saving works
 - [ ] VRAM usage acceptable (< 80% of available)
 - [ ] Estimated time to completion calculated
+- [ ] If using checkpoint expansion: source checkpoint validated and verified as best
 
 ---
 
@@ -769,15 +838,34 @@ def create_hybrid_1m(vocab_size: int = 10000) -> HybridModel:
 
 ---
 
-## Appendix G: Tokenizer (CURRENT STATE)
+## Appendix G: Tokenizer & Data Requirements
 
-Using char-level tokenizer (~97 vocab for shakespeare.txt).
+### ⚠️ CRITICAL: BPE Required for Benchmarks
 
-- ✅ Minimal embedding tax
-- ✅ Fast iteration
-- ❌ Not suitable for production (need BPE for real deployment)
+**Observation 12 (2026-01-10):** RWKV dominance on char-level is a **tokenization artifact**.
 
-For scaling to larger data, switch to custom BPE (16-24k vocab).
+| Tokenization | R/M Ratio | Use Case |
+|--------------|-----------|----------|
+| Char-level (Shakespeare) | 0.08-0.11 (FAIL) | Quick architecture validation ONLY |
+| BPE 16k (FineWeb) | 0.20-0.46 (OK) | **All serious experiments** |
+
+### Data & Tokenizer CLI
+
+```bash
+# Quick char-level validation (architecture sanity check)
+python train_v4.py --model GF-MH --max-steps 200 --data data/shakespeare.txt --tokenizer char
+
+# Proper benchmark (REQUIRED for publishable results)
+python train_v4.py --model GF-MH --max-steps 5000 --data data/fineweb_5m.txt --tokenizer bpe
+```
+
+### Available Data
+
+| File | Size | Tokenizer | Use |
+|------|------|-----------|-----|
+| `data/shakespeare.txt` | 1.1MB | char (97 vocab) | Quick validation |
+| `data/fineweb_5m.txt` | 5MB | BPE (16k vocab) | Fast benchmark |
+| `data/fineweb_10k.txt` | 47MB | BPE (16k vocab) | Full benchmark |
 
 ---
 
