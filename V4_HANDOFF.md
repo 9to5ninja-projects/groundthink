@@ -77,8 +77,8 @@ BPE did NOT fix component balance as hypothesized. R/M improved from 0.08-0.11 t
 | ~~1a~~ | ~~41a-1~~ | ~~Type A: Restructure `return_activations`~~ | ✅ DONE | Merged into 41a |
 | ~~1b~~ | ~~41a-2~~ | ~~Type B: RWKV internal state extraction~~ | ✅ DONE | `_wkv_sequential()` returns state |
 | ~~1c~~ | ~~41a-3~~ | ~~Type B: Mamba internal state extraction~~ | ✅ DONE | Output proxy implemented |
-| **1** | 41 | Create test_tiny_graduation.py | ⬜ **NEXT** | S0-S4 + G1-G4 test harness |
-| **2** | 42 | Run S0-S4 state space tests | ⬜ TODO | Execute via test harness |
+| ✅ | 41 | Create test_tiny_graduation.py | ✅ DONE | S0-S4 test harness created |
+| ✅ | 42 | Run S0-S4 state space tests | ✅ DONE | 5/5 pass, ratio=108583x |
 | 3 | 43 | Run Tiny overfit test (BPE) | ⬜ TODO | 10-100 samples, loss → 0 |
 | 4 | 44 | Run Tiny naive baseline (BPE) | ⬜ TODO | Val loss < random |
 | 5 | 45 | Run G1-G4 gates (BPE) | ⬜ TODO | Re-validate with BPE |
@@ -103,47 +103,57 @@ BPE did NOT fix component balance as hypothesized. R/M improved from 0.08-0.11 t
 ### Two Metrics to Track (Investigation Finding)
 
 **Type A: Output Activations** — What each component produces before fusion
-- Already measured: 71x variance ratio in Task 40
+- Measured in Task 40: **71x variance ratio** (RWKV var=8.58, Mamba var=0.12)
 - Shape: `[B, T, hidden_dim]` per component
 - Answers: "How much is each component contributing to the fused output?"
 
 **Type B: Internal Recurrent States** — The actual memory mechanism
+- Measured in Task 42: **108,583x variance ratio** (RWKV var=9689.4, Mamba var=0.089)
 - RWKV: Recurrent accumulator `[B, H, S]` — the "memory" of past tokens
-- Mamba: SSM state `[B, nheads, headdim, d_state]` — selective state evolution
+- Mamba: SSM state `[B, nheads, headdim, d_state]` — selective state evolution (proxy: `[B, hidden]`)
 - Answers: "Is the recurrent memory actually being used?"
 
-### State Space Tests (S0-S4) — NOW WITH BOTH TYPES
+**Baseline Observation (2026-01-10):**
+> Type B ratio (108,583x) is **1,500x higher** than Type A ratio (71x). This suggests Mamba's internal state is near-dormant while its output activations are merely weak. The Mamba component may be functioning more as a feedforward layer than a true state-space model.
 
-| Test | Purpose | Type A | Type B |
+### State Space Tests (S0-S4) — BASELINE RESULTS (2026-01-10)
+
+| Test | Purpose | Result | Details |
 |------|---------|--------|--------|
-| S0 | Shapes exist | ✅ Easy | 🔴 Requires impl |
-| S1 | Initialization | ✅ Easy | 🔴 Requires impl |
-| S2 | Evolution | ✅ Easy | 🟡 More meaningful |
-| S3 | Determinism | ✅ Easy | 🟡 More meaningful |
-| S4 | Balance | ⚠️ 71x ratio | ❓ Unknown |
+| S0 | Shapes exist | ✅ PASS | RWKV: [1,4,32], Mamba: [1,128], Gate: 0.70 |
+| S1 | Initialization | ✅ PASS | RWKV norm: 725.7, Mamba norm: 3.7 |
+| S2 | Evolution | ✅ PASS | RWKV diff: 863.2, Mamba diff: 4.5 |
+| S3 | Determinism | ✅ PASS | Both components deterministic (diff=0) |
+| S4 | Balance | ⚠️ WARN | Variance ratio: **108,583x** (severe imbalance) |
+
+**Observations:**
+- **Gate value 0.70** — Unexpected for GF-MH which has `gate_init=0.3`. This is the *learned* gate after training, showing RWKV dominance increased.
+- **RWKV state norm 200x higher** than Mamba (725.7 vs 3.7) — magnitude imbalance
+- **S2 evolution ratio ~190x** — RWKV state changes 190x more than Mamba between inputs
+- **All tests pass** but S4 confirms severe component imbalance at state level
 
 **See [CANARY_TESTS.md](CANARY_TESTS.md#s0-s4-state-space-fundamentals-35m-only--required-first) for implementations.**
 
 ### Tiny Graduation Criteria (per SCALING_MILESTONES.md)
 
-| Test | Criteria | Status |
-|------|----------|--------|
-| **S0-S4 (Type A)** | Output activations verified | ✅ API ready |
-| **S0-S4 (Type B)** | Internal states verified | ✅ API ready |
-| Overfit 10-100 samples | Loss → near 0 | ❓ Not tested |
-| Val < naive baseline | Better than random | ❓ Not tested |
-| G1-G4 gates pass | Per V4_TESTING.md | ❓ Not tested with BPE |
-| Checkpoint/resume | Save + reload works | ❓ Not tested with BPE |
-| Component balance | Documented | ⚠️ 71x variance (needs investigation) |
+| Test | Criteria | Status | Observed Value |
+|------|----------|--------|----------------|
+| **S0-S4 (Type A)** | Output activations verified | ✅ Task 40 | 71x variance ratio |
+| **S0-S4 (Type B)** | Internal states verified | ✅ Task 42 | 108,583x variance ratio |
+| Overfit 10-100 samples | Loss → near 0 | ⬜ Task 43 | — |
+| Val < naive baseline | Better than random | ⬜ Task 44 | — |
+| G1-G4 gates pass | Per V4_TESTING.md | ⬜ Task 45 | — |
+| Checkpoint/resume | Save + reload works | ⬜ Task 46 | — |
+| Component balance | Documented | ⚠️ Severe | Gate drifted 0.3→0.7 |
 
 **Gate:** Phase 4.0 PASS when S0-S4 pass AND all graduation criteria verified with BPE.
 
 ### Task Dependencies (Critical Path)
 
 ```
-COMPLETED                    NEXT                      THEN
+COMPLETED                         NEXT                      THEN
 ─────────────────────────────────────────────────────────────────
-Task 41a (API) ───┬─→ Task 41 (harness) ──→ Task 42 (run S0-S4)
+Task 41a (API) ───┬─→ Task 41 ✅ ──→ Task 42 ✅ (5/5 pass)
 Task 49 (all models) ─┘        │
 Task 50 (--log-states) ────────┤
                                │
@@ -183,23 +193,13 @@ logits, states = model(x, return_states=True)
 **Location:** All files in `models/` directory  
 **Impact:** ~~Blocks ALL state monitoring~~ S0-S4 tests now unblocked
 
-**Priority 1: Create test_tiny_graduation.py (Task 41)** ⬜ **NEXT**
+**Priority 1: Run Overfit Test (Task 43)** ⬜ **NEXT**
 
-Create unified test harness for all graduation criteria:
-- S0-S4 state space fundamentals (uses `return_states=True`)
-- G1-G4 validation gates
-- Overfit test (10-100 samples)
-- Naive baseline test
-- Checkpoint/resume test
+Test that model can memorize small sample (10-100 examples, loss → near 0).
 
-**Reference:** [CANARY_TESTS.md](CANARY_TESTS.md#s0-s4-state-space-fundamentals-35m-only--required-first)
+**Priority 2: Run Naive Baseline Test (Task 44)**
 
-**Priority 2: Run S0-S4 State Space Tests (Task 42)**
-
-Execute via the test harness:
-```bash
-python tests/test_tiny_graduation.py --test-states --tokenizer bpe
-```
+Verify val loss < random baseline.
 
 **Priority 3: Implement D1-D4 Diagnostic Tests (Task 52)**
 
@@ -392,8 +392,8 @@ Each parameter scale is an **experimental regime with distinct objectives**:
 | 2 | **BPE tokenization** | ✅ Implemented | `--tokenizer bpe` flag |
 | 3 | **State extraction API** | ✅ All 8 models | `return_states=True` |
 | 4 | **Training state monitor** | ✅ Implemented | `--log-states` flag |
-| 5 | **test_tiny_graduation.py** | ⬜ **NEXT** | Task 41 — create first |
-| 6 | **Run S0-S4 tests** | ⬜ Pending | Task 42 — run via harness |
+| 5 | **test_tiny_graduation.py** | ✅ Created | `tests/test_tiny_graduation.py` |
+| 6 | **Run S0-S4 tests** | ✅ 5/5 PASS | State variance ratio 108583x |
 | 7 | **Overfit test** | ⬜ Pending | Task 43 |
 | 8 | **Naive baseline test** | ⬜ Pending | Task 44 |
 | 9 | **G1-G4 gates (BPE)** | ⬜ Pending | Task 45 |

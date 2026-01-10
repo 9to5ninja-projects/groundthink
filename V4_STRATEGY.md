@@ -987,13 +987,13 @@ python train_v4.py --model GF-MH --data data/fineweb_5m.txt --tokenizer bpe --ma
 | G1-G4 gates pass | Per V4_TESTING.md | ❓ Not tested with BPE |
 | Checkpoint/resume works | Save + reload | ❓ Not tested with BPE |
 | Gradient flow | All components receiving gradients | ✅ Task 40 shows gradients flowing |
-| Component balance documented | Ratio and variance recorded | ⚠️ 71x variance (severe) |
+| Component balance documented | Ratio and variance recorded | ⚠️ Type A: 71x, Type B: 108583x |
 
 **Order of Operations:**
 1. ~~**Task 41a** — Implement state extraction API (BLOCKER)~~ ✅ DONE
-2. **Task 41** — Create test_tiny_graduation.py ⬜ **NEXT**
-3. **Task 42** — Run S0-S4 state space tests (via test harness)
-4. **Tasks 43-46** — Run remaining graduation tests
+2. ~~**Task 41** — Create test_tiny_graduation.py~~ ✅ DONE
+3. ~~**Task 42** — Run S0-S4 state space tests (via test harness)~~ ✅ DONE (5/5 pass)
+4. **Tasks 43-46** — Run remaining graduation tests ⬜ **NEXT**
 5. **Task 47** — Re-rank fusion variants with BPE
 6. **Task 48** — Deep-dive component balance investigation
 7. ~~**Task 49** — Propagate state API to all model variants~~ ✅ DONE
