@@ -557,7 +557,7 @@ if __name__ == "__main__":
             
             # Checkpointing
             if step % save_every == 0:
-                ckpt_path = f"ckpt_HY_step{step}.pt"
+                ckpt_path = f"checkpoints/ckpt_HY_step{step}.pt"
                 torch.save({
                     'step': step,
                     'model_state': model.state_dict(),
@@ -584,7 +584,7 @@ if __name__ == "__main__":
     print(f"Val no-improve count: {val_no_improve}", flush=True)
     
     # Save final checkpoint
-    final_path = f"ckpt_HY_final.pt"
+    final_path = f"checkpoints/ckpt_HY_final.pt"
     torch.save({
         'step': step,
         'model_state': model.state_dict(),
