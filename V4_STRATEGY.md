@@ -970,7 +970,7 @@ All gated variants converge to RWKV-dominant regardless of initial bias:
 | # | Task | Priority | Complexity | Status | Result |
 |---|------|----------|------------|--------|--------|
 | 36 | Increase Mamba LR (1.0x) | 🔴 HIGH | S | ✅ DONE | **WORSE** - R/M 0.10→0.08 |
-| 37 | Freeze gates for warmup | 🟠 MED | M | ⬜ NEXT | — |
+| 37 | Differential warmup schedules | 🟠 MED | L | ⬜ RESEARCH | Needs documentation |
 | 38 | Balance regularization | 🟡 LOW | L | ⬜ | — |
 | 39 | Accept RWKV dominance | 🟢 OPTIONAL | S | ⬜ | — |
 
@@ -980,10 +980,42 @@ All gated variants converge to RWKV-dominant regardless of initial bias:
 - **Result:** R/M **WORSE** (0.10→0.08), Val loss improved (1.59→1.53)
 - **Conclusion:** Mamba is NOT LR-starved. Higher LR accelerates convergence to RWKV-dominant state.
 
-**Task 37: Freeze Gates for Warmup**
-- **Rationale:** Early training may set gate bias before Mamba "warms up"
-- **Implementation:** Add `requires_grad=False` to gate_proj for steps 0-500
-- **Expected:** Gives Mamba time to develop before gate "decides"
+**Task 37: Differential Warmup Schedules** ⚠️ NEEDS RESEARCH
+- **Original idea:** Freeze gates for 500 steps
+- **User insight:** RWKV and Mamba may have fundamentally different warmup requirements
+- **Current state:** Single warmup schedule (500 steps) applied to ALL parameter groups equally
+
+**Hypothesis:** If Mamba needs longer warmup:
+- RWKV hits full LR at step 500
+- Mamba still ramping → falls behind → gates lock to RWKV early
+
+**Research Findings (2026-01-10):**
+
+| Source | Component | Warmup Recommendation |
+|--------|-----------|----------------------|
+| BlinkDL/RWKV-LM | RWKV-6/7 | `warmup_steps=20` for spike prevention, 2000-2500 for large models |
+| BlinkDL/RWKV-LM | State-tuning | `warmup_steps=10` with very high LR |
+| BlinkDL/RWKV-LM | Spike fix | `lr * (0.01 + 0.99 * step / warmup)` (slower ramp) |
+| state-spaces/mamba | Mamba-2 | No explicit guidance, follows GPT-3 conventions |
+| state-spaces/mamba | SSMs | "Sensitive to recurrent dynamics" - needs higher precision |
+| state-spaces/mamba | Δ param | Special initialization critical, may conflict with framework resets |
+
+**Key Insight:** RWKV has specific warmup guidance (slow ramp helps stability). Mamba follows general transformer conventions but is "sensitive" and needs careful precision handling.
+
+**Research Status:** ✅ COMPLETE (documented in [V4_TRAINING_GUIDE.md](V4_TRAINING_GUIDE.md#per-component-warmup-schedules-phase-38))
+
+**Key Findings:**
+- RWKV warmup: 20-2500 steps (BlinkDL spike-prevention formula available)
+- Mamba warmup: No explicit guidance; SSMs sensitive to recurrent dynamics
+- PyTorch LambdaLR: Supports per-group schedules natively via `lr_lambda=[lambda1, lambda2, lambda3]`
+
+**Experiments (Detailed in Guide):**
+- 37a: Mamba extended warmup (2x duration)
+- 37b: RWKV slow ramp (BlinkDL spike-fix formula)
+- 37c: Mamba delayed start
+- 37d: Combined (slow RWKV + extended Mamba)
+
+**Implementation Required:** Refactor `get_lr_lambda()` in train_v4.py to support per-group lambdas (see guide for pattern)
 
 **Task 38: Balance Regularization Loss**
 - **Rationale:** Explicitly penalize R/M ratio deviation from target

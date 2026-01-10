@@ -238,6 +238,143 @@ CONFIG = {
 
 ---
 
+## Per-Component Warmup Schedules (Phase 3.8+)
+
+**Context:** Hybrid models with gated fusion (e.g., GF-MH) show RWKV dominance due to smoother gradients. Task 37 (Phase 3.8) explores **differential warmup schedules** to help Mamba learn independently during early training.
+
+### Why Warmup Matters for Hybrids
+
+**RWKV vs Mamba warmup requirements differ fundamentally:**
+- **RWKV-6**: Smooth, well-behaved gradients. Standard cosine schedule works well. BlinkDL recommendations: 20-2500 steps warmup depending on model size.
+- **Mamba-2**: SSM recurrent dynamics are sensitive to initialization. Requires careful state accumulation. No explicit warmup guidance in literature; follows GPT-3 conventions.
+
+**Problem:** Single warmup schedule applies uniformly to all parameter groups, which may not match each component's learning requirements.
+
+**Hypothesis:** If Mamba has a longer/slower warmup period, it develops learned patterns independently before gates "decide" on RWKV dominance.
+
+### Literature Findings (Phase 3.8 Research)
+
+| Component | Warmup Duration | Formula | Source |
+|-----------|-----------------|---------|--------|
+| RWKV-6 | 20-2500 steps | Linear ramp OR `lr * (0.01 + 0.99 * step/warmup)` (spike fix) | BlinkDL RWKV-LM |
+| Mamba-2 | No explicit guidance | Follows GPT-3 (usually 2-5% of total steps) | state-spaces/mamba docs |
+| Generic Transformer | 5-10% of total steps | Linear ramp | GPT-3 paper |
+
+**Key Insight:** Hybrid models need **per-group LR schedules**. PyTorch's `LambdaLR` supports this natively via `lr_lambda=[lambda1, lambda2, lambda3]` for multiple parameter groups.
+
+### Implementation Pattern (train_v4.py)
+
+```python
+def get_parameter_groups(model, base_lr, mamba_lr_mult=0.5):
+    """Return (params_list, lr_list) for per-group warmup."""
+    rwkv_params = [p for name, p in model.named_parameters() if 'rwkv' in name.lower()]
+    mamba_params = [p for name, p in model.named_parameters() if 'mamba' in name.lower()]
+    other_params = [p for name, p in model.named_parameters() 
+                    if 'rwkv' not in name.lower() and 'mamba' not in name.lower()]
+    
+    return (
+        [{'params': rwkv_params, 'lr': base_lr},
+         {'params': mamba_params, 'lr': base_lr * mamba_lr_mult},
+         {'params': other_params, 'lr': base_lr}],
+        [base_lr, base_lr * mamba_lr_mult, base_lr]
+    )
+
+def get_lr_lambda_per_group(warmup_steps, max_steps, group_warmup_mult=1.0):
+    """Return lambda for per-group warmup.
+    
+    Args:
+        warmup_steps: Base warmup duration (e.g., 500)
+        max_steps: Total training steps
+        group_warmup_mult: Multiplier for this group's warmup (1.0=base, 2.0=2x longer)
+    """
+    adjusted_warmup = int(warmup_steps * group_warmup_mult)
+    
+    def lr_lambda(step):
+        if step < adjusted_warmup:
+            # Linear warmup
+            return float(step) / float(max(1, adjusted_warmup))
+        else:
+            # Cosine decay from adjusted_warmup to max_steps
+            progress = float(step - adjusted_warmup) / float(max(1, max_steps - adjusted_warmup))
+            return max(0.1, 0.5 * (1.0 + math.cos(math.pi * progress)))
+    
+    return lr_lambda
+
+# Usage:
+param_groups, base_lrs = get_parameter_groups(model, base_lr=3e-4, mamba_lr_mult=0.5)
+optimizer = AdamW(param_groups, weight_decay=0.1)
+
+# Create per-group warmup schedules
+rwkv_lambda = get_lr_lambda_per_group(warmup_steps=500, max_steps=5000, group_warmup_mult=1.0)
+mamba_lambda = get_lr_lambda_per_group(warmup_steps=500, max_steps=5000, group_warmup_mult=2.0)  # 2x longer
+other_lambda = get_lr_lambda_per_group(warmup_steps=500, max_steps=5000, group_warmup_mult=1.0)
+
+scheduler = LambdaLR(optimizer, lr_lambda=[rwkv_lambda, mamba_lambda, other_lambda])
+```
+
+### Experiments (Phase 3.8 Task 37)
+
+**37a: Mamba Extended Warmup**
+- RWKV: standard 500-step warmup
+- Mamba: 1000-step warmup (2x longer)
+- Hypothesis: Slower Mamba learning early on reduces gate collapse
+- Expected: R/M ratio improvement (0.10 → 0.3+), slight val loss trade-off
+
+**37b: RWKV Slow Ramp (BlinkDL Spike-Fix)**
+- RWKV: `lr * (0.01 + 0.99 * step/warmup_steps)` for first 500 steps
+- Mamba: standard linear warmup
+- Hypothesis: RWKV smooth ramp prevents gradient spikes that drown out Mamba
+- Expected: More stable learning trajectory, possible balance improvement
+
+**37c: Mamba Delayed Start**
+- Mamba: Zero LR for first 250 steps, then standard warmup
+- RWKV: standard warmup
+- Hypothesis: Prevents Mamba from immediately losing to smoother RWKV
+- Expected: R/M ratio improvement if pure gate dominance is the issue
+
+**37d: Combined (Slow RWKV + Extended Mamba)**
+- RWKV: Slow ramp formula (spike prevention)
+- Mamba: Extended warmup (2x longer)
+- Hypothesis: Attack signal dominance from both angles
+- Expected: Best balance improvement if both factors contribute
+
+### Evaluation Criteria
+
+For each experiment:
+1. **R/M Ratio Trajectory**: Plot gradient ratio over training
+   - Success: Ratio stays in 0.3-0.5 range for majority of training
+   - Failure: Ratio drops to <0.1 by step 500 (gate collapse)
+
+2. **Val Loss**: Should not degrade significantly
+   - Acceptable: < 5% worse than baseline GF-MH (1.59 baseline)
+   - Good: Within 2% of baseline
+   - Success: Improved relative to baseline
+
+3. **Component Gradient Magnitude**:
+   - Mamba gradients should remain non-zero throughout
+   - RWKV gradients should stabilize earlier (better conditioned)
+
+### Decision Logic (If Implementing)
+
+```python
+# After each experiment, log:
+# - Final R/M ratio
+# - Val loss (normalized vs baseline)
+# - Warmup-phase learning curves (steps 0-500)
+
+if ratio_improved and val_loss_acceptable:
+    # Adopt this schedule
+    update_train_config(schedule_params)
+elif ratio_improved and val_loss_worse:
+    # Consider hybrid: use schedule for first N steps, then revert
+    implement_staged_warmup(schedule_params, revert_step=1000)
+else:
+    # Stick with current approach or try next variant
+    proceed_to_37b()
+```
+
+---
+
 ## Training Loop Structure
 
 ```python
