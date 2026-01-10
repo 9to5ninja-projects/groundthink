@@ -34,7 +34,7 @@ DEFAULT_CONFIG = {
     'mamba_lr_mult': 0.5,     # Balance RWKV/Mamba gradients (1.0 tested, made worse)
     
     # Schedule  
-    'warmup_steps': 500,
+    'warmup_ratio': 0.1,      # 10% of max_steps (V3 guideline: 5-10%)
     'lr_decay': 'cosine',
     
     # Batch
@@ -343,16 +343,19 @@ if __name__ == "__main__":
         n_params = sum(p.numel() for p in pg['params'])
         print(f"  {pg['name']}: {n_params:,} params, lr={pg['lr']:.1e}")
     
+    # Compute warmup steps from ratio (V3 guideline: 5-10% of max_steps)
+    warmup_steps = int(CONFIG['max_steps'] * CONFIG['warmup_ratio'])
+    
     # Setup LR scheduler
     lr_lambda = get_lr_lambda(
-        warmup_steps=CONFIG['warmup_steps'],
+        warmup_steps=warmup_steps,
         max_steps=CONFIG['max_steps'],
         min_lr_ratio=CONFIG['min_lr'] / CONFIG['lr'],
     )
     scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
     
     print("\nOptimizer and scheduler ready!")
-    print(f"Warmup: {CONFIG['warmup_steps']} steps")
+    print(f"Warmup: {warmup_steps} steps ({CONFIG['warmup_ratio']*100:.0f}% of {CONFIG['max_steps']})")
     print(f"LR: {CONFIG['lr']} -> {CONFIG['min_lr']} (cosine)")
     
     # Resume from checkpoint if specified
