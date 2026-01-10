@@ -401,6 +401,23 @@ Mamba-2 uses mamba-ssm native CUDA kernels. RWKV-6 uses prototype + CUDA wrapper
 
 **Gate:** Phase 3 complete when 8M model trained and validated.
 
+#### Task 19 Results: 8M Model Benchmark (2026-01-10)
+
+**Hardware:** RTX 4050 Laptop GPU (6GB VRAM)
+
+| Config | Throughput | VRAM | Notes |
+|--------|------------|------|-------|
+| FP32 baseline | 15.6K tok/s | 1,336 MiB | batch=32, seq=128 |
+| FP16 AMP | 17.9K tok/s | 1,111 MiB | +15% speed, -17% VRAM |
+| BF16 AMP | 4.5K tok/s | 1,119 MiB | ❌ Slow (no native kernel) |
+| batch=48 + FP16 | 47.4K tok/s | 1,336 MiB | Best raw throughput |
+| **batch=32 + grad_accum=4 + FP16** | **45.1K tok/s** | **972 MiB** | ✅ **RECOMMENDED** |
+
+**Task 20 Recommended Config:**
+- batch_size=32, grad_accum=4, FP16 AMP
+- Effective batch: 128, VRAM: ~1GB
+- 50K steps ETA: ~75 min at 45K tok/s
+
 ---
 
 ### Phase 4: Advanced Long-Context Evaluation (Optional - "Later Game")
