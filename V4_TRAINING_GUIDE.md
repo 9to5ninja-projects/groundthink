@@ -27,6 +27,89 @@ Large edits (500+ lines) frequently timeout, get truncated, or introduce errors.
 
 ---
 
+## 🔧 Model Registry & Config System (V4.5+)
+
+**As of 2026-01-10, we use a centralized model registry and YAML config system.**
+
+### Quick Start (Copy-Paste Ready)
+
+```bash
+# Activate environment
+cd /home/m_tes/groundthink && source .venv/bin/activate
+
+# Train with config file (PREFERRED)
+python train_v4.py --config configs/train_8m_50k.yaml
+
+# Train with CLI overrides
+python train_v4.py --model 8M --max-steps 1000 --lr 0.0003
+
+# Quick test run (200 steps)
+python train_v4.py --config configs/train_quick.yaml
+
+# Resume from checkpoint
+python train_v4.py --config configs/train_8m_50k.yaml --resume ckpt_HY_step5000.pt
+```
+
+### Available Models
+
+Use `--model NAME` to select (or specify in YAML config):
+
+| Name | Params | Description |
+|------|--------|-------------|
+| `1M` | ~1M | Tiny test model |
+| `5M` | ~3.6M | Phase 1 baseline |
+| `HY` | ~3.6M | Hybrid v4 (same as 5M) |
+| `GF` | ~3.6M | Gated Fusion variant |
+| `GF-MH` | ~3.6M | **Phase 2 winner** - Gated Fusion + Mamba-Heavy (70% Mamba) |
+| `GF-RH` | ~3.6M | Gated Fusion + RWKV-Heavy (70% RWKV) |
+| `8M` | ~7.9M | Scaled model for Phase 3 |
+
+### Available Configs
+
+| File | Purpose |
+|------|---------|
+| `configs/train_8m_50k.yaml` | 50K step training for 8M model |
+| `configs/train_quick.yaml` | Quick test (200 steps, 5M model) |
+| `configs/train_default.yaml` | Default 5K step baseline |
+
+### Config Priority (Highest to Lowest)
+
+1. **CLI arguments** - `--max-steps 100` overrides everything
+2. **YAML config file** - `--config configs/train_8m_50k.yaml`
+3. **DEFAULT_CONFIG** in train_v4.py - fallback values
+
+### Creating New Configs
+
+```yaml
+# configs/my_experiment.yaml
+model: GF-MH
+max_steps: 10000
+warmup_steps: 500
+batch_size: 32
+learning_rate: 0.0003
+grad_accum_steps: 4
+seq_length: 128
+use_amp: true
+```
+
+### ⚠️ DO NOT Edit Imports
+
+**Old way (DON'T DO THIS):**
+```python
+# ❌ WRONG - editing train_v4.py imports
+from hybrid_v4_8m import create_hybrid_8m as create_model
+```
+
+**New way (CORRECT):**
+```bash
+# ✅ RIGHT - use CLI argument
+python train_v4.py --model 8M
+```
+
+The model registry (`models/__init__.py`) handles all imports automatically.
+
+---
+
 ## How to Use This Document
 
 1. **Before training**: Review Critical Rules and Pre-Flight Checklist
