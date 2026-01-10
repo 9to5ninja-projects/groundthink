@@ -1,11 +1,11 @@
 # V4 Agent Handoff Document
 
 **Purpose:** Single source of truth for agent continuity & versioning  
-**Current Version:** 4.3-Alpha (Phase 2.5 Started)  
+**Current Version:** 4.3-Alpha (Phase 2.5 In Progress)  
 **Updated:** 2026-01-10  
-**Last Agent Action:** Added Phase 2.5 (Infrastructure & Evaluation) - Tasks 18.1-18.5  
+**Last Agent Action:** Completed Tasks 18.1-18.2 (Model Registry + Config System)  
 **Repository:** https://github.com/9to5ninja-projects/groundthink  
-**Git Status:** ⚠️ Uncommitted changes (major strategy restructure)
+**Git Status:** ✅ Clean (all changes committed)
 
 ---
 
@@ -170,9 +170,9 @@ Implements Task 19. Phase 3 status: Task 19 complete, Task 20 next.
 - We have existing checkpoints - should test them FIRST
 
 **Phase 2.5 Progress:**
-- Task 18.1 ⬜ **NEXT**: Model Registry & Factory (no more import edits)
-- Task 18.2 ⬜ PENDING: Centralized Config System (YAML + CLI)
-- Task 18.3 ⬜ PENDING: NIAH Test Implementation
+- Task 18.1 ✅ COMPLETE: Model Registry & Factory (`models/__init__.py`, `--model` CLI arg)
+- Task 18.2 ✅ COMPLETE: Centralized Config System (`configs/*.yaml`, `--config` CLI arg)
+- Task 18.3 ⬜ **NEXT**: NIAH Test Implementation
 - Task 18.4 ⬜ PENDING: Qualitative Eval Suite
 - Task 18.5 ⬜ PENDING: Baseline Eval on 5M checkpoint
 
@@ -182,11 +182,18 @@ Implements Task 19. Phase 3 status: Task 19 complete, Task 20 next.
 - Task 21 ⬜ PENDING: Post-training eval
 
 **Key Insight:**
-Once 18.1 + 18.2 are done, training any model is:
+Tasks 18.1 + 18.2 are COMPLETE. Training any model is now:
 ```bash
-python train_v4.py --model 8M --config configs/train_8m_50k.yaml
+# With config file (preferred)
+python train_v4.py --config configs/train_8m_50k.yaml
+
+# With CLI args
+python train_v4.py --model 8M --max-steps 1000
+
+# Quick test
+python train_v4.py --config configs/train_quick.yaml
 ```
-No import edits. No config scatter.
+No import edits. No config scatter. See [V4_TRAINING_GUIDE.md](V4_TRAINING_GUIDE.md#-model-registry--config-system-v45) for full docs.
 
 **Existing Checkpoints (for eval):**
 - `ckpt_HY_step1000.pt` through `ckpt_HY_step5000.pt`
@@ -198,15 +205,15 @@ See [V4_STRATEGY.md - Phase 2.5](V4_STRATEGY.md#phase-25-infrastructure--evaluat
 
 ## Next Agent Instructions
 
-**Current Priority:** Task 18.1 - Model Registry & Factory
+**Current Priority:** Task 18.3 - NIAH Test Implementation
 
-**Phase 1 is COMPLETE.** The hybrid model trains stably at 5M scale.
+**Infrastructure is READY.** Model registry and config system are complete.
 
-**What to do next (Tasks 14-16):**
-1. Create hybrid variants with different RWKV:Mamba ratios
-2. Train each variant under identical conditions
-3. Compare convergence speed, final loss, throughput
-4. Document optimal ratio for 5M scale
+**What to do next:**
+1. Create `eval/niah.py` - Needle-In-A-Haystack test for long-context retrieval
+2. Test existing 5M checkpoints (ckpt_HY_step1000.pt through ckpt_HY_final.pt)
+3. Establish baseline metrics before 8M extended training
+4. See V4_STRATEGY.md Task 18.3 for implementation details
 
 **Available checkpoints:**
 - `ckpt_HY_step1000.pt` - Early training
@@ -293,7 +300,10 @@ See [V4_STRATEGY.md - Phase 2.5](V4_STRATEGY.md#phase-25-infrastructure--evaluat
 
 **Code files:**
 - `hybrid_v4.py` - Hybrid model (5M params, working)
-- `train_v4.py` - Training script with monitoring
+- `hybrid_v4_8m.py` - Scaled 8M model for Phase 3
+- `train_v4.py` - Training script with `--model` and `--config` args
+- `models/__init__.py` - **NEW** Model registry (10 variants)
+- `configs/*.yaml` - **NEW** Training configs (8m_50k, quick, default)
 - `benchmark_suite.py` - Reusable B1/B2/B3 benchmarks
 - `data_loader.py` - Data pipeline (from archive)
 - `tokenizer.py` - Tokenization (from archive)
@@ -304,6 +314,7 @@ See [V4_STRATEGY.md - Phase 2.5](V4_STRATEGY.md#phase-25-infrastructure--evaluat
 
 **New documentation:**
 - `V4.5_FUSION_VARIANTS.md` - Kernel fusion research & benchmarks
+- `V4_TRAINING_GUIDE.md` - **UPDATED** with Model Registry & Config System section
 
 **Component Status:**
 - RWKV-6: CUDA wrapper → PyTorch prototype (fallback)
@@ -327,6 +338,8 @@ V3 was scrapped because agents:
 **Most recent first:**
 
 ```
+2026-01-10 TASKS 18.1-18.2 COMPLETE - Model Registry (models/__init__.py) + Config System (configs/*.yaml). Training guide updated. No more import edits needed.
+2026-01-10 PHASE 2.5 STARTED - Infrastructure & Evaluation phase added. Prioritizing tooling before extended training.
 2026-01-09 TASK 13 COMPLETE - Extended training 5000 steps. Loss 4.60→1.14 (-75%), PPL 92→3.1. 35K tok/s avg. G1-G4 passed. Phase 1 COMPLETE.
 2026-01-09 TASKS 9-12 COMPLETE - Gradient imbalance FIXED (mamba_lr_mult 2.0→0.5, ratio 0.7-1.3). train_v4.py optimized. 186K tok/s. Task 13 NEXT.
 2026-01-09 TASK 8 COMPLETE - Quick win optimizations: 6.1x throughput (27K→166K tok/s) via batch=64. AMP +19% at batch=32. torch.compile blocked by PyTorch bug.
