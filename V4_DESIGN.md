@@ -301,19 +301,159 @@ Mamba2_Layer_128 = {
 
 ---
 
-## 5-8M Hybrid Prototypes (Correct Ratios)
+## WHAT WE ACTUALLY BUILT: Parallel Block Architecture (Implemented 2026-01-09)
 
-### Prototype 1: Correctly Balanced 5M
+**This is what exists in code:**
 
 ```
-Total: ~5.0M
-Hidden: 128
+HybridModel (GF-MH - Winner)
+├─ Embedding: vocab → 128 hidden
+├─ Block 0: [RWKV-6] ∥ [Mamba-2] → GF (gate) → FFN
+├─ Block 1: [RWKV-6] ∥ [Mamba-2] → GF (gate) → FFN
+├─ Block 2: [RWKV-6] ∥ [Mamba-2] → GF (gate) → FFN
+├─ Block 3: [RWKV-6] ∥ [Mamba-2] → GF (gate) → FFN
+├─ Block 4: [RWKV-6] ∥ [Mamba-2] → GF (gate) → FFN
+├─ Block 5: [RWKV-6] ∥ [Mamba-2] → GF (gate) → FFN
+├─ Block 6: [RWKV-6] ∥ [Mamba-2] → GF (gate) → FFN
+├─ Block 7: [RWKV-6] ∥ [Mamba-2] → GF (gate) → FFN
+├─ LayerNorm
+└─ Output Head
 
-RWKV6 Pathway (1.4M):
-  Layers: 2 × 700K = 1.4M
+Key Facts:
+- 8 blocks total (not "2 RWKV + 10 Mamba")
+- Each block has BOTH 1 RWKV-6 and 1 Mamba-2 running in parallel
+- Gate-based fusion (GF) learns optimal weighting per position
+- GF-MH uses gate_init=0.3 (70% Mamba at start)
+- Total: ~3.5M parameters
 
-Mamba2 Pathway (1.4M):
-  Layers: 21 × 67K = 1.4M
+File: hybrid_v4_ratio.py (GF-MH is the winner)
+```
+
+### Visual: Single ParallelHybridBlock
+
+```
+┌──────────────────────────────────────────────────────┐
+│            ParallelHybridBlock (i)                   │
+├──────────────────────────────────────────────────────┤
+│                                                      │
+│  Input: [batch, seq_len, 128]                       │
+│         │                                            │
+│         ▼                                            │
+│      RMSNorm                                         │
+│      ╱      ╲                                        │
+│     ╱        ╲                                       │
+│    ▼          ▼                                      │
+│  RWKV-6    Mamba-2                 SKIP ────────┐   │
+│    │          │                                  │   │
+│    ├─ norm ───┤                                  │   │
+│    ▼          ▼                                  │   │
+│    │    gate  │    ◄── Gated Fusion             │   │
+│    ├─────────┬┘     (learns blend at each       │   │
+│    ▼         ▼       position)                   │   │
+│  gate * rwkv + (1-gate) * mamba ◄────────┘      │   │
+│         │                                        │   │
+│         ▼                                        │   │
+│      + SKIP connection                           │   │
+│         │                                        │   │
+│         ▼                                        │   │
+│      RMSNorm                                     │   │
+│         │                                        │   │
+│        FFN (Linear→GELU→Linear)                  │   │
+│         │                                        │   │
+│         ▼                                        │   │
+│       + SKIP (residual)                          │   │
+│         │                                        │   │
+│         ▼                                        │   │
+│  Output: [batch, seq_len, 128]                   │   │
+│                                                  │   │
+└──────────────────────────────────────────────────────┘
+```
+
+### Visual: Full Model Data Flow
+
+```
+Input tokens [batch_size, seq_len]
+    │
+    ▼
+Embedding → [batch_size, seq_len, 128]
+    │
+    ├──► Block 0: RWKV∥Mamba + GF fusion + FFN → [batch, seq, 128]
+    │
+    ├──► Block 1: RWKV∥Mamba + GF fusion + FFN → [batch, seq, 128]
+    │
+    ├──► Block 2: RWKV∥Mamba + GF fusion + FFN → [batch, seq, 128]
+    │
+    ├──► Block 3: RWKV∥Mamba + GF fusion + FFN → [batch, seq, 128]
+    │
+    ├──► Block 4: RWKV∥Mamba + GF fusion + FFN → [batch, seq, 128]
+    │
+    ├──► Block 5: RWKV∥Mamba + GF fusion + FFN → [batch, seq, 128]
+    │
+    ├──► Block 6: RWKV∥Mamba + GF fusion + FFN → [batch, seq, 128]
+    │
+    ├──► Block 7: RWKV∥Mamba + GF fusion + FFN → [batch, seq, 128]
+    │
+    ▼
+LayerNorm → [batch, seq, 128]
+    │
+    ▼
+Linear Head → [batch, seq, vocab_size=97]
+    │
+    ▼
+Logits (softmax for inference)
+```
+
+### Contrast: Sequential vs Parallel
+
+```
+PROPOSED (Sequential - never built):
+Input
+  ↓
+[RWKV-6 Layer 0]
+  ↓
+[Mamba-2 Layer 0]
+  ↓
+[Mamba-2 Layer 1]
+  ↓
+...
+[Mamba-2 Layer 20]
+  ↓
+[RWKV-6 Layer 1]
+  ↓
+Output
+
+ACTUAL (Parallel blocks - implemented):
+Input
+  ↓
+[RWKV-6 + Mamba-2 in parallel] ← Block 0
+  ↓
+[RWKV-6 + Mamba-2 in parallel] ← Block 1
+  ↓
+[RWKV-6 + Mamba-2 in parallel] ← Block 2
+  ↓
+...
+[RWKV-6 + Mamba-2 in parallel] ← Block 7
+  ↓
+Output
+
+Key Difference:
+- Sequential: Data flows through different layer types
+- Parallel: Both layer types process same input, outputs are fused
+```
+
+---
+
+## 5-8M Hybrid Prototypes (PROPOSED - Not Yet Implemented)
+
+**These are theoretical sequential architectures for future exploration:**
+
+### PROPOSED Prototype 1: Sequential Balanced 5M
+
+```
+SEQUENTIAL STACK (not parallel blocks):
+RWKV6 → [Mamba2 ×21] → RWKV6
+- 2 RWKV6 layers (1.4M)
+- 21 Mamba2 layers (1.4M)
 
 Embeddings: 1.28M (10K×128)
 Output: 1.28M (tied)
@@ -322,30 +462,11 @@ Total: ~4.4M (with tied)
 Layer Ratio: 1:10.5 (RWKV6:Mamba2)
 ```
 
-### Prototype 2: Practical 6M
+### PROPOSED Prototype 2: Sequential RWKV-Heavy 5M
 
 ```
-Total: ~6.0M
-Hidden: 160
-
-RWKV6: 2 layers (2×1.1M = 2.2M)  # 1.1M each at 160 hidden
-Mamba2: 15 layers (15×84K = 1.26M)  # 84K each at 160 hidden
-Embed/Output: 1.6M each (tied)
-Fusion: 52K (160×320→160)
-Total: ~5.7M
-```
-
-### Prototype 3: Extreme Test 8M
-
-```
-Total: ~8.0M
-Hidden: 192
-
-RWKV6: 3 layers (3×1.6M = 4.8M)
-Mamba2: 20 layers (20×120K = 2.4M)
-Embed/Output: 1.92M each (tied)
-Fusion: 74K
-Total: ~7.1M
+SEQUENTIAL STACK (not parallel blocks):
+RWKV6 → [Mamba2 ×5] → RWKV6 → [Mamba2 ×5] → RWKV6 × 2
 ```
 
 ---
@@ -370,35 +491,44 @@ You can use batch size up to 256 or sequence length up to 8192!
 
 **Note:** We skip pure RWKV6 and pure Mamba2 training. Public metrics exist. We're here to build hybrids.
 
-### 1. Hybrid Balanced (5M) - BUILD FIRST
+### ⚠️ PROPOSED Sequential Variants (Not Yet Implemented)
+
+These show the original design concept. We tested **parallel blocks instead** (see above).
+
+#### 1. PROPOSED: Sequential Balanced (5M)
 
 ```
-RWKV6: 2 layers (1.4M)
-Mamba2: 21 layers (1.4M)
-Rest: Embed/Output/Fusion (2.2M)
-Total: ~5.4M
-Layer arrangement: RWKV6 → [Mamba2 ×21] → RWKV6
+SEQUENTIAL architecture (not parallel blocks):
+RWKV6 → [Mamba2 ×21] → RWKV6
+- 2 RWKV6 layers (1.4M)
+- 21 Mamba2 layers (1.4M)
+- Rest: Embed/Output/Fusion (2.2M)
+- Total: ~5.4M
 ```
 
-### 2. Hybrid RWKV-Heavy (5M)
+#### 2. PROPOSED: Sequential RWKV-Heavy (5M)
 
 ```
-RWKV6: 4 layers (2.8M)
-Mamba2: 10 layers (0.67M)
-Rest: Embed/Output/Fusion (1.53M)
-Total: ~5.0M
-Layer arrangement: RWKV6 → [Mamba2 ×5] → RWKV6 → [Mamba2 ×5] → RWKV6 × 2
+SEQUENTIAL architecture:
+RWKV6 → [Mamba2 ×5] → RWKV6 → [Mamba2 ×5] → RWKV6 × 2
+- 4 RWKV6 layers (2.8M)
+- 10 Mamba2 layers (0.67M)
+- Rest: Embed/Output/Fusion (1.53M)
+- Total: ~5.0M
 ```
 
-### 3. Hybrid Mamba2-Heavy (5M)
+#### 3. PROPOSED: Sequential Mamba-Heavy (5M)
 
 ```
-RWKV6: 1 layer (0.7M)
-Mamba2: 30 layers (2.0M)
-Rest: Embed/Output/Fusion (2.3M)
-Total: ~5.0M
-Layer arrangement: RWKV6 → [Mamba2 ×30]
+SEQUENTIAL architecture:
+RWKV6 → [Mamba2 ×30]
+- 1 RWKV6 layer (0.7M)
+- 30 Mamba2 layers (2.0M)
+- Rest: Embed/Output/Fusion (2.3M)
+- Total: ~5.0M
 ```
+
+**Status:** These are documented for future reference. Phase 2 chose **parallel block architecture** instead and benchmarked fusion+ratio variants. See hybrid_v4_ratio.py for actual implementation.
 
 ---
 
