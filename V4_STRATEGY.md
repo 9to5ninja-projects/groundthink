@@ -967,17 +967,18 @@ All gated variants converge to RWKV-dominant regardless of initial bias:
 
 **Objective:** Improve Mamba utilization without sacrificing loss
 
-| # | Task | Priority | Complexity | Approach |
-|---|------|----------|------------|----------|
-| 36 | Increase Mamba LR (1.0x) | 🔴 HIGH | S | Change mamba_lr_mult 0.5→1.0, retrain GF-MH |
-| 37 | Freeze gates for warmup | 🟠 MED | M | Freeze gate_proj for first 500 steps |
-| 38 | Balance regularization | 🟡 LOW | L | Add λ*(target_R/M - actual_R/M)² to loss |
-| 39 | Accept RWKV dominance | 🟢 OPTIONAL | S | Use GF-MH as-is, document trade-off |
+| # | Task | Priority | Complexity | Status | Result |
+|---|------|----------|------------|--------|--------|
+| 36 | Increase Mamba LR (1.0x) | 🔴 HIGH | S | ✅ DONE | **WORSE** - R/M 0.10→0.08 |
+| 37 | Freeze gates for warmup | 🟠 MED | M | ⬜ NEXT | — |
+| 38 | Balance regularization | 🟡 LOW | L | ⬜ | — |
+| 39 | Accept RWKV dominance | 🟢 OPTIONAL | S | ⬜ | — |
 
-**Task 36: Increase Mamba LR (1.0x)**
+**Task 36: Increase Mamba LR (1.0x)** ✅ COMPLETE
 - **Rationale:** Currently using 0.5x LR for Mamba. Mamba may be underfitting.
-- **Command:** Edit train_v4.py: `mamba_lr_mult = 1.0`, then `python train_v4.py --model GF-MH --max-steps 1000`
-- **Expected:** R/M ratio should improve if Mamba is learning-rate starved
+- **Command:** `mamba_lr_mult = 1.0`, ran GF-MH 1K steps
+- **Result:** R/M **WORSE** (0.10→0.08), Val loss improved (1.59→1.53)
+- **Conclusion:** Mamba is NOT LR-starved. Higher LR accelerates convergence to RWKV-dominant state.
 
 **Task 37: Freeze Gates for Warmup**
 - **Rationale:** Early training may set gate bias before Mamba "warms up"
@@ -997,7 +998,7 @@ All gated variants converge to RWKV-dominant regardless of initial bias:
   ```
 - **Expected:** Forces model to maintain balance at cost of some CE loss
 
-**Gate:** ⬜ Phase 3.8 NOT STARTED
+**Gate:** 🔄 Phase 3.8 IN PROGRESS (Task 36 complete, Task 37 next)
 
 ---
 
