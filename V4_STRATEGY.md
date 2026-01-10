@@ -726,6 +726,128 @@ warmup_steps: 2500
 
 ---
 
+### Phase 3.5: Parallel Training & Architecture Tuning
+
+**Rationale:** GPU analysis shows RTX 4050 (6GB) can fit 2x small models at batch=32 using only 47% VRAM. Multi-worker training can accelerate experiments.
+
+| # | Task | Status | Depends On | Complexity | Details |
+|---|------|--------|------------|------------|---------|
+| 22 | GPU VRAM Analysis | ✅ COMPLETE | - | S | Documented: 2x small @ batch=32 = 2.9GB (47%) |
+| 23 | Multi-Worker Training Script | ⬜ **NEXT** | Task 22 | M | Run 2+ models in parallel for A/B comparisons |
+| 24 | Architecture Tuning Guide | ⬜ PENDING | Task 22 | M | Document tunable params: gate_init, mamba_lr_mult, etc. |
+| 24.1 | HGF Balance Tuning | ⬜ PENDING | Task 24 | L | Fix RWKV-dominance in HGF (gradient ratio 0.22) |
+
+**Gate:** Phase 3.5 complete when we can run parallel experiments and have documented tuning parameters.
+
+---
+
+#### Task 22: GPU VRAM Analysis
+
+**Status:** ✅ COMPLETE (2026-01-10)  
+**Complexity:** S (Small)  
+**Time:** ~15 min  
+
+**Results (RTX 4050 Laptop, 6GB VRAM):**
+
+| Model | Batch | VRAM (train) | Headroom | 2x Workers? |
+|-------|-------|--------------|----------|-------------|
+| tiny | 32 | 424MB | 5.7GB | ✅ Yes |
+| tiny | 64 | 826MB | 5.3GB | ✅ Yes |
+| small | 32 | 1.5GB | 4.7GB | ✅ Yes (2x = 2.9GB) |
+| small | 64 | 2.9GB | 3.2GB | ⚠️ Tight |
+| HGF | 32 | 1.5GB | 4.7GB | ✅ Yes |
+| medium | 32 | 2.1GB | 4.0GB | ⚠️ Maybe 2x at batch=16 |
+
+**Key Finding:** 2x small models at batch=32 uses only **47% VRAM** (2.9GB). Headroom: 3.2GB.
+
+**Safe Multi-Worker Configs:**
+- 2x tiny, batch=64 → ~1.6GB ✅
+- 2x small, batch=32 → ~2.9GB ✅
+- 2x small, batch=48 → ~4.2GB ✅
+- 2x HGF, batch=32 → ~3.0GB ✅
+- 2x medium, batch=16 → ~2.6GB ✅
+
+---
+
+#### Task 23: Multi-Worker Training Script
+
+**Status:** ⬜ PENDING  
+**Complexity:** M (Medium)  
+**Time:** ~1 hour  
+**Priority:** 🟡 MEDIUM - Accelerates A/B experiments
+
+**Goal:** Create script to run 2+ models in parallel on single GPU for:
+- Comparative experiments (e.g., HGF vs GF-MH)
+- Architecture ablations
+- Hyperparameter sweeps
+
+**Approach Options:**
+1. **Sequential interleaved** — Alternate batches between models
+2. **True parallel** — Both models forward/backward same batch, aggregate gradients
+3. **Async workers** — Python multiprocessing with shared GPU memory
+
+**Acceptance Criteria:**
+- [ ] Script runs 2 models simultaneously
+- [ ] VRAM stays within safe limits (< 5GB for small)
+- [ ] Results logged separately per model
+- [ ] Supports different model variants (e.g., HGF vs GF-MH)
+
+---
+
+#### Task 24: Architecture Tuning Guide
+
+**Status:** ⬜ PENDING  
+**Complexity:** M (Medium)  
+**Time:** ~45 min  
+**Priority:** 🟡 MEDIUM - Enables systematic experiments
+
+**Goal:** Document all tunable architecture/training parameters for component balance:
+
+**Known Tuning Parameters:**
+
+| Parameter | Location | Default | Effect |
+|-----------|----------|---------|--------|
+| `gate_init` | Model constructor | 0.5 | Initial RWKV/Mamba blend (0=Mamba, 1=RWKV) |
+| `mamba_lr_mult` | train_v4.py | 0.5 | Mamba learning rate multiplier |
+| `rwkv_lr_mult` | train_v4.py | 1.0 | RWKV learning rate multiplier |
+| `ffn_mult` | Model constructor | 4.0 | FFN hidden size ratio |
+| `num_heads` | Model constructor | 4 | Attention heads (affects both RWKV & Mamba) |
+
+**Acceptance Criteria:**
+- [ ] All tunable params documented with effects
+- [ ] Recommended ranges for balance
+- [ ] Guide added to V4_TRAINING_GUIDE.md
+
+---
+
+#### Task 24.1: HGF Balance Tuning
+
+**Status:** ⬜ PENDING  
+**Complexity:** L (Large)  
+**Time:** ~2 hours  
+**Priority:** 🟡 MEDIUM - HGF shows promise but needs tuning
+
+**Problem:** HGF validation showed RWKV dominance:
+- Gradient ratio: 0.22 (target: 0.3-3.0)
+- Activation variance ratio: 47x (RWKV >> Mamba)
+
+**Hypothesis:** GF-MH fixed this with `mamba_lr_mult=0.5`. HGF may need:
+- Lower `gate_init` (e.g., 0.3 to favor Mamba initially)
+- Different `mamba_lr_mult`
+- Per-layer gate initialization
+
+**Experiment Plan:**
+1. HGF with `gate_init=0.3` (Mamba-heavy)
+2. HGF with `mamba_lr_mult=0.3`
+3. Compare gradient ratios after 500 steps
+
+**Acceptance Criteria:**
+- [ ] Find config that achieves gradient ratio 0.3-3.0
+- [ ] Document winning config
+- [ ] Update HGF model defaults if needed
+
+---
+
 ### Phase 4: Advanced Long-Context Evaluation (Optional - "Later Game")
 
 **Prerequisites:** Must pass Phase 4 NIAH tests (>80% accuracy at 16K tokens) before attempting these benchmarks.

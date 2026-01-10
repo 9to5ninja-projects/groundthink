@@ -201,8 +201,11 @@ class HybridModel_HGF(nn.Module):
             return logits, all_activations
         return logits
     
-    def count_parameters(self):
-        return sum(p.numel() for p in self.parameters() if p.requires_grad)
+    def get_num_params(self, non_embedding: bool = True) -> int:
+        n_params = sum(p.numel() for p in self.parameters())
+        if non_embedding:
+            n_params -= self.embed.weight.numel()
+        return n_params
 
 
 # Convenience aliases

@@ -233,6 +233,7 @@ def get_tokenizer_for_scale(scale: str, corpus_path: str = None) -> GroundThinkT
         "TINY", "SMALL", "MEDIUM",  # Primary names
         "1M", "5M", "8M",            # Legacy aliases
         "HY", "GF", "WS", "RF", "CP", "GF-RH", "GF-MH",  # Variants
+        "HGF", "HGF-MH", "HGF-RH",   # HGF variants (per-pos + per-dim gating)
     }
     
     if scale_upper in CHAR_SCALES:

@@ -1,11 +1,11 @@
 # V4 Agent Handoff Document
 
 **Purpose:** Single source of truth for agent continuity & versioning  
-**Current Version:** 4.5-Alpha (HGF Variant + Fusion Docs)  
+**Current Version:** 4.5-Alpha (HGF Validated + GPU Analysis)  
 **Updated:** 2026-01-10  
-**Last Agent Action:** Created HGF variant (per-pos + per-dim gating) + V4_FUSION_MODELS.md  
+**Last Agent Action:** HGF G1-G4 validation, GPU VRAM analysis, Phase 3.5 tasks added  
 **Repository:** https://github.com/9to5ninja-projects/groundthink  
-**Git Status:** ✅ Clean (26 commits ahead of origin)
+**Git Status:** 🔄 Uncommitted changes (session 13 work)
 
 ---
 
@@ -61,6 +61,12 @@
 - File operations use forward slashes `/`
 - Python virtual environment is at `.venv/` (already in .gitignore)
 - Git operations work normally
+
+**⚠️ ALWAYS ACTIVATE VENV BEFORE RUNNING PYTHON:**
+```bash
+source /home/m_tes/groundthink/.venv/bin/activate
+```
+Or prefix commands: `cd /home/m_tes/groundthink && source .venv/bin/activate && python ...`
 
 **Example paths:**
 - ✅ Correct: `/home/m_tes/groundthink/train_v4.py`
@@ -161,22 +167,36 @@ Implements Task 19. Phase 3 status: Task 19 complete, Task 20 next.
 
 ## Current Status
 
-**Phase:** Phase 2.5 IN PROGRESS (Infrastructure & Evaluation)  
+**Phase:** Phase 2.5 + 3.5 IN PROGRESS  
 **Last Updated:** 2026-01-10  
-**Status:** Infrastructure complete. New HGF variant ready for testing.
+**Status:** HGF validated (G1-G4), GPU analysis complete. Multi-worker training next.
 
-**Session 12 Completed:**
-- ✅ Repo reorganized (`models/`, `data/`, `tests/`, `checkpoints/`)
-- ✅ Naming scheme fixed (tiny/small/medium with legacy aliases)
-- ✅ V4_FUSION_MODELS.md — Technical reference for all 7 fusion variants
-- ✅ **HGF variant created** — Per-position + per-dimension gating (new experimental)
+**Session 13 Completed:**
+- ✅ HGF Validation Gates (G1-G4) — All passed with warnings
+- ✅ Fixed HGF integration issues (tokenizer.py, get_num_params method)
+- ✅ GPU VRAM Analysis — 2x small @ batch=32 fits in 47% VRAM (2.9GB)
+- ✅ Added Phase 3.5 tasks (Tasks 22-24.1) for parallel training & tuning
+
+**HGF Validation Results:**
+| Gate | Result | Notes |
+|------|--------|-------|
+| G1 | ✅ PASS | Forward pass, 3.84M params, no NaN |
+| G2 | ✅ PASS | Init entropy 4.42 (target 2.0-5.0) |
+| G3 | ✅ PASS | Loss 4.64→1.68, 20K tok/s |
+| G4 | ⚠️ WARN | Gradient ratio 0.22 (<0.3), activation variance 47x |
 
 **Phase 2.5 Progress:**
 - Task 18.1 ✅ COMPLETE: Model Registry & Factory (`models/__init__.py`)
 - Task 18.2 ✅ COMPLETE: Centralized Config System (`configs/*.yaml`)
 - Task 18.3 ⬜ PENDING: NIAH Test Implementation
 - Task 18.4 ⬜ PENDING: Qualitative Eval Suite
-- Task 18.5 🔄 **NEXT**: Run HGF through validation gates (G1-G4)
+- Task 18.5 ✅ COMPLETE: HGF validated through G1-G4
+
+**Phase 3.5 Progress (NEW):**
+- Task 22 ✅ COMPLETE: GPU VRAM Analysis
+- Task 23 ⬜ **NEXT**: Multi-Worker Training Script
+- Task 24 ⬜ PENDING: Architecture Tuning Guide
+- Task 24.1 ⬜ PENDING: HGF Balance Tuning
 
 **Phase 3 (After 2.5):**
 - Task 19 ✅ COMPLETE: medium model built (`models/hybrid_v4_8m.py`)
@@ -201,7 +221,7 @@ No import edits. No config scatter. See [V4_TRAINING_GUIDE.md](V4_TRAINING_GUIDE
 - `ckpt_HY_step1000.pt` through `ckpt_HY_step5000.pt`
 - `ckpt_HY_final.pt`
 
-See [V4_STRATEGY.md - Phase 2.5](V4_STRATEGY.md#phase-25-infrastructure--evaluation-before-extended-training) for full task details.
+See [V4_STRATEGY.md - Phase 3.5](V4_STRATEGY.md#phase-35-parallel-training--architecture-tuning) for full task details.
 
 ---
 
@@ -400,6 +420,7 @@ V3 was scrapped because agents:
 **Most recent first:**
 
 ```
+2026-01-10 SESSION 13 - HGF validated (G1-G4). Fixed tokenizer.py + get_num_params. GPU VRAM analysis: 2x small fits in 47%. Phase 3.5 tasks added (22-24.1).
 2026-01-10 REPO REORGANIZATION - models/ and data/ directories created. Naming scheme: tiny/small/medium. Legacy aliases preserved.
 2026-01-10 TASKS 18.1-18.2 COMPLETE - Model Registry (models/__init__.py) + Config System (configs/*.yaml). Training guide updated. No more import edits needed.
 2026-01-10 PHASE 2.5 STARTED - Infrastructure & Evaluation phase added. Prioritizing tooling before extended training.
@@ -443,6 +464,34 @@ V3 was scrapped because agents:
 - Compute capability: 8.9
 - Registers available: ~65K per thread
 - Max shared memory: 96 KB per block
+
+---
+
+## 🖥️ GPU VRAM ANALYSIS (2026-01-10)
+
+**Hardware:** RTX 4050 Laptop GPU — 6GB VRAM
+
+| Model | Batch | VRAM (train) | Headroom | 2x Workers? |
+|-------|-------|--------------|----------|-------------|
+| tiny | 32 | 424MB | 5.7GB | ✅ Yes |
+| tiny | 64 | 826MB | 5.3GB | ✅ Yes |
+| small | 32 | 1.5GB | 4.7GB | ✅ Yes (2x = 2.9GB) |
+| small | 64 | 2.9GB | 3.2GB | ⚠️ Tight |
+| HGF | 32 | 1.5GB | 4.7GB | ✅ Yes |
+| medium | 32 | 2.1GB | 4.0GB | ⚠️ Maybe 2x @ batch=16 |
+
+**Key Finding:** 2x small models @ batch=32 uses only **47% VRAM** (2.9GB).
+
+**Safe Multi-Worker Configs:**
+```
+2x tiny, batch=64  → ~1.6GB ✅
+2x small, batch=32 → ~2.9GB ✅  
+2x small, batch=48 → ~4.2GB ✅
+2x HGF, batch=32   → ~3.0GB ✅
+2x medium, batch=16 → ~2.6GB ✅
+```
+
+See [V4_STRATEGY.md - Task 22](V4_STRATEGY.md#task-22-gpu-vram-analysis) for full details.
 
 ---
 
