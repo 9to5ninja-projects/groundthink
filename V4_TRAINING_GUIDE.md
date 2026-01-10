@@ -238,15 +238,80 @@ CONFIG = {
 
 ---
 
+## Scheduler Implementation (V3 Archive Compliance)
+
+**The canonical scheduler pattern from `archive/training.py` and `archive/train_v030.py`:**
+
+```python
+# Linear warmup → cosine decay (V3 standard)
+def lr_lambda(step):
+    if step < warmup_steps:
+        return step / warmup_steps  # Linear ramp
+    progress = (step - warmup_steps) / (total_steps - warmup_steps)
+    return 0.5 * (1 + math.cos(math.pi * progress))  # Cosine decay
+```
+
+**Current train_v4.py is compliant** with this pattern.
+
+### V3 Parameter Group Structure
+
+From `archive/layers_v030.py` (lines 618-658), V3 used **three parameter groups**:
+
+| Group | LR | Weight Decay | Patterns |
+|-------|-----|--------------|----------|
+| **decay** | base_lr | 0.1 | Standard weights (projections, FFNs) |
+| **recurrent** | base_lr × 0.1 | 0.0 | time_decay, base_decay, gate, grounding |
+| **no_decay** | base_lr | 0.0 | bias, norm, ln, A_log, delta, gamma, h0, embed |
+
+**Key insight:** V3 used **lower LR for recurrent/state params** (0.1x multiplier), not higher.
+
+### Warmup Duration Guidelines (from V3_RESEARCH_NOTES.md)
+
+| Source | Recommendation | Our Current |
+|--------|----------------|-------------|
+| Section 2.15 | Linear warmup 5-10% of total steps | 500/1000 = **50%** ⚠️ |
+| V3_CROSS_REFERENCE 1.6 | 2-4x longer warmup for hybrids than pure transformers | Using 500 steps |
+| train_v030.py default | warmup=500 for num_steps=5000 (10%) | Matches |
+
+**Note:** Our current 500-step warmup for 1K-step experiments is **50% of training** — significantly higher than the 5-10% guideline. This may be intentional for small-scale validation but should be reduced for longer runs.
+
+### Per-Group Schedules (NEW — Not in V3)
+
+V3 implemented **per-group base LR** but used a **single scheduler** applied uniformly. Task 37 proposes extending this to **per-group warmup durations**:
+
+```python
+# V3 approach (single scheduler, different base LRs)
+scheduler = LambdaLR(optimizer, lr_lambda)  # Same lambda for all groups
+
+# Task 37 approach (per-group lambdas with different warmups)
+scheduler = LambdaLR(optimizer, lr_lambda=[rwkv_lambda, mamba_lambda, other_lambda])
+```
+
+**PyTorch supports this natively** — the `lr_lambda` parameter can be a list of functions, one per parameter group.
+
+---
+
 ## Per-Component Warmup Schedules (Phase 3.8+)
 
 **Context:** Hybrid models with gated fusion (e.g., GF-MH) show RWKV dominance due to smoother gradients. Task 37 (Phase 3.8) explores **differential warmup schedules** to help Mamba learn independently during early training.
+
+### Archive Findings (V3_RESEARCH_NOTES.md)
+
+| Source | Key Finding |
+|--------|-------------|
+| Section 2.15/9.6 | "Differential LR: 1.5-3x higher for SSM component initially" |
+| Section 2.31 | Recurrent params (gates, decay) get **0.1x** LR in V3 implementation |
+| Section 2.8 | "Warm-up 2-4x longer for hybrids than pure transformers" |
+| Line 324 | "LR Warmup: Linear warmup for 5-10% of tokens. Prevents Mamba 'A' matrix from exploding" |
+| Line 937 | "Per-Group LR: Higher for states, lower for heads" |
+
+**Apparent contradiction:** Research notes recommend higher LR for SSM, but V3 implementation used **lower** LR (0.1x) for recurrent params. This suggests the guidance evolved during development.
 
 ### Why Warmup Matters for Hybrids
 
 **RWKV vs Mamba warmup requirements differ fundamentally:**
 - **RWKV-6**: Smooth, well-behaved gradients. Standard cosine schedule works well. BlinkDL recommendations: 20-2500 steps warmup depending on model size.
-- **Mamba-2**: SSM recurrent dynamics are sensitive to initialization. Requires careful state accumulation. No explicit warmup guidance in literature; follows GPT-3 conventions.
+- **Mamba-2**: SSM recurrent dynamics are sensitive to initialization. Requires careful state accumulation. V3 notes: "Prevents Mamba 'A' matrix from exploding before seeing enough data."
 
 **Problem:** Single warmup schedule applies uniformly to all parameter groups, which may not match each component's learning requirements.
 
