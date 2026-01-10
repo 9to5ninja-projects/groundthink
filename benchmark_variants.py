@@ -31,6 +31,8 @@ from hybrid_v4_WS import create_hybrid_WS_5m as create_WS
 from hybrid_v4_GF import create_hybrid_GF_5m as create_GF
 from hybrid_v4_RF import create_hybrid_RF_5m as create_RF
 from hybrid_v4_CP import create_hybrid_CP_5m as create_CP
+from hybrid_v4_ratio import create_hybrid_GF_RH_5m as create_GF_RH
+from hybrid_v4_ratio import create_hybrid_GF_MH_5m as create_GF_MH
 
 from data_loader import load_stateful_dataset
 
@@ -50,13 +52,24 @@ CONFIG = {
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # ============ Variants ============
-VARIANTS = {
+# Fusion variants (Task 14)
+FUSION_VARIANTS = {
     'HY': ('Hybrid Per-Channel', create_HY),
     'WS': ('Weighted Sum', create_WS),
     'GF': ('Gated Fusion', create_GF),
     'RF': ('Residual Fusion', create_RF),
     'CP': ('Concat+Project', create_CP),
 }
+
+# Ratio variants (Task 15-16) - all use GF fusion
+RATIO_VARIANTS = {
+    'GF': ('GF Balanced', create_GF),
+    'GF-RH': ('GF RWKV-Heavy', create_GF_RH),
+    'GF-MH': ('GF Mamba-Heavy', create_GF_MH),
+}
+
+# Default to ratio variants for Phase 2
+VARIANTS = RATIO_VARIANTS
 
 
 def get_lr(step, warmup_steps, max_steps, base_lr):

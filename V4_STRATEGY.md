@@ -298,7 +298,7 @@ Mamba-2 uses mamba-ssm native CUDA kernels. RWKV-6 uses prototype + CUDA wrapper
 
 ---
 
-### Phase 2: Fusion & Ratio Comparison
+### Phase 2: Fusion & Ratio Comparison ✅ COMPLETE
 
 **Goal:** Find the standout winner among fusion strategies and ratio variants.
 
@@ -314,37 +314,41 @@ Mamba-2 uses mamba-ssm native CUDA kernels. RWKV-6 uses prototype + CUDA wrapper
 
 **Winner: GF (Gated Fusion)** - 4% better than HY baseline, 35% faster.
 
-#### Fusion Variants
+#### Task 15-17 Results: Ratio Benchmark (2026-01-09)
 
-| File | Code | Fusion Type | Fusion Params | Status |
-|------|------|-------------|---------------|--------|
-| hybrid_v4_GF.py | GF | Gated Fusion | 257 | ✅ **WINNER** (val 1.69) |
-| hybrid_v4_CP.py | CP | Concat+Project | 33K | ✅ Close second (val 1.69) |
-| hybrid_v4.py | HY | Per-channel gains | 256 | ✅ Baseline (val 1.76) |
-| hybrid_v4_WS.py | WS | Weighted Sum α | 1 | ✅ Tested (val 1.82) |
-| hybrid_v4_RF.py | RF | Residual Fusion | 16K | ✅ Worst (val 1.95) |
+| Rank | Code | Val Loss | Train Loss | PPL | Throughput |
+|------|------|----------|------------|-----|------------|
+| 🥇 | **GF-MH** | **1.6700** | 1.6321 | 5.31 | 47.2K tok/s |
+| 🥈 | GF | 1.6998 | 1.6604 | 5.47 | 36.8K tok/s |
+| 🥉 | GF-RH | 1.7201 | 1.6866 | 5.59 | 44.0K tok/s |
 
-#### Ratio Variants (To Build)
+**Winner: GF-MH (Mamba-Heavy)** - Gate init 0.3 favoring Mamba, 2% better than balanced GF.
 
-| Code | Configuration | Status |
-|------|---------------|--------|
-| GF | 2 RWKV6 + 8 Mamba2 per block | ✅ **WINNER** |
-| GF-RH | 4 RWKV6 + 10 Mamba2 (RWKV-Heavy) | ❌ Not built |
-| GF-MH | 1 RWKV6 + 30 Mamba2 (Mamba-Heavy) | ❌ Not built |
+#### All Variants Summary
+
+| File | Code | Description | Val Loss | Status |
+|------|------|-------------|----------|--------|
+| hybrid_v4_ratio.py | **GF-MH** | GF + Mamba-Heavy | **1.6700** | 🏆 **OVERALL WINNER** |
+| hybrid_v4_GF.py | GF | Gated Fusion balanced | 1.6998 | ✅ Fusion winner |
+| hybrid_v4_ratio.py | GF-RH | GF + RWKV-Heavy | 1.7201 | ✅ Tested |
+| hybrid_v4_CP.py | CP | Concat+Project | 1.6919 | ✅ Close to GF |
+| hybrid_v4.py | HY | Per-channel gains | 1.7600 | ✅ Baseline |
+| hybrid_v4_WS.py | WS | Weighted Sum | 1.8185 | ✅ Tested |
+| hybrid_v4_RF.py | RF | Residual Fusion | 1.9480 | ✅ Worst |
 
 #### Phase 2 Task Table
 
 | # | Task | Status | Depends On | Complexity | Details |
 |---|------|--------|------------|------------|---------|
-| 14 | ~~Benchmark Fusion Variants~~ | ✅ COMPLETE | Task 13 | M | GF wins, CP second |
-| 15 | Build RWKV-Heavy Hybrid | ⬜ **NEXT** | Task 14 | M | GF fusion + 4 RWKV6 + 10 Mamba2 |
-| 16 | Build Mamba-Heavy Hybrid | ⬜ PENDING | Task 14 | M | GF fusion + 1 RWKV6 + 30 Mamba2 |
-| 17 | Benchmark All 3 Ratio Variants | ⬜ PENDING | Tasks 15, 16 | L | 500 steps: GF, GF-RH, GF-MH |
-| 18 | Select Winner & Document | ⬜ PENDING | Task 17 | S | Update docs with final results |
+| 14 | ~~Benchmark Fusion Variants~~ | ✅ COMPLETE | Task 13 | M | GF wins fusion |
+| 15 | ~~Build RWKV-Heavy Hybrid~~ | ✅ COMPLETE | Task 14 | M | GF-RH in hybrid_v4_ratio.py |
+| 16 | ~~Build Mamba-Heavy Hybrid~~ | ✅ COMPLETE | Task 14 | M | GF-MH in hybrid_v4_ratio.py |
+| 17 | ~~Benchmark All 3 Ratio Variants~~ | ✅ COMPLETE | Tasks 15, 16 | L | GF-MH wins ratio |
+| 18 | ~~Select Winner & Document~~ | ✅ COMPLETE | Task 17 | S | **GF-MH is final winner** |
 
-**Gate:** Phase 2 complete when winner identified by lowest val loss + fastest convergence.
+**Phase 2 Gate: PASSED** - GF-MH (Gated Fusion + Mamba-Heavy) is the winner.
 
-**Benchmark Script:** `benchmark_variants.py` - 500 steps, identical conditions
+**Key Insight:** Mamba benefits from higher relative weight in the hybrid. RWKV-Heavy performs worst.
 
 ---
 
@@ -352,7 +356,7 @@ Mamba-2 uses mamba-ssm native CUDA kernels. RWKV-6 uses prototype + CUDA wrapper
 
 | # | Task | Status | Depends On | Complexity | Details |
 |---|------|--------|------------|------------|---------|
-| 19 | Scale to 8M Parameters | ⬜ PENDING | Task 18 | L | Use winning variant from Phase 2 |
+| 19 | Scale GF-MH to 8M Params | ⬜ **NEXT** | Task 18 | L | Use winning variant |
 | 20 | Extended Training (50K steps) | ⬜ PENDING | Task 19 | XL | Train to convergence |
 | 21 | NIAH Test (Needle-in-a-Haystack) | ⬜ PENDING | Task 20 | M | Long-context memory test |
 

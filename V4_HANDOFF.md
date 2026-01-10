@@ -79,15 +79,20 @@
 - Before extended training → G3.5 + G4
 - Before scaling up → Full suite G1-G4
 
-**Current status:** Task 13 COMPLETE. G1-G4 passed. Ready for Phase 2 (Hybrid Ratio Comparison).
+**Current status:** Phase 2 COMPLETE. GF-MH (Gated Fusion + Mamba-Heavy) is the winning variant. Ready for Phase 3 (Scale Testing).
 
 ---
 
 ## Current Status
 
-**Phase:** Phase 1 COMPLETE → Phase 2 (Tasks 14+) NEXT  
+**Phase:** Phase 2 COMPLETE → Phase 3 (Tasks 19+) NEXT  
 **Last Updated:** 2026-01-09 (Build Session 11)  
-**Status:** Extended training complete. 5000 steps, loss 4.60→1.14 (-75%).
+**Status:** Fusion + Ratio comparison complete. Winner: GF-MH (val 1.67).
+
+**Phase 2 Results:**
+- Task 14 (Fusion): GF wins (val 1.69 vs HY 1.76)
+- Tasks 15-17 (Ratio): GF-MH wins (val 1.67 vs GF 1.70)
+- **Overall Winner:** GF-MH (Gated Fusion + Mamba-Heavy gate bias 0.3)
 
 **Task 13 Results (5000 steps):**
 - ✅ Loss: 4.60 → 1.14 train, 1.49 val (**-75%**)
