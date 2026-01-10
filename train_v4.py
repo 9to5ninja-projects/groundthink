@@ -343,6 +343,10 @@ if __name__ == "__main__":
                         help='Gradient scale for Mamba params (default 1.0, try 10.0 for balance)')
     parser.add_argument('--rwkv-dropout', type=float, default=None, dest='rwkv_dropout_start',
                         help='RWKV dropout start prob (e.g., 0.4 = 40%% chance of suppressing RWKV)')
+    parser.add_argument('--data', type=str, default='data/shakespeare.txt',
+                        help='Training data file (default: data/shakespeare.txt)')
+    parser.add_argument('--tokenizer', type=str, default='char', choices=['char', 'bpe'],
+                        help='Tokenizer type: char (default) or bpe')
     parser.add_argument('--resume', type=str, default=None, 
                         help='Checkpoint to resume from')
     
@@ -368,13 +372,20 @@ if __name__ == "__main__":
     if args.config:
         print(f"Config: {args.config}")
     
-    # Load data - shakespeare.txt (proven, ~1MB)
-    print("\nLoading dataset...")
+    # Load data
+    print(f"\nLoading dataset from {args.data}...")
+    
+    # Determine scale for tokenizer selection
+    if args.tokenizer == 'bpe':
+        tok_scale = 'LARGE'  # Forces BPE tokenizer
+    else:
+        tok_scale = CONFIG['model']  # Uses char-level for small models
+    
     dataset, tokenizer = load_stateful_dataset(
-        'data/shakespeare.txt',
+        args.data,
         batch_size=CONFIG['batch_size'],
         seq_len=CONFIG['seq_len'],
-        scale=CONFIG['model'],
+        scale=tok_scale,
     )
     
     # Create model from registry
