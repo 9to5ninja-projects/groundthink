@@ -133,7 +133,7 @@ import torch
 from models import get_model, list_models
 
 # List available models
-list_models()  # Shows: tiny (0.5M), small (3.6M), medium (7.9M)
+list_models(show=True)  # Shows: tiny (0.5M), small (3.6M), medium (7.9M), etc.
 
 # Load a model
 model = get_model('medium')  # or 'small', 'tiny', 'GF-MH', etc.

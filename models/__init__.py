@@ -87,14 +87,17 @@ def get_model(name: str, vocab_size: int = 97, **kwargs):
     return factory(vocab_size=vocab_size, **kwargs)
 
 
-def list_models():
+def list_models(show=False):
     """
     List all available models with descriptions.
+    
+    Args:
+        show: If True, prints formatted table to console
     
     Returns:
         dict: Model names mapped to brief descriptions with param counts
     """
-    return {
+    models = {
         # Primary names
         'tiny':   '0.5M params | ~50MB VRAM | Quick tests, debugging',
         'small':  '3.6M params | ~200MB VRAM | Phase 1-2 baseline (HY architecture)',
@@ -116,6 +119,16 @@ def list_models():
         '5M':     '→ small (legacy alias)',
         '8M':     '→ medium (legacy alias)',
     }
+    
+    if show:
+        print("\n📦 Available Models:")
+        print("-" * 60)
+        for name, desc in models.items():
+            print(f"  {name:10} {desc}")
+        print("-" * 60)
+        print("Usage: model = get_model('medium')\n")
+    
+    return models
 
 
 def get_model_info(name: str):
