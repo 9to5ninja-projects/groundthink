@@ -2,6 +2,7 @@
 GroundThink V4 Training Script
 
 Per V4_STRATEGY.md Task 4 requirements.
+Updated 2026-01-10: Task 18.2 - YAML config + CLI overrides
 """
 
 # Fix OpenMP conflict BEFORE any other imports
@@ -9,49 +10,86 @@ import os
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'
 
 import math
+import yaml
 import torch
 import torch.nn.functional as F
 from torch.amp import autocast, GradScaler
+from pathlib import Path
 
-from hybrid_v4 import create_hybrid_5m
+from models import get_model, list_models
 from data_loader import load_stateful_dataset
 
 
-# ============ Config ============
-# Per V4_DESIGN.md Training Configuration + V3_CROSS_REFERENCE.md guidelines
-# Updated 2026-01-09: Task 8/10 optimizations applied
-CONFIG = {
+# ============ Default Config ============
+# Can be overridden by --config YAML file or CLI args
+DEFAULT_CONFIG = {
+    # Model (from registry)
+    'model': '5M',
+    
     # Optimizer
     'lr': 3e-4,
     'min_lr': 3e-5,           # 10% of peak
     'weight_decay': 0.1,
     'betas': (0.9, 0.95),
-    'mamba_lr_mult': 0.5,     # REDUCED: RWKV is weaker, so reduce Mamba LR to balance
+    'mamba_lr_mult': 0.5,     # Balance RWKV/Mamba gradients
     
     # Schedule  
-    'warmup_steps': 500,      # 10% of 5000 steps (adjust for longer runs)
+    'warmup_steps': 500,
     'lr_decay': 'cosine',
     
-    # Batch (Task 8: batch=64 gives 6.1x throughput improvement)
-    'batch_size': 64,         # Was 8, now 64 per Task 8 benchmarks
-    'seq_len': 64,            # Reduced for faster iteration during testing
-    'grad_accum': 1,          # effective batch = 64
+    # Batch
+    'batch_size': 64,
+    'seq_len': 64,
+    'grad_accum': 1,
     'grad_clip': 1.0,
     
-    # AMP (Task 8: +12% throughput at batch=64)
-    'use_amp': True,          # Enable mixed precision
+    # AMP
+    'use_amp': True,
     
     # Training
-    'max_steps': 5000,        # 5000 steps for fusion comparison
-    'eval_every': 100,        # Val loss every 100 steps (Cross-Ref 1.2)
-    'save_every': 1000,       # Save checkpoint every 1000 steps
-    'log_every': 50,          # Train loss every 50 steps
+    'max_steps': 5000,
+    'eval_every': 100,
+    'save_every': 1000,
+    'log_every': 50,
     
-    # Stopping criteria (Cross-Ref 1.2, 1.7)
-    'val_patience': 5,        # Stop after 5 evals with no improvement
-    'grad_ratio_warn': 3.0,   # Warn if RWKV/Mamba ratio > 3 or < 0.33
-    'grad_ratio_fail': 10.0,  # FAIL if ratio > 10 or < 0.1
+    # Stopping
+    'val_patience': 5,
+    'grad_ratio_warn': 3.0,
+    'grad_ratio_fail': 10.0,
+    
+    # Checkpoints
+    'checkpoint_prefix': 'ckpt',
 }
+
+
+def load_config(config_path: str = None, cli_overrides: dict = None) -> dict:
+    """
+    Load config from YAML file with CLI overrides.
+    
+    Priority: CLI args > YAML file > DEFAULT_CONFIG
+    """
+    config = DEFAULT_CONFIG.copy()
+    
+    # Load YAML if provided
+    if config_path:
+        path = Path(config_path)
+        if path.exists():
+            with open(path) as f:
+                yaml_config = yaml.safe_load(f)
+            if yaml_config:
+                config.update(yaml_config)
+            print(f"Loaded config from {config_path}")
+        else:
+            print(f"Warning: Config file {config_path} not found, using defaults")
+    
+    # Apply CLI overrides
+    if cli_overrides:
+        for key, value in cli_overrides.items():
+            if value is not None:
+                config[key] = value
+    
+    return config
+
 
 # ============ Device ============
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -240,22 +278,55 @@ def check_activation_health(stats, entropy):
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--resume', type=str, default=None, help='Checkpoint to resume from')
+    parser = argparse.ArgumentParser(description='Train GroundThink hybrid model')
+    
+    # Config file
+    parser.add_argument('--config', type=str, default=None,
+                        help='YAML config file (e.g., configs/train_8m_50k.yaml)')
+    
+    # Common overrides
+    parser.add_argument('--model', type=str, default=None, 
+                        help=f'Model name: {list(list_models().keys())}')
+    parser.add_argument('--max-steps', type=int, default=None, dest='max_steps',
+                        help='Training steps')
+    parser.add_argument('--batch-size', type=int, default=None, dest='batch_size',
+                        help='Batch size')
+    parser.add_argument('--lr', type=float, default=None,
+                        help='Learning rate')
+    parser.add_argument('--resume', type=str, default=None, 
+                        help='Checkpoint to resume from')
+    
     args = parser.parse_args()
     
+    # Build CLI overrides dict (only non-None values)
+    cli_overrides = {
+        'model': args.model,
+        'max_steps': args.max_steps,
+        'batch_size': args.batch_size,
+        'lr': args.lr,
+    }
+    
+    # Load config with overrides
+    CONFIG = load_config(args.config, cli_overrides)
+    
+    print(f"=== GroundThink Training ===")
+    print(f"Model: {CONFIG['model']}")
+    print(f"Steps: {CONFIG['max_steps']}, Batch: {CONFIG['batch_size']}, LR: {CONFIG['lr']}")
+    if args.config:
+        print(f"Config: {args.config}")
+    
     # Load data - shakespeare.txt (proven, ~1MB)
-    print("Loading dataset...")
+    print("\nLoading dataset...")
     dataset, tokenizer = load_stateful_dataset(
         'shakespeare.txt',
         batch_size=CONFIG['batch_size'],
         seq_len=CONFIG['seq_len'],
-        scale='8M',
+        scale=CONFIG['model'],
     )
     
-    # Create model
-    print(f"\nCreating model (vocab={tokenizer.vocab_size})...")
-    model = create_hybrid_5m(vocab_size=tokenizer.vocab_size).to(device)
+    # Create model from registry
+    print(f"\nCreating model '{CONFIG['model']}' (vocab={tokenizer.vocab_size})...")
+    model = get_model(CONFIG['model'], vocab_size=tokenizer.vocab_size).to(device)
     print(f"Model params: {model.get_num_params():,}")
     
     # Setup optimizer with differential LR

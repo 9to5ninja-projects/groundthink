@@ -1,0 +1,36 @@
+# GroundThink Training Config - Default 5K Steps
+# Baseline training config matching Phase 1-2 experiments
+# Created: 2026-01-10
+
+# Model selection
+model: 5M
+
+# Training duration
+max_steps: 5000
+warmup_steps: 500
+
+# Batch configuration
+batch_size: 64
+grad_accum: 1
+seq_len: 64
+
+# Learning rate
+lr: 3.0e-4
+min_lr: 3.0e-5
+mamba_lr_mult: 0.5
+
+# Regularization
+weight_decay: 0.1
+grad_clip: 1.0
+
+# Mixed precision
+use_amp: true
+
+# Logging
+log_every: 50
+eval_every: 100
+save_every: 1000
+
+val_patience: 5
+
+checkpoint_prefix: ckpt_HY

@@ -1,23 +1,24 @@
 # V4 Agent Handoff Document
 
 **Purpose:** Single source of truth for agent continuity & versioning  
-**Current Version:** 4.3-Alpha (Phase 3 Started)  
+**Current Version:** 4.3-Alpha (Phase 2.5 Started)  
 **Updated:** 2026-01-10  
-**Last Agent Action:** Added workflow reminders (top/mid/bottom checkpoints) to handoff  
+**Last Agent Action:** Added Phase 2.5 (Infrastructure & Evaluation) - Tasks 18.1-18.5  
 **Repository:** https://github.com/9to5ninja-projects/groundthink  
-**Git Status:** ✅ Committed (f6af83b)
+**Git Status:** ⚠️ Uncommitted changes (major strategy restructure)
 
 ---
 
 ## ⚠️ MANDATORY WORKFLOW
 
 **CRITICAL WORKFLOW (Mandatory Order):**
-1. **Read** [ONBOARDING.md](ONBOARDING.md) first (understand concepts: RWKV, Mamba, why hybrids)
-2. **Skim** this document (understand current status and git state)
-3. **Audit** task list in V4_STRATEGY.md using Task Assessment Matrix
-4. **Use `manage_todo_list`** to write your task breakdown
-5. **Verify** documentation links work before starting implementation
-6. **Then** begin work
+1. **Skim** this document (understand current status and git state)
+2. **Audit** task list in V4_STRATEGY.md using Task Assessment Matrix
+3. **Use `manage_todo_list`** to write your task breakdown
+4. **Verify** documentation links work before starting implementation
+5. **Then** begin work
+
+**Optional (when lost):** Read [ONBOARDING.md](ONBOARDING.md) for conceptual background (RWKV, Mamba, why hybrids)
 
 **Before Finishing:**
 - Update this document with your changes
@@ -159,44 +160,45 @@ Implements Task 19. Phase 3 status: Task 19 complete, Task 20 next.
 
 ## Current Status
 
-**Phase:** Phase 2 COMPLETE → Phase 3 (Tasks 19+) NEXT  
-**Last Updated:** 2026-01-09 (Build Session 11)  
-**Status:** Fusion + Ratio comparison complete. Winner: GF-MH (val 1.67).
+**Phase:** Phase 2.5 IN PROGRESS (Infrastructure & Evaluation)  
+**Last Updated:** 2026-01-10  
+**Status:** Building proper infrastructure before extended training.
 
-**Phase 2 Results:**
-- Task 14 (Fusion): GF wins (val 1.69 vs HY 1.76)
-- Tasks 15-17 (Ratio): GF-MH wins (val 1.67 vs GF 1.70)
-- **Overall Winner:** GF-MH (Gated Fusion + Mamba-Heavy gate bias 0.3)
+**Why Phase 2.5?**
+- Rushing to train leads to tedious manual edits (imports, configs)
+- No way to evaluate model quality without training more
+- We have existing checkpoints - should test them FIRST
 
-**Task 13 Results (5000 steps):**
-- ✅ Loss: 4.60 → 1.14 train, 1.49 val (**-75%**)
-- ✅ PPL: 92.5 → 3.12 (**-97%**)
-- ✅ Throughput: 35K tok/s avg (40K peak)
-- ✅ Duration: 582.4s (~9.7 min)
-- ✅ Tokens: 20.48M processed
-- ✅ Checkpoints: 5 saved (1K, 2K, 3K, 4K, 5K)
+**Phase 2.5 Progress:**
+- Task 18.1 ⬜ **NEXT**: Model Registry & Factory (no more import edits)
+- Task 18.2 ⬜ PENDING: Centralized Config System (YAML + CLI)
+- Task 18.3 ⬜ PENDING: NIAH Test Implementation
+- Task 18.4 ⬜ PENDING: Qualitative Eval Suite
+- Task 18.5 ⬜ PENDING: Baseline Eval on 5M checkpoint
 
-**G1-G4 Gates:**
-- G1 (Forward): ✅ No NaN, shapes correct
-- G2 (Init): ✅ Entropy 3.83→3.91 (healthy)
-- G3 (Train): ✅ Loss decreased, convergence stable
-- G4 (Balance): ⚠️ Gradient ratio drifted 0.4→0.29 (expected at low LR)
+**Phase 3 (After 2.5):**
+- Task 19 ✅ COMPLETE: 8M model built (hybrid_v4_8m.py)
+- Task 20 ⬜ PENDING: Extended training (now just `--model 8M --config train_8m_50k.yaml`)
+- Task 21 ⬜ PENDING: Post-training eval
 
-**Observation:** Gradient ratio drifted below 0.33 in later steps as LR decayed (cosine schedule). This is expected behavior - RWKV layers have lower gradients at low LR. Model converged well regardless.
+**Key Insight:**
+Once 18.1 + 18.2 are done, training any model is:
+```bash
+python train_v4.py --model 8M --config configs/train_8m_50k.yaml
+```
+No import edits. No config scatter.
 
-**Config Changes Applied to train_v4.py:**
-- `batch_size`: 8 → 64
-- `seq_len`: 256 → 64 (for faster iteration)
-- `use_amp`: False → True
-- `mamba_lr_mult`: 2.0 → 0.5 (fixes G4 gradient imbalance)
+**Existing Checkpoints (for eval):**
+- `ckpt_HY_step1000.pt` through `ckpt_HY_step5000.pt`
+- `ckpt_HY_final.pt`
 
-See [V4_BUILD_LOG.md - Session 10](V4_BUILD_LOG.md#build-session-10-2026-01-09) for details.
+See [V4_STRATEGY.md - Phase 2.5](V4_STRATEGY.md#phase-25-infrastructure--evaluation-before-extended-training) for full task details.
 
 ---
 
 ## Next Agent Instructions
 
-**Current Priority:** Phase 2 - Hybrid Ratio Comparison (Tasks 14+)
+**Current Priority:** Task 18.1 - Model Registry & Factory
 
 **Phase 1 is COMPLETE.** The hybrid model trains stably at 5M scale.
 

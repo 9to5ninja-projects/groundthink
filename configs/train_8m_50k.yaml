@@ -1,0 +1,38 @@
+# GroundThink Training Config - 8M Extended Training
+# Task 20: 50K step training run for 8M GF-MH model
+# Created: 2026-01-10
+
+# Model selection (from registry)
+model: 8M
+
+# Training duration
+max_steps: 50000
+warmup_steps: 2500  # 5% of total
+
+# Batch configuration (per Task 19 benchmarks)
+batch_size: 32
+grad_accum: 4      # Effective batch: 128
+seq_len: 128
+
+# Learning rate
+lr: 3.0e-4
+min_lr: 3.0e-5     # 10% of peak
+mamba_lr_mult: 0.5 # Balance RWKV/Mamba gradients
+
+# Regularization
+weight_decay: 0.1
+grad_clip: 1.0
+
+# Mixed precision
+use_amp: true
+
+# Logging & checkpoints
+log_every: 50
+eval_every: 500    # ~100 evaluations total
+save_every: 5000   # 10 checkpoints
+
+# Early stopping (optional)
+val_patience: 10   # Stop after 10 evals with no improvement
+
+# Checkpoint naming
+checkpoint_prefix: ckpt_8M

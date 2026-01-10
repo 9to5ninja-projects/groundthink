@@ -1,0 +1,37 @@
+# GroundThink Training Config - Quick Test
+# For fast iteration and smoke tests
+# Created: 2026-01-10
+
+# Model selection
+model: 5M
+
+# Training duration (short)
+max_steps: 200
+warmup_steps: 20
+
+# Batch configuration
+batch_size: 32
+grad_accum: 1
+seq_len: 64
+
+# Learning rate
+lr: 3.0e-4
+min_lr: 3.0e-5
+mamba_lr_mult: 0.5
+
+# Regularization
+weight_decay: 0.1
+grad_clip: 1.0
+
+# Mixed precision
+use_amp: true
+
+# Logging (more frequent for debugging)
+log_every: 10
+eval_every: 50
+save_every: 100
+
+# No early stopping for short runs
+val_patience: 0
+
+checkpoint_prefix: ckpt_test

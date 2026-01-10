@@ -391,15 +391,314 @@ Mamba-2 uses mamba-ssm native CUDA kernels. RWKV-6 uses prototype + CUDA wrapper
 
 ---
 
-### Phase 3: Scale Testing (After Phase 2)
+### Phase 2.5: Infrastructure & Evaluation (Before Extended Training)
+
+**Rationale:** Rushing to train without proper infrastructure leads to tedious manual edits and no way to evaluate quality. Build once, use forever.
+
+| # | Task | Status | Depends On | Complexity | Details |
+|---|------|--------|------------|------------|---------|
+| 18.1 | Model Registry & Factory | ✅ COMPLETE | Task 18 | M | models/__init__.py, --model CLI arg |
+| 18.2 | Centralized Config System | ✅ COMPLETE | Task 18.1 | M | YAML configs + CLI overrides working |
+| 18.3 | NIAH Test Implementation | ⬜ **NEXT** | Task 18.1 | L | Test existing 5M model first |
+| 18.4 | Qualitative Eval Suite | ⬜ PENDING | Task 18.3 | M | Generation samples, perplexity, patterns |
+| 18.5 | Evaluation Baseline | ⬜ PENDING | Task 18.4 | M | Run eval suite on 5M winner (GF-MH) |
+
+**Gate:** Phase 2.5 complete when we can switch models via CLI and have baseline eval metrics.
+
+---
+
+#### Task 18.1: Model Registry & Factory
+
+**Status:** ⬜ PENDING  
+**Complexity:** M (Medium)  
+**Time:** ~45 min  
+**Priority:** 🔴 HIGH - Fixes the import pain permanently
+
+**Problem:** 
+Every time we switch models, we edit imports in train_v4.py. This is error-prone and tedious.
+
+**Solution:** Create `models/__init__.py` with a registry pattern:
+
+```python
+# models/__init__.py
+from .hybrid_v4 import create_hybrid_5m
+from .hybrid_v4_8m import create_hybrid_8m
+from .hybrid_v4_GF import create_hybrid_GF
+from .hybrid_v4_ratio import create_hybrid_GF_MH, create_hybrid_GF_RH
+
+REGISTRY = {
+    '5M': create_hybrid_5m,
+    '8M': create_hybrid_8m,
+    'GF': create_hybrid_GF,
+    'GF-MH': create_hybrid_GF_MH,
+    'GF-RH': create_hybrid_GF_RH,
+}
+
+def get_model(name: str, vocab_size: int, **kwargs):
+    """Get model by name. Usage: model = get_model('8M', vocab_size=97)"""
+    if name not in REGISTRY:
+        raise ValueError(f"Unknown model: {name}. Available: {list(REGISTRY.keys())}")
+    return REGISTRY[name](vocab_size=vocab_size, **kwargs)
+```
+
+**Usage in train_v4.py:**
+```python
+from models import get_model
+model = get_model(args.model, vocab_size=tokenizer.vocab_size)
+```
+
+**Command line:**
+```bash
+python train_v4.py --model 8M --steps 50000
+python train_v4.py --model GF-MH --steps 5000
+```
+
+**Acceptance Criteria:**
+- [ ] `models/` directory created with `__init__.py`
+- [ ] All model variants moved to `models/` or imported
+- [ ] `get_model(name)` function works for all variants
+- [ ] train_v4.py uses `--model` argument
+- [ ] No more hardcoded imports to change
+
+---
+
+#### Task 18.2: Centralized Config System
+
+**Status:** ⬜ PENDING  
+**Complexity:** M (Medium)  
+**Time:** ~30 min  
+**Priority:** 🟠 HIGH - Reduces config scatter
+
+**Problem:**
+Config values are hardcoded in train_v4.py. Changing them requires editing the file.
+
+**Solution:** YAML config files + CLI overrides:
+
+```yaml
+# configs/train_8m_50k.yaml
+model: 8M
+max_steps: 50000
+warmup_steps: 2500
+batch_size: 32
+grad_accum: 4
+seq_len: 128
+lr: 3e-4
+min_lr: 3e-5
+use_amp: true
+eval_every: 500
+save_every: 5000
+```
+
+**Usage:**
+```bash
+python train_v4.py --config configs/train_8m_50k.yaml
+python train_v4.py --config configs/train_8m_50k.yaml --lr 1e-4  # Override
+```
+
+**Acceptance Criteria:**
+- [ ] `configs/` directory with preset configs
+- [ ] Config loader in train_v4.py
+- [ ] CLI args override config file values
+- [ ] Default config for quick testing
+
+---
+
+#### Task 18.3: NIAH Test Implementation
+
+**Status:** ⬜ PENDING  
+**Complexity:** L (Large)  
+**Time:** ~2 hours  
+**Priority:** 🟠 HIGH - Quality validation before extended training
+
+**What is NIAH?**
+Needle-in-a-Haystack: Hide a fact in filler text, query model to retrieve it. Tests long-context memory.
+
+**Why test existing 5M model FIRST?**
+- We have trained checkpoints already (ckpt_HY_step5000.pt, etc.)
+- Establishes baseline before scaling
+- May reveal issues that more training won't fix
+
+**Simple Implementation (no external deps):**
+
+```python
+# eval/niah.py
+def niah_test(model, tokenizer, context_length=1024, needle_position=0.5):
+    """
+    Test long-context retrieval.
+    
+    Args:
+        context_length: Total tokens of context
+        needle_position: Where to hide needle (0.0=start, 0.5=middle, 1.0=end)
+    """
+    # Needle (fact to remember)
+    needle = "The secret code is ALPHA-7."
+    query = "What is the secret code?"
+    
+    # Haystack (filler text from shakespeare.txt)
+    haystack = load_filler_text(context_length - len(tokenizer.encode(needle)))
+    
+    # Insert needle at position
+    insert_idx = int(len(haystack) * needle_position)
+    context = haystack[:insert_idx] + needle + haystack[insert_idx:]
+    
+    # Query model
+    prompt = context + "\n\nQuestion: " + query + "\nAnswer:"
+    response = model.generate(prompt, max_tokens=20)
+    
+    # Check if correct
+    success = "ALPHA-7" in response
+    return {'success': success, 'response': response, 'context_len': context_length}
+```
+
+**Test Matrix:**
+| Context | Position | Expected |
+|---------|----------|----------|
+| 512 | start | Should pass (easy) |
+| 512 | middle | Should pass |
+| 512 | end | Should pass |
+| 1024 | middle | Baseline test |
+| 2048 | middle | Stress test |
+| 4096 | middle | May fail (context limit) |
+
+**Acceptance Criteria:**
+- [ ] `eval/niah.py` created
+- [ ] Works with existing checkpoints
+- [ ] Results logged to console/file
+- [ ] Baseline numbers for 5M model documented
+
+---
+
+#### Task 18.4: Qualitative Eval Suite
+
+**Status:** ⬜ PENDING  
+**Complexity:** M (Medium)  
+**Time:** ~45 min  
+**Priority:** 🟡 MEDIUM - Nice to have before extended training
+
+**What to Evaluate:**
+
+1. **Text Generation Quality:**
+   ```python
+   prompts = [
+       "To be or not to be,",
+       "Once upon a time,",
+       "The meaning of life is",
+   ]
+   for p in prompts:
+       print(f"Prompt: {p}")
+       print(f"Output: {model.generate(p, max_tokens=50)}\n")
+   ```
+
+2. **Perplexity on Held-Out Text:**
+   ```python
+   val_ppl = compute_perplexity(model, val_dataset)
+   print(f"Validation PPL: {val_ppl:.2f}")
+   ```
+
+3. **Token Distribution:**
+   - Are outputs diverse or repetitive?
+   - Entropy of generated tokens
+
+4. **Attention/State Patterns (optional):**
+   - Visualize where model "attends"
+   - State evolution over sequence
+
+**Acceptance Criteria:**
+- [ ] `eval/qualitative.py` created
+- [ ] Generation, PPL, diversity metrics
+- [ ] Works with any model from registry
+- [ ] Output to console + optional file
+
+---
+
+#### Task 18.5: Evaluation Baseline
+
+**Status:** ⬜ PENDING  
+**Complexity:** M (Medium)  
+**Time:** ~30 min  
+**Priority:** 🟡 MEDIUM - Establishes comparison point
+
+**Run eval suite on existing 5M GF-MH checkpoint:**
+
+```bash
+python eval/run_eval.py --model GF-MH --checkpoint ckpt_HY_step5000.pt
+```
+
+**Expected Output:**
+```
+=== NIAH Results ===
+Context 512 (start):  PASS
+Context 512 (middle): PASS  
+Context 512 (end):    PASS
+Context 1024 (middle): PASS
+Context 2048 (middle): FAIL (degradation point)
+
+=== Generation Samples ===
+Prompt: "To be or not to be,"
+Output: "that is the question. Whether 'tis nobler..."
+
+=== Metrics ===
+Val PPL: 4.44
+Token Diversity: 0.73
+```
+
+**Acceptance Criteria:**
+- [ ] Baseline numbers documented
+- [ ] Clear degradation point identified (NIAH)
+- [ ] Generation quality assessed (subjective but documented)
+- [ ] Results in V4_BUILD_LOG.md
+
+---
+
+### Phase 3: Scale Testing (After Phase 2.5)
 
 | # | Task | Status | Depends On | Complexity | Details |
 |---|------|--------|------------|------------|---------|
 | 19 | Scale GF-MH to 8M Params | ✅ COMPLETE | Task 18 | L | hybrid_v4_8m.py (7.93M) |
-| 20 | Extended Training (50K steps) | ⬜ **NEXT** | Task 19 | XL | Train to convergence |
-| 21 | NIAH Test (Needle-in-a-Haystack) | ⬜ PENDING | Task 20 | M | Long-context memory test |
+| 20 | Extended Training (50K steps) | ⬜ PENDING | Tasks 18.1, 18.2 | XL | `--model 8M --config train_8m_50k.yaml` |
+| 21 | Post-Training Eval | ⬜ PENDING | Task 20 | M | Run eval suite on 8M model |
 
-**Gate:** Phase 3 complete when 8M model trained and validated.
+**Gate:** Phase 3 complete when 8M model trained and eval shows improvement over 5M baseline.
+
+**Note:** Tasks 19.1-19.5 (model import fixes, config updates) are **SUPERSEDED** by Phase 2.5 infrastructure (registry + config system). Once 18.1 and 18.2 are done, training any model is just:
+
+```bash
+python train_v4.py --model 8M --config configs/train_8m_50k.yaml
+```
+
+No more manual import edits. No more scattered config changes.
+
+---
+
+#### Task 19.1: Fix train_v4.py Model Import
+
+**Status:** ⬜ PENDING  
+**Complexity:** S (Small)  
+**Time:** ~5 min  
+**Priority:** 🔴 BLOCKER - Cannot run 8M training without this
+
+**Problem:** 
+`train_v4.py` line 15 imports `create_hybrid_5m` from `hybrid_v4.py`, but we need the 8M model.
+
+**Current:**
+```python
+from hybrid_v4 import create_hybrid_5m
+```
+
+**Required:**
+```python
+from hybrid_v4_8m import create_hybrid_8m
+```
+
+**Also need to update:**
+- Line ~259: `model = create_hybrid_5m(...)` → `model = create_hybrid_8m(...)`
+
+**Acceptance Criteria:**
+- [ ] Import changed to hybrid_v4_8m
+- [ ] Model creation uses create_hybrid_8m
+- [ ] Script runs without import errors
+
+---
 
 #### Task 19 Results: 8M Model Benchmark (2026-01-10)
 
@@ -413,10 +712,17 @@ Mamba-2 uses mamba-ssm native CUDA kernels. RWKV-6 uses prototype + CUDA wrapper
 | batch=48 + FP16 | 47.4K tok/s | 1,336 MiB | Best raw throughput |
 | **batch=32 + grad_accum=4 + FP16** | **45.1K tok/s** | **972 MiB** | ✅ **RECOMMENDED** |
 
-**Task 20 Recommended Config:**
-- batch_size=32, grad_accum=4, FP16 AMP
-- Effective batch: 128, VRAM: ~1GB
-- 50K steps ETA: ~75 min at 45K tok/s
+**Task 20 Recommended Config (for configs/train_8m_50k.yaml):**
+```yaml
+model: 8M
+batch_size: 32
+grad_accum: 4
+use_amp: true
+max_steps: 50000
+warmup_steps: 2500
+# Effective batch: 128, VRAM: ~1GB
+# 50K steps ETA: ~75 min at 45K tok/s
+```
 
 ---
 
