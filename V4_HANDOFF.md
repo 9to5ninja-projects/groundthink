@@ -25,6 +25,7 @@
 - Update V4_STRATEGY.md task status
 - Commit all changes with descriptive message (see Versioning Protocol below)
 - Update VERSION and CHANGELOG.md files
+- **Add "Read your handoff" as final todo item** (ensures next agent updates this doc)
 - Hand off to next agent or user with clear status
 
 **This is not optional. The user enforces this.**
