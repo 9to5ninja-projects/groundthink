@@ -452,11 +452,15 @@ Results: Loss 1.37, perplexity 3.0, 33K tok/s, gradient ratio warning (0.15-0.16
 
 ---
 
-## Active Task Details
+## Archived Task Details (Reference Only)
+
+> **Note:** Tasks 6.5-6.12 were SUPERSEDED by Phase 0 CUDA integration. 
+> These descriptions are kept for historical reference only.
+> See Phase 0 and Phase 1 tables above for actual completion status.
 
 ### Task 6.6: Research RWKV-6 Architecture
 
-**Status:** ⬜ **NEXT TASK**  
+**Status:** ✅ SUPERSEDED by Task 0.1  
 **Complexity:** M (Medium)  
 **Time:** ~1 hour  
 **Scope:** Find authoritative RWKV-6 specifications and document requirements
@@ -503,7 +507,7 @@ Results: Loss 1.37, perplexity 3.0, 33K tok/s, gradient ratio warning (0.15-0.16
 
 ### Task 6.7: Research Mamba-2 Architecture
 
-**Status:** ⬜ PENDING (depends on Task 6.6)  
+**Status:** ✅ SUPERSEDED by Task 0.2  
 **Complexity:** M (Medium)  
 **Time:** ~1 hour  
 **Scope:** Find authoritative Mamba-2 specifications and document requirements
@@ -539,7 +543,7 @@ Results: Loss 1.37, perplexity 3.0, 33K tok/s, gradient ratio warning (0.15-0.16
 
 ### Task 6.8: Audit Custom Wrappers
 
-**Status:** ⬜ PENDING (depends on Tasks 6.6, 6.7)  
+**Status:** ✅ SUPERSEDED by Phase 0  
 **Complexity:** M (Medium)  
 **Time:** ~1-2 hours  
 **Scope:** Compare fla_replacements.py against official specs
@@ -578,7 +582,7 @@ Results: Loss 1.37, perplexity 3.0, 33K tok/s, gradient ratio warning (0.15-0.16
 
 ### Task 6.9: Implement/Fix RWKV-6 Component
 
-**Status:** ⬜ PENDING (depends on Task 6.8)  
+**Status:** ✅ SUPERSEDED by Task 0.1  
 **Complexity:** L/XL (Large or Extra Large - TBD after audit)  
 **Time:** ~2-8 hours (depends on audit results)  
 **Scope:** Build correct RWKV-6 implementation
@@ -594,7 +598,7 @@ Results: Loss 1.37, perplexity 3.0, 33K tok/s, gradient ratio warning (0.15-0.16
 
 ### Task 6.10: Implement/Fix Mamba-2 Component
 
-**Status:** ⬜ PENDING (depends on Task 6.8)  
+**Status:** ✅ SUPERSEDED by Task 0.2  
 **Complexity:** L/XL (Large or Extra Large - TBD after audit)  
 **Time:** ~2-8 hours (depends on audit results)  
 **Scope:** Build correct Mamba-2 implementation
@@ -610,7 +614,7 @@ Results: Loss 1.37, perplexity 3.0, 33K tok/s, gradient ratio warning (0.15-0.16
 
 ### Task 6.11: Rebuild hybrid_v4.py
 
-**Status:** ⬜ PENDING (depends on Tasks 6.9, 6.10)  
+**Status:** ✅ COMPLETE (fla_replacements.py)  
 **Complexity:** L (Large)  
 **Time:** ~2-3 hours  
 **Scope:** Integrate verified RWKV-6 and Mamba-2 components
@@ -633,7 +637,7 @@ Results: Loss 1.37, perplexity 3.0, 33K tok/s, gradient ratio warning (0.15-0.16
 
 ### Task 6.12: Verify Model Works
 
-**Status:** ⬜ PENDING (depends on Task 6.11)  
+**Status:** ✅ COMPLETE (test_phase0_complete.py)  
 **Complexity:** M (Medium)  
 **Time:** ~1 hour  
 **Scope:** Full validation before proceeding to optimization
@@ -656,7 +660,7 @@ Results: Loss 1.37, perplexity 3.0, 33K tok/s, gradient ratio warning (0.15-0.16
 
 ### Task 6.5: Test Monitoring Tools
 
-**Status:** 🔄 BLOCKED (Task 6.12)  
+**Status:** ✅ COMPLETE  
 **Complexity:** S (Small)  
 **Time:** ~15-20 minutes  
 **Scope:** Verify monitoring tools work during actual training
@@ -880,142 +884,7 @@ Standard operating procedure - we installed tools but didn't verify they work to
 
 ---
 
-### Tasks 14+: Future Work
-
-Tasks to be detailed once Task 6 analysis is complete and next steps are clear.
-
----
-
-## Future Phases (Not Yet Started)
-    'batch_size': 32,        # ADJUST based on Task 3 VRAM test
-    'grad_accum': 4,
-    'max_steps': 100_000,
-    'eval_every': 100,       # Val loss every 100 steps
-    'save_every': 10_000,
-    'log_every': 10,         # Train loss every 10 steps
-}
-```
-
-**Acceptance Criteria:**
-- [ ] Config documented in V4_DESIGN.md
-- [ ] Same config used for ALL hybrid experiments
-- [ ] VRAM usage verified < 6GB with actual model
-
----
-
-### Task 5: Pass Gate G1-G2
-
-**Status:** ⬜ PENDING  
-**Time:** ~30 minutes  
-**Scope:** Validate model before adding gradient logging
-
-**G1 - Forward Pass:**
-- [ ] No NaN in outputs
-- [ ] Correct output shapes
-- [ ] VRAM fits in 6GB
-
-**G2 - Init Entropy:**
-- [ ] State entropy at step 0 between 2.0-5.0
-- [ ] Warn if 6.0-7.0
-- [ ] FAIL if <1.0 or >8.0
-
----
-
-### Task 6: Add Component Gradient Logging
-
-**Status:** ⬜ PENDING  
-**Time:** ~30 minutes  
-**Scope:** Must verify BOTH RWKV6 and Mamba2 receive gradients
-
-**From V3 Section 9.4:**
-```python
-def log_component_gradients(model):
-    rwkv_grad_norms = []
-    mamba_grad_norms = []
-    
-    for name, param in model.named_parameters():
-        if param.grad is not None:
-            if 'rwkv' in name.lower():
-                rwkv_grad_norms.append(param.grad.norm().item())
-            elif 'mamba' in name.lower():
-                mamba_grad_norms.append(param.grad.norm().item())
-    
-    rwkv_avg = sum(rwkv_grad_norms) / len(rwkv_grad_norms) if rwkv_grad_norms else 0
-    mamba_avg = sum(mamba_grad_norms) / len(mamba_grad_norms) if mamba_grad_norms else 0
-    ratio = rwkv_avg / (mamba_avg + 1e-9)
-    
-    return {'rwkv': rwkv_avg, 'mamba': mamba_avg, 'ratio': ratio}
-```
-
-**Acceptance Criteria:**
-- [ ] Logging function implemented
-- [ ] Ratio printed every 100 steps
-- [ ] RED FLAG if ratio <0.1 or >10
-
----
-
-### Task 7: Train 1K Steps, Pass Gate G3-G4-G4
-
-**Status:** ⬜ PENDING  
-**Time:** ~30 minutes  
-**Scope:** Quick training sanity check with component balance
-
-**G3 Criteria:**
-- [ ] Loss is decreasing
-- [ ] Gradient norm 0.5-1.5 (warn if 1.5-3.0, FAIL if >5.0)
-- [ ] Both train AND val loss logged
-
-**G4 Criteria (Component Balance):**
-
-| Metric | Pass | Warn | Fail |
-|--------|------|------|------|
-| Gradient Ratio (RWKV/Mamba) | 0.3-3.0 | 0.1-0.3 or 3-10 | <0.1 or >10 |
-
-If G4 FAIL: One component is dead. Stop and investigate.
-
----
-
-### Task 8: Run State Health Diagnostic (Gate G3.5)
-
-**Status:** ⬜ PENDING  
-**Time:** ~30 minutes  
-**Scope:** Verify state is not frozen or chaotic
-
-**From V3 Section 9.5:**
-
-| Metric | Method | Pass | Warn | Fail |
-|--------|--------|------|------|------|
-| State Evolution | Cosine similarity | < 0.99 | 0.95-0.99 | > 0.99 (frozen) |
-| SVD Rank | Top-5 ratio | > 0.5 | 0.3-0.5 | < 0.3 |
-| Gate Saturation | % values > 5.0 | < 10% | 10-30% | > 30% |
-
----
-
-### Task 9: Train First Hybrid (100K Steps)
-
-**Status:** ⬜ PENDING  
-**Time:** ~2-4 hours runtime  
-**Scope:** Full training run with monitoring
-
-**Requirements:**
-- Use dataset from Task 2
-- Use config from Task 3
-- Log every step: train loss
-- Log every 100 steps: val loss, grad norms, component ratio
-- Save checkpoints every 10K steps
-- Monitor for stopping criteria
-
-**Metrics Table:**
-
-| Model | Steps | Final Train Loss | Final Val Loss | RWKV/Mamba Ratio | Memory | Tok/s |
-|-------|-------|------------------|----------------|------------------|--------|-------|
-| Hybrid-Balanced | 100K | ? | ? | ? | ? | ? |
-
-**Acceptance Criteria:**
-- [ ] Training completes OR stopping criteria triggered
-- [ ] Both train AND val loss logged
-- [ ] No stopping criteria triggered = Phase 1 PASS
-- [ ] Document in V4_BUILD_LOG.md
+<!-- Legacy task descriptions removed (2026-01-10) - see Phase 1 table for completion status -->
 
 ---
 
