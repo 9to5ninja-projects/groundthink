@@ -14,7 +14,8 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 from fla_replacements import RWKV6Attention, Mamba2, RWKV6_CUDA_AVAILABLE
-from hybrid_v4 import create_hybrid_5m, ParallelHybridBlock
+from models import get_model
+from models.hybrid_v4 import ParallelHybridBlock
 
 print("=" * 70)
 print("PHASE 0 COMPLETION TEST SUITE")
@@ -153,7 +154,7 @@ print("\n" + "=" * 70)
 print("G1: FORWARD PASS (FULL HYBRID MODEL)")
 print("=" * 70)
 
-model = create_hybrid_5m(vocab_size=256).to(device)
+model = get_model('5M', vocab_size=256).to(device)
 x = torch.randint(0, 256, (2, 64), device=device)
 
 try:
@@ -256,7 +257,7 @@ print("TEST 5: MINI TRAINING LOOP (G3 PREVIEW - 100 steps)")
 print("=" * 70)
 
 # Fresh model for training test
-model = create_hybrid_5m(vocab_size=256).to(device)
+model = get_model('5M', vocab_size=256).to(device)
 optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
 
 losses = []

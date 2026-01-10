@@ -22,7 +22,7 @@ import torch
 import torch.nn.functional as F
 from torch.amp import autocast, GradScaler
 
-from hybrid_v4 import create_hybrid_5m
+from models import get_model
 from data_loader import load_stateful_dataset
 
 
@@ -303,7 +303,7 @@ if __name__ == "__main__":
     
     # Load model
     print("\nLoading model...")
-    model = create_hybrid_5m().to(device)
+    model = get_model('5M', vocab_size=97).to(device)
     n_params = sum(p.numel() for p in model.parameters())
     print(f"Model: {n_params:,} parameters")
     

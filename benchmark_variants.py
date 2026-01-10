@@ -25,14 +25,8 @@ import torch
 import torch.nn.functional as F
 from torch.amp import autocast, GradScaler
 
-# Import all variants
-from hybrid_v4 import create_hybrid_5m as create_HY
-from hybrid_v4_WS import create_hybrid_WS_5m as create_WS
-from hybrid_v4_GF import create_hybrid_GF_5m as create_GF
-from hybrid_v4_RF import create_hybrid_RF_5m as create_RF
-from hybrid_v4_CP import create_hybrid_CP_5m as create_CP
-from hybrid_v4_ratio import create_hybrid_GF_RH_5m as create_GF_RH
-from hybrid_v4_ratio import create_hybrid_GF_MH_5m as create_GF_MH
+# Import model registry
+from models import get_model
 
 from data_loader import load_stateful_dataset
 
@@ -52,20 +46,20 @@ CONFIG = {
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # ============ Variants ============
-# Fusion variants (Task 14)
+# Fusion variants (Task 14) - use registry names
 FUSION_VARIANTS = {
-    'HY': ('Hybrid Per-Channel', create_HY),
-    'WS': ('Weighted Sum', create_WS),
-    'GF': ('Gated Fusion', create_GF),
-    'RF': ('Residual Fusion', create_RF),
-    'CP': ('Concat+Project', create_CP),
+    'HY': 'Hybrid Per-Channel',
+    'WS': 'Weighted Sum',
+    'GF': 'Gated Fusion',
+    'RF': 'Residual Fusion',
+    'CP': 'Concat+Project',
 }
 
 # Ratio variants (Task 15-16) - all use GF fusion
 RATIO_VARIANTS = {
-    'GF': ('GF Balanced', create_GF),
-    'GF-RH': ('GF RWKV-Heavy', create_GF_RH),
-    'GF-MH': ('GF Mamba-Heavy', create_GF_MH),
+    'GF': 'GF Balanced',
+    'GF-RH': 'GF RWKV-Heavy',
+    'GF-MH': 'GF Mamba-Heavy',
 }
 
 # Default to ratio variants for Phase 2
@@ -102,14 +96,14 @@ def evaluate_val(model, dataset, n_batches=5):
     return total_loss / max(1, count)
 
 
-def train_variant(name, desc, create_fn, dataset, vocab_size):
+def train_variant(name, desc, dataset, vocab_size):
     """Train one variant and return metrics"""
     print(f"\n{'='*60}")
     print(f"VARIANT: {name} - {desc}")
     print(f"{'='*60}")
     
-    # Create model
-    model = create_fn(vocab_size=vocab_size).to(device)
+    # Create model using registry
+    model = get_model(name, vocab_size=vocab_size).to(device)
     n_params = sum(p.numel() for p in model.parameters())
     print(f"Parameters: {n_params:,}")
     
@@ -226,8 +220,8 @@ def main():
     
     # Run all variants
     results = {}
-    for name, (desc, create_fn) in VARIANTS.items():
-        results[name] = train_variant(name, desc, create_fn, dataset, vocab_size)
+    for name, desc in VARIANTS.items():
+        results[name] = train_variant(name, desc, dataset, vocab_size)
     
     # ============ LEADERBOARD ============
     print("\n" + "="*70)

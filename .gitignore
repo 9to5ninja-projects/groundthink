@@ -29,7 +29,8 @@ MANIFEST
 *.bin
 *.onnx
 checkpoints/
-models/
+# models/ - now contains source code, tracked
+# Model weights should be in checkpoints/ or use *.pt patterns above
 wandb/
 *.log
 
