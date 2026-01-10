@@ -1079,10 +1079,11 @@ logits, states = model(x, return_states=True)
 
 #### Task 49: Propagate State API to All Models
 
-**Status:** ⬜ TODO  
+**Status:** ✅ COMPLETE  
 **Complexity:** M (Medium)  
-**Time:** ~2 hours  
-**Dependencies:** Task 41a ✅
+**Time:** ~30 minutes (batch edits)  
+**Dependencies:** Task 41a ✅  
+**Completed:** 2026-01-10
 
 **Purpose:** All model variants need the same `return_states` API for uniform testing.
 

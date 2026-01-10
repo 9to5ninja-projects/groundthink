@@ -96,23 +96,25 @@ class ParallelHybridBlock_GF(nn.Module):
             nn.Linear(ffn_hidden, hidden_size, bias=False),
         )
     
-    def forward(self, x: torch.Tensor, return_activations: bool = False, rwkv_drop_prob: float = 0.0):
+    def forward(self, x: torch.Tensor, return_activations: bool = False, 
+                return_states: bool = False, rwkv_drop_prob: float = 0.0):
         """
         Args:
             x: [batch_size, seq_len, hidden_size]
             return_activations: If True, also return component outputs for monitoring
+            return_states: If True, return internal states for S0-S4 tests
             rwkv_drop_prob: Probability of dropping RWKV output entirely (training only)
-                           Forces Mamba to learn independently when RWKV is suppressed
-        Returns:
-            out: [batch_size, seq_len, hidden_size]
-            activations (optional): dict with 'rwkv', 'mamba', and 'gate' tensors
         """
         # Pre-norm
         norm_x = self.ln(x)
         
-        # PARALLEL pathways
-        out_rwkv, _, _ = self.rwkv6(norm_x)
-        out_mamba = self.mamba2(norm_x)
+        # PARALLEL pathways with optional state extraction
+        if return_states:
+            out_rwkv, _, rwkv_state_dict = self.rwkv6(norm_x, return_state=True)
+            out_mamba, mamba_state_dict = self.mamba2(norm_x, return_state=True)
+        else:
+            out_rwkv, _, _ = self.rwkv6(norm_x)
+            out_mamba = self.mamba2(norm_x)
         
         # RWKV Dropout: During training, randomly suppress RWKV to force Mamba learning
         if self.training and rwkv_drop_prob > 0.0:
@@ -129,6 +131,14 @@ class ParallelHybridBlock_GF(nn.Module):
         
         # FFN with residual
         x = x + self.ffn(self.ffn_ln(x))
+        
+        if return_states:
+            states = {
+                'rwkv_state': rwkv_state_dict.get('rwkv_state') if rwkv_state_dict else None,
+                'mamba_state': mamba_state_dict.get('mamba_state') if mamba_state_dict else None,
+                'gate': gate.mean().item(),
+            }
+            return x, states
         
         if return_activations:
             return x, {'rwkv': out_rwkv, 'mamba': out_mamba, 'gate': gate.mean().item()}
@@ -189,19 +199,25 @@ class HybridModel_GF(nn.Module):
             elif isinstance(module, nn.Embedding):
                 nn.init.normal_(module.weight, mean=0.0, std=0.02)
     
-    def forward(self, x: torch.Tensor, return_activations: bool = False, rwkv_drop_prob: float = 0.0):
+    def forward(self, x: torch.Tensor, return_activations: bool = False, 
+                return_states: bool = False, rwkv_drop_prob: float = 0.0):
         """
         Args:
             x: Input token IDs [batch_size, seq_len]
             return_activations: If True, also return component activations
+            return_states: If True, return internal states for S0-S4 tests
             rwkv_drop_prob: Probability of dropping RWKV output (anneals during training)
         """
         h = self.embed(x)
         
         all_activations = [] if return_activations else None
+        all_states = [] if return_states else None
         
         for block in self.blocks:
-            if return_activations:
+            if return_states:
+                h, states = block(h, return_states=True, rwkv_drop_prob=rwkv_drop_prob)
+                all_states.append(states)
+            elif return_activations:
                 h, acts = block(h, return_activations=True, rwkv_drop_prob=rwkv_drop_prob)
                 all_activations.append(acts)
             else:
@@ -209,6 +225,10 @@ class HybridModel_GF(nn.Module):
         
         h = self.ln_out(h)
         logits = self.head(h)
+        
+        if return_states:
+            last_states = all_states[-1] if all_states else {}
+            return logits, last_states
         
         if return_activations:
             return logits, all_activations

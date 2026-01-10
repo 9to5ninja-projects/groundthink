@@ -93,21 +93,23 @@ class ParallelHybridBlock_CP(nn.Module):
             nn.Linear(ffn_hidden, hidden_size, bias=False),
         )
     
-    def forward(self, x: torch.Tensor, return_activations: bool = False):
+    def forward(self, x: torch.Tensor, return_activations: bool = False, return_states: bool = False):
         """
         Args:
             x: [batch_size, seq_len, hidden_size]
             return_activations: If True, also return component outputs for monitoring
-        Returns:
-            out: [batch_size, seq_len, hidden_size]
-            activations (optional): dict with 'rwkv' and 'mamba' tensors
+            return_states: If True, return internal states for S0-S4 tests
         """
         # Pre-norm
         norm_x = self.ln(x)
         
-        # PARALLEL pathways
-        out_rwkv, _, _ = self.rwkv6(norm_x)
-        out_mamba = self.mamba2(norm_x)
+        # PARALLEL pathways with optional state extraction
+        if return_states:
+            out_rwkv, _, rwkv_state_dict = self.rwkv6(norm_x, return_state=True)
+            out_mamba, mamba_state_dict = self.mamba2(norm_x, return_state=True)
+        else:
+            out_rwkv, _, _ = self.rwkv6(norm_x)
+            out_mamba = self.mamba2(norm_x)
         
         # CP Fusion: Concatenate + Project
         combined = torch.cat([out_rwkv, out_mamba], dim=-1)
@@ -118,6 +120,14 @@ class ParallelHybridBlock_CP(nn.Module):
         
         # FFN with residual
         x = x + self.ffn(self.ffn_ln(x))
+        
+        if return_states:
+            states = {
+                'rwkv_state': rwkv_state_dict.get('rwkv_state') if rwkv_state_dict else None,
+                'mamba_state': mamba_state_dict.get('mamba_state') if mamba_state_dict else None,
+                'gate': 0.5,  # CP uses learned projection, no explicit gate
+            }
+            return x, states
         
         if return_activations:
             return x, {'rwkv': out_rwkv, 'mamba': out_mamba}
@@ -178,13 +188,17 @@ class HybridModel_CP(nn.Module):
             elif isinstance(module, nn.Embedding):
                 nn.init.normal_(module.weight, mean=0.0, std=0.02)
     
-    def forward(self, x: torch.Tensor, return_activations: bool = False):
+    def forward(self, x: torch.Tensor, return_activations: bool = False, return_states: bool = False):
         h = self.embed(x)
         
         all_activations = [] if return_activations else None
+        all_states = [] if return_states else None
         
         for block in self.blocks:
-            if return_activations:
+            if return_states:
+                h, states = block(h, return_states=True)
+                all_states.append(states)
+            elif return_activations:
                 h, acts = block(h, return_activations=True)
                 all_activations.append(acts)
             else:
@@ -192,6 +206,10 @@ class HybridModel_CP(nn.Module):
         
         h = self.ln_out(h)
         logits = self.head(h)
+        
+        if return_states:
+            last_states = all_states[-1] if all_states else {}
+            return logits, last_states
         
         if return_activations:
             return logits, all_activations
