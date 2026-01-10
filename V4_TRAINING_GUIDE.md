@@ -214,14 +214,15 @@ CONFIG = {
     
     # Optimizer
     'lr': 3e-4,             # Base LR for RWKV + other
-    'mamba_lr_mult': 2.0,   # Mamba gets 2x LR (6e-4)
+    'mamba_lr_mult': 0.5,   # Mamba LR multiplier (0.5 = lower LR for Mamba)
+    'mamba_grad_scale': 1.0, # Gradient scaling for Mamba (see below)
     'min_lr': 3e-5,         # 10% of peak
     'weight_decay': 0.1,
     'betas': (0.9, 0.95),
     'grad_clip': 1.0,
     
     # Schedule
-    'warmup_steps': 2000,   # 2-4x longer for hybrids
+    'warmup_ratio': 0.1,    # 10% of max_steps (V3 guideline: 5-10%)
     'max_steps': 50000,
     
     # Monitoring
@@ -234,6 +235,39 @@ CONFIG = {
     'grad_ratio_warn': 3.0,
     'grad_ratio_fail': 10.0,
 }
+```
+
+### Gradient Scaling vs LR Multiplier
+
+**The Problem:** RWKV produces ~10x larger gradients than Mamba due to its "smoother" signal pathways. The optimizer naturally favors RWKV, causing Mamba to become inactive.
+
+**Two approaches to address gradient imbalance:**
+
+| Approach | How It Works | Config Param | Effect |
+|----------|--------------|--------------|--------|
+| LR Multiplier | Changes optimizer step size: `new_weight = weight - (grad × lr × mult)` | `mamba_lr_mult` | Mamba takes larger/smaller steps |
+| Gradient Scaling | Scales gradient magnitude BEFORE optimizer: `grad = grad × scale` | `mamba_grad_scale` | Mamba gradients become larger/smaller |
+
+**Why Gradient Scaling?**
+- LR mult experiments (0.5, 1.0) failed — the gradient magnitudes themselves are the problem
+- Scaling directly addresses the root cause: unequal gradient magnitudes
+- Uses PyTorch `register_hook` to multiply Mamba gradients during backward pass
+
+**Usage:**
+```bash
+# Boost Mamba gradients by 10x
+python train_v4.py --model GF-MH --mamba-grad-scale 10.0
+```
+
+**Implementation:**
+```python
+def register_gradient_scaling(model, mamba_grad_scale=1.0):
+    handles = []
+    for name, param in model.named_parameters():
+        if param.requires_grad and 'mamba' in name.lower():
+            handle = param.register_hook(lambda grad: grad * mamba_grad_scale)
+            handles.append(handle)
+    return handles
 ```
 
 ---

@@ -32,6 +32,7 @@ DEFAULT_CONFIG = {
     'weight_decay': 0.1,
     'betas': (0.9, 0.95),
     'mamba_lr_mult': 0.5,     # Balance RWKV/Mamba gradients (1.0 tested, made worse)
+    'mamba_grad_scale': 1.0,  # Gradient scaling for Mamba (1.0 = no scaling, >1 = boost Mamba grads)
     
     # Schedule  
     'warmup_ratio': 0.1,      # 10% of max_steps (V3 guideline: 5-10%)
@@ -121,6 +122,46 @@ def get_parameter_groups(model, base_lr, mamba_lr_mult=2.0, weight_decay=0.1):
         {'params': mamba_params, 'lr': base_lr * mamba_lr_mult, 'weight_decay': weight_decay, 'name': 'mamba'},
         {'params': other_params, 'lr': base_lr, 'weight_decay': weight_decay, 'name': 'other'},
     ]
+
+
+# ============ Gradient Scaling ============
+def register_gradient_scaling(model, mamba_grad_scale=1.0):
+    """
+    Register backward hooks to scale Mamba gradients during backward pass.
+    
+    This is different from LR multiplier:
+    - LR mult: Changes step size in optimizer (grad * lr)
+    - Grad scale: Changes gradient magnitude BEFORE optimizer sees it
+    
+    Use case: RWKV produces ~10x larger gradients than Mamba due to "easier" 
+    signal paths. Gradient scaling directly compensates for this imbalance.
+    
+    Args:
+        model: The model to register hooks on
+        mamba_grad_scale: Scale factor for Mamba gradients (default 1.0 = no scaling)
+        
+    Returns:
+        List of hook handles (for removal if needed)
+    """
+    if mamba_grad_scale == 1.0:
+        return []  # No scaling needed
+    
+    handles = []
+    scaled_count = 0
+    
+    def make_hook(scale):
+        def hook(grad):
+            return grad * scale
+        return hook
+    
+    for name, param in model.named_parameters():
+        if param.requires_grad and 'mamba' in name.lower():
+            handle = param.register_hook(make_hook(mamba_grad_scale))
+            handles.append(handle)
+            scaled_count += 1
+    
+    print(f"  Gradient scaling: {scaled_count} Mamba params scaled by {mamba_grad_scale}x")
+    return handles
 
 
 # ============ LR Schedule ============
@@ -293,6 +334,8 @@ if __name__ == "__main__":
                         help='Batch size')
     parser.add_argument('--lr', type=float, default=None,
                         help='Learning rate')
+    parser.add_argument('--mamba-grad-scale', type=float, default=None, dest='mamba_grad_scale',
+                        help='Gradient scale for Mamba params (default 1.0, try 10.0 for balance)')
     parser.add_argument('--resume', type=str, default=None, 
                         help='Checkpoint to resume from')
     
@@ -304,6 +347,7 @@ if __name__ == "__main__":
         'max_steps': args.max_steps,
         'batch_size': args.batch_size,
         'lr': args.lr,
+        'mamba_grad_scale': args.mamba_grad_scale,
     }
     
     # Load config with overrides
@@ -357,6 +401,9 @@ if __name__ == "__main__":
     print("\nOptimizer and scheduler ready!")
     print(f"Warmup: {warmup_steps} steps ({CONFIG['warmup_ratio']*100:.0f}% of {CONFIG['max_steps']})")
     print(f"LR: {CONFIG['lr']} -> {CONFIG['min_lr']} (cosine)")
+    
+    # Register gradient scaling for Mamba (if enabled)
+    grad_scale_handles = register_gradient_scaling(model, CONFIG['mamba_grad_scale'])
     
     # Resume from checkpoint if specified
     start_step = 0

@@ -408,6 +408,35 @@ R/M:    0.7-1.2    0.4-0.6    0.2-0.3    0.10-0.25
 
 ---
 
+### Observation 10: Mamba Gradient Scaling (10x) — FAILED
+
+**Hypothesis:** RWKV produces ~10x larger gradients than Mamba. Scaling Mamba gradients by 10x during backward should equalize optimizer attention.
+
+**Implementation:** `register_hook` on all Mamba parameters to multiply gradients by 10x.
+
+| Metric | Baseline (1.0x) | Grad Scale (10x) | Change |
+|--------|-----------------|------------------|--------|
+| Val Loss | 1.578 | 1.595 | **+0.017 (worse)** |
+| R/M Ratio | 0.08-0.11 | 0.01 | Mamba grads now dominant |
+| Activation Variance | ~80x | ~200x | **Much worse** |
+| Mamba activation var | 0.12 | 0.11 | No change! |
+| RWKV activation var | ~10 | ~25 | Increased |
+
+**Why It Failed:**
+1. **Gradient ≠ Activation**: Boosting Mamba's backward signal doesn't change how the gate selects outputs
+2. **Gate learns from loss**: The gate weights update based on loss gradient, not component gradient magnitudes  
+3. **Self-reinforcing loop**: RWKV produces better predictions → gate favors RWKV → RWKV gets more signal → repeat
+4. **Destabilization**: Excessive Mamba weight updates may have disrupted the fusion dynamics
+
+**Inference:** The problem is not gradient magnitude — it's **signal quality**. RWKV's exponential decay produces smoother, more predictable outputs that the gate learns to prefer. Mamba's selective gating creates sharper, less predictable signals.
+
+**Next direction:** Consider architectural changes:
+- **Balance regularization loss**: Add explicit term to penalize RWKV dominance
+- **RWKV dropout**: Force Mamba to contribute by randomly zeroing RWKV output
+- **Accept dominance**: Let RWKV dominate, use Mamba for specialty tasks
+
+---
+
 ### Summary Table: Fusion Variant Characteristics
 
 | Variant | Loss | R/M | Position-Adapt | Dim-Adapt | Params | Best For |
