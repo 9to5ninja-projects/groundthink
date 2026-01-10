@@ -956,9 +956,9 @@ python train_v4.py --model GF-MH --data data/fineweb_5m.txt --tokenizer bpe --ma
 
 | # | Task | Status | Complexity | Details |
 |---|------|--------|------------|---------|
-| 41 | Create test_tiny_graduation.py | ⬜ TODO | M | Include S0-S4 state tests + G1-G4 gates |
+| 41 | Create test_tiny_graduation.py | ⬜ **NEXT** | M | S0-S4 + G1-G4 test harness |
 | 41a | Implement state extraction API | ✅ DONE | M | GF-MH model has return_states=True |
-| 42 | Run S0-S4 state space tests | ⬜ **NEXT** | S | Verify state machinery before capabilities |
+| 42 | Run S0-S4 state space tests | ⬜ TODO | S | Execute via test harness |
 | 43 | Run Tiny overfit test (BPE) | ⬜ TODO | S | 10-100 samples, loss → near 0 |
 | 44 | Run Tiny naive baseline test (BPE) | ⬜ TODO | S | Val loss < random prediction |
 | 45 | Run G1-G4 gates (BPE) | ⬜ TODO | M | Re-validate with BPE tokenization |
@@ -982,13 +982,14 @@ python train_v4.py --model GF-MH --data data/fineweb_5m.txt --tokenizer bpe --ma
 
 **Order of Operations:**
 1. ~~**Task 41a** — Implement state extraction API (BLOCKER)~~ ✅ DONE
-2. **Task 42** — Run S0-S4 state space tests ⬜ **NEXT**
-3. **Tasks 43-46** — Run remaining graduation tests
-4. **Task 47** — Re-rank fusion variants with BPE
-5. **Task 48** — Deep-dive component balance investigation
-6. ~~**Task 49** — Propagate state API to all model variants~~ ✅ DONE
-7. ~~**Task 50** — Add state monitoring to training loop~~ ✅ DONE
-8. **Task 51** — True Mamba SSM state (research, lower priority)
+2. **Task 41** — Create test_tiny_graduation.py ⬜ **NEXT**
+3. **Task 42** — Run S0-S4 state space tests (via test harness)
+4. **Tasks 43-46** — Run remaining graduation tests
+5. **Task 47** — Re-rank fusion variants with BPE
+6. **Task 48** — Deep-dive component balance investigation
+7. ~~**Task 49** — Propagate state API to all model variants~~ ✅ DONE
+8. ~~**Task 50** — Add state monitoring to training loop~~ ✅ DONE
+9. **Task 51** — True Mamba SSM state (research, lower priority)
 
 **Gate:** Phase 4.0 PASS when S0-S4 pass AND all Tiny graduation criteria verified with BPE tokenization.
 

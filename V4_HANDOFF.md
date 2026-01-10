@@ -77,8 +77,8 @@ BPE did NOT fix component balance as hypothesized. R/M improved from 0.08-0.11 t
 | ~~1a~~ | ~~41a-1~~ | ~~Type A: Restructure `return_activations`~~ | ✅ DONE | Merged into 41a |
 | ~~1b~~ | ~~41a-2~~ | ~~Type B: RWKV internal state extraction~~ | ✅ DONE | `_wkv_sequential()` returns state |
 | ~~1c~~ | ~~41a-3~~ | ~~Type B: Mamba internal state extraction~~ | ✅ DONE | Output proxy implemented |
-| **1** | 42 | Run S0-S4 state space tests | ⬜ **NEXT** | API ready, tests pending |
-| 2 | 41 | Create test_tiny_graduation.py | ⬜ TODO | Include S0-S4 + G1-G4 |
+| **1** | 41 | Create test_tiny_graduation.py | ⬜ **NEXT** | S0-S4 + G1-G4 test harness |
+| **2** | 42 | Run S0-S4 state space tests | ⬜ TODO | Execute via test harness |
 | 3 | 43 | Run Tiny overfit test (BPE) | ⬜ TODO | 10-100 samples, loss → 0 |
 | 4 | 44 | Run Tiny naive baseline (BPE) | ⬜ TODO | Val loss < random |
 | 5 | 45 | Run G1-G4 gates (BPE) | ⬜ TODO | Re-validate with BPE |
@@ -116,15 +116,15 @@ BPE did NOT fix component balance as hypothesized. R/M improved from 0.08-0.11 t
 
 | Test | Criteria | Status |
 |------|----------|--------|
-| **S0-S4 (Type A)** | Output activations verified | 🟡 API restructure needed |
-| **S0-S4 (Type B)** | Internal states verified | ❓ **Research required** |
+| **S0-S4 (Type A)** | Output activations verified | ✅ API ready |
+| **S0-S4 (Type B)** | Internal states verified | ✅ API ready |
 | Overfit 10-100 samples | Loss → near 0 | ❓ Not tested |
 | Val < naive baseline | Better than random | ❓ Not tested |
 | G1-G4 gates pass | Per V4_TESTING.md | ❓ Not tested with BPE |
 | Checkpoint/resume | Save + reload works | ❓ Not tested with BPE |
-| Component balance | Documented | ⚠️ 71x variance (Type A) |
+| Component balance | Documented | ⚠️ 71x variance (needs investigation) |
 
-**Gate:** Phase 4.0 PASS when S0-S4 pass for BOTH types AND all graduation criteria verified with BPE.
+**Gate:** Phase 4.0 PASS when S0-S4 pass AND all graduation criteria verified with BPE.
 
 ---
 
@@ -145,21 +145,23 @@ logits, states = model(x, return_states=True)
 **Location:** All files in `models/` directory  
 **Impact:** ~~Blocks ALL state monitoring~~ S0-S4 tests now unblocked
 
-**Priority 1: Run S0-S4 State Space Tests (Task 42)** ⬜ **NEXT**
+**Priority 1: Create test_tiny_graduation.py (Task 41)** ⬜ **NEXT**
 
-State extraction API is ready. Verify state machinery:
+Create unified test harness for all graduation criteria:
+- S0-S4 state space fundamentals (uses `return_states=True`)
+- G1-G4 validation gates
+- Overfit test (10-100 samples)
+- Naive baseline test
+- Checkpoint/resume test
+
+**Reference:** [CANARY_TESTS.md](CANARY_TESTS.md#s0-s4-state-space-fundamentals-35m-only--required-first)
+
+**Priority 2: Run S0-S4 State Space Tests (Task 42)**
+
+Execute via the test harness:
 ```bash
 python tests/test_tiny_graduation.py --test-states --tokenizer bpe
 ```
-
-**Priority 2: Create test_tiny_graduation.py (Task 41)**
-
-Combine all tests:
-- S0-S4 state space fundamentals
-- G1-G4 validation gates
-- Overfit test
-- Naive baseline test
-- Checkpoint/resume test
 
 **Priority 3: Investigate Component Balance (Task 48)**
 
@@ -167,59 +169,6 @@ The 71x activation variance ratio is concerning:
 - RWKV var=8.58, Mamba var=0.12
 - Is this architectural or fixable?
 - Consider: gate_init, mamba_lr_mult, architectural changes
-
----
-
-## � STATE EXTRACTION INVESTIGATION (Jan 10)
-
-### Two Types of "State" — Both Are Valuable
-
-**Type A: Component Output Activations (what we currently measure)**
-- RWKV output: `out_rwkv` from block forward pass `[B, T, hidden_dim]`
-- Mamba output: `out_mamba` from block forward pass `[B, T, hidden_dim]`
-- Task 40 measured activation variance ratio: 71x (RWKV var=8.58, Mamba var=0.12)
-- **Already available** via `return_activations=True`
-
-**Type B: Internal Recurrent States (not currently exposed)**
-- **RWKV state:** Recurrent accumulator in `_wkv_sequential()` — shape `[B, H, S]` (batch, heads, head_size)
-  - Formula: `state_t = decay * state_{t-1} + w_t * v_t`
-  - Currently LOCAL to `_wkv_sequential()`, not returned
-  - Location: [rwkv6_prototype.py](rwkv6_prototype.py) lines 163-180
-- **Mamba SSM state:** shape `[B, nheads, headdim, d_state]`
-  - Retrieved via `inference_params` mechanism
-  - Can be returned using `return_final_states=True` in `mamba_chunk_scan_combined`
-  - Location: mamba-ssm library
-
-### Implementation Required for Type B (True Internal States)
-
-**RWKV6 Changes Needed:**
-```python
-# In rwkv6_prototype.py or rwkv6_cuda_wrapper.py
-def _wkv_sequential(self, k, v, return_state=False):
-    # ... existing code ...
-    if return_state:
-        return wkv.to(dtype), state  # Return final state
-    return wkv.to(dtype)
-```
-
-**Mamba2 Changes Needed:**
-```python
-# In fla_replacements.py Mamba2 wrapper
-def forward(self, x, return_state=False):
-    if return_state:
-        # Pass inference_params to get state tracking
-        # Use return_final_states=True in mamba_chunk_scan_combined
-        pass
-    return self.mamba(x)
-```
-
-### Complexity Assessment
-
-| Component | Type A (Outputs) | Type B (True States) |
-|-----------|------------------|----------------------|
-| RWKV | ✅ Available now | 🔴 Requires prototype modification |
-| RWKV-CUDA | ✅ Available now | 🔴 Complex — state is computed in CUDA kernel |
-| Mamba | ✅ Available now | 🟡 Possible via inference_params |
 
 ---
 
@@ -255,7 +204,7 @@ def forward(self, x, return_state=False):
 
 **Phase:** 4.0 BPE RE-VALIDATION  
 **Last Action:** Tasks 41a, 49, 50 complete — State extraction API ready  
-**Next Action:** Task 42 — Run S0-S4 state space tests
+**Next Action:** Task 41 — Create test_tiny_graduation.py (then Task 42 to run it)
 
 **Phase 3.6-3.8 Status:** ⚠️ CHAR-LEVEL ONLY — Results unverified for production
 
@@ -389,14 +338,14 @@ Each parameter scale is an **experimental regime with distinct objectives**:
 | 2 | **BPE tokenization** | ✅ Implemented | `--tokenizer bpe` flag |
 | 3 | **State extraction API** | ✅ All 8 models | `return_states=True` |
 | 4 | **Training state monitor** | ✅ Implemented | `--log-states` flag |
-| 5 | **test_tiny_graduation.py** | ⬜ TODO | Task 41 |
-| 6 | **Run S0-S4 tests** | ⬜ **NEXT** | Task 42 |
+| 5 | **test_tiny_graduation.py** | ⬜ **NEXT** | Task 41 — create first |
+| 6 | **Run S0-S4 tests** | ⬜ Pending | Task 42 — run via harness |
 | 7 | **Overfit test** | ⬜ Pending | Task 43 |
 | 8 | **Naive baseline test** | ⬜ Pending | Task 44 |
 | 9 | **G1-G4 gates (BPE)** | ⬜ Pending | Task 45 |
 | 10 | **Checkpoint/resume** | ⬜ Pending | Task 46 |
 
-**Order:** Complete items 5-10 before proceeding to Phase 3.9 diagnostics or scaling.
+**Order:** Task 41 (create test harness) → Tasks 42-46 (run tests) → Phase 3.9
 
 ---
 
