@@ -360,6 +360,23 @@ R/M:    0.7-1.2    0.4-0.6    0.2-0.3    0.10-0.25
 
 ---
 
+### Observation 8: Higher Mamba LR Makes Imbalance Worse (Phase 3.8)
+
+| Config | mamba_lr_mult | Val Loss | R/M | Status |
+|--------|---------------|----------|-----|--------|
+| Baseline | 0.5 | 1.59 | 0.10 | ⚠️ WARN |
+| Task 36 | 1.0 | 1.53 | 0.08 | ❌ FAIL |
+
+**Experiment:** Doubled Mamba LR (0.5→1.0) expecting Mamba would learn faster and improve balance.
+
+**Result:** R/M ratio DECREASED (0.10→0.08). Loss improved slightly but balance degraded.
+
+**Why?** Higher LR accelerates learning, but RWKV still provides easier gradients. Faster learning just means faster convergence to RWKV-dominant state.
+
+**Conclusion:** Mamba is NOT LR-starved. The optimizer preference for RWKV gradients is fundamental, not a tuning problem.
+
+---
+
 ### Summary Table: Fusion Variant Characteristics
 
 | Variant | Loss | R/M | Position-Adapt | Dim-Adapt | Params | Best For |

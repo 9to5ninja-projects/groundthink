@@ -31,7 +31,7 @@ DEFAULT_CONFIG = {
     'min_lr': 3e-5,           # 10% of peak
     'weight_decay': 0.1,
     'betas': (0.9, 0.95),
-    'mamba_lr_mult': 0.5,     # Balance RWKV/Mamba gradients
+    'mamba_lr_mult': 0.5,     # Balance RWKV/Mamba gradients (1.0 tested, made worse)
     
     # Schedule  
     'warmup_steps': 500,
