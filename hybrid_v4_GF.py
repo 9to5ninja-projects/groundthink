@@ -23,8 +23,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 # FLA library imports
-from fla.layers.rwkv6 import RWKV6Attention
-from fla.layers.mamba2 import Mamba2
+from fla_replacements import RWKV6Attention
+from fla_replacements import Mamba2
 
 
 class RMSNorm(nn.Module):

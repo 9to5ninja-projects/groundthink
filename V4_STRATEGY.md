@@ -298,45 +298,69 @@ Mamba-2 uses mamba-ssm native CUDA kernels. RWKV-6 uses prototype + CUDA wrapper
 
 ---
 
-### Phase 2: Hybrid Ratio Comparison (After Phase 1)
+### Phase 2: Fusion & Ratio Comparison
 
-| # | Task | Status | Depends On | Gates | Complexity | Source/Details |
-|---|------|--------|------------|-------|------------|----------------|
-| 14 | Build RWKV-Heavy Hybrid | ⬜ PENDING | Task 13 | G1 | M | [V4_DESIGN.md](V4_DESIGN.md) - 4 RWKV6 + 10 Mamba2 |
-| 15 | Build Mamba2-Heavy Hybrid | ⬜ PENDING | Task 13 | G1 | M | [V4_DESIGN.md](V4_DESIGN.md) - 1 RWKV6 + 30 Mamba2 |
-| 16 | Train Both Variants | ⬜ PENDING | Tasks 14, 15 | G1-G4 | XL | 100K steps each, compare val loss |
-| 17 | Analyze Ratio Results | ⬜ PENDING | Task 16 | - | M | Select best hybrid ratio |
+**Goal:** Find the standout winner among fusion strategies and ratio variants.
 
-**Gate:** Phase 2 complete when best hybrid ratio identified by lowest final val loss.
+#### Task 14 Results: Fusion Benchmark (2026-01-09)
+
+| Rank | Code | Val Loss | Train Loss | PPL | Throughput |
+|------|------|----------|------------|-----|------------|
+| 🥇 | **GF** | **1.6891** | 1.6536 | 5.41 | 42.9K tok/s |
+| 🥈 | CP | 1.6919 | 1.6544 | 5.43 | 47.7K tok/s |
+| 🥉 | HY | 1.7600 | 1.7289 | 5.81 | 31.7K tok/s |
+| 4 | WS | 1.8185 | 1.7935 | 6.16 | 45.4K tok/s |
+| 5 | RF | 1.9480 | 1.9339 | 7.01 | 47.4K tok/s |
+
+**Winner: GF (Gated Fusion)** - 4% better than HY baseline, 35% faster.
+
+#### Fusion Variants
+
+| File | Code | Fusion Type | Fusion Params | Status |
+|------|------|-------------|---------------|--------|
+| hybrid_v4_GF.py | GF | Gated Fusion | 257 | ✅ **WINNER** (val 1.69) |
+| hybrid_v4_CP.py | CP | Concat+Project | 33K | ✅ Close second (val 1.69) |
+| hybrid_v4.py | HY | Per-channel gains | 256 | ✅ Baseline (val 1.76) |
+| hybrid_v4_WS.py | WS | Weighted Sum α | 1 | ✅ Tested (val 1.82) |
+| hybrid_v4_RF.py | RF | Residual Fusion | 16K | ✅ Worst (val 1.95) |
+
+#### Ratio Variants (To Build)
+
+| Code | Configuration | Status |
+|------|---------------|--------|
+| GF | 2 RWKV6 + 8 Mamba2 per block | ✅ **WINNER** |
+| GF-RH | 4 RWKV6 + 10 Mamba2 (RWKV-Heavy) | ❌ Not built |
+| GF-MH | 1 RWKV6 + 30 Mamba2 (Mamba-Heavy) | ❌ Not built |
+
+#### Phase 2 Task Table
+
+| # | Task | Status | Depends On | Complexity | Details |
+|---|------|--------|------------|------------|---------|
+| 14 | ~~Benchmark Fusion Variants~~ | ✅ COMPLETE | Task 13 | M | GF wins, CP second |
+| 15 | Build RWKV-Heavy Hybrid | ⬜ **NEXT** | Task 14 | M | GF fusion + 4 RWKV6 + 10 Mamba2 |
+| 16 | Build Mamba-Heavy Hybrid | ⬜ PENDING | Task 14 | M | GF fusion + 1 RWKV6 + 30 Mamba2 |
+| 17 | Benchmark All 3 Ratio Variants | ⬜ PENDING | Tasks 15, 16 | L | 500 steps: GF, GF-RH, GF-MH |
+| 18 | Select Winner & Document | ⬜ PENDING | Task 17 | S | Update docs with final results |
+
+**Gate:** Phase 2 complete when winner identified by lowest val loss + fastest convergence.
+
+**Benchmark Script:** `benchmark_variants.py` - 500 steps, identical conditions
 
 ---
 
-### Phase 3: Fusion Mechanisms (After Phase 2)
+### Phase 3: Scale Testing (After Phase 2)
 
-| # | Task | Status | Depends On | Gates | Complexity | Source/Details |
-|---|------|--------|------------|-------|------------|----------------|
-| 18 | Build Cross-Attend Fusion | ⬜ PENDING | Task 17 | G1 | L | [V4_DESIGN.md](V4_DESIGN.md) - Cross-attention between components |
-| 19 | Build Weighted Sum Fusion | ⬜ PENDING | Task 17 | G1 | L | [V4_DESIGN.md](V4_DESIGN.md) - Learned gate weights |
-| 20 | Train All Fusion Variants | ⬜ PENDING | Tasks 18, 19 | G1-G4 | XL | 100K steps each |
-| 21 | Select Best Fusion | ⬜ PENDING | Task 20 | - | M | Compare val loss & component balance |
+| # | Task | Status | Depends On | Complexity | Details |
+|---|------|--------|------------|------------|---------|
+| 19 | Scale to 8M Parameters | ⬜ PENDING | Task 18 | L | Use winning variant from Phase 2 |
+| 20 | Extended Training (50K steps) | ⬜ PENDING | Task 19 | XL | Train to convergence |
+| 21 | NIAH Test (Needle-in-a-Haystack) | ⬜ PENDING | Task 20 | M | Long-context memory test |
 
-**Gate:** Phase 3 complete when best fusion mechanism identified by lowest final val loss.
-
----
-
-### Phase 4: Final Optimization (After Phase 3)
-
-| # | Task | Status | Depends On | Gates | Complexity | Source/Details |
-|---|------|--------|------------|-------|------------|----------------|
-| 22 | NIAH Test (Needle-in-a-Haystack) | ⬜ PENDING | Task 21 | - | M | [V4.5_OPTIMIZATION.md](V4.5_OPTIMIZATION.md) - Basic long-context test |
-| 23 | Scale to 8M Parameters | ⬜ PENDING | Task 21 | G1-G4 | L | Use best ratio + fusion from Phase 3 |
-| 24 | Extended Training (500K steps) | ⬜ PENDING | Task 23 | G1-G4 | XL | Train to convergence on larger dataset |
-
-**Note:** Task 22 (NIAH test) validates long-context memory retention before scaling. See [V4.5_OPTIMIZATION.md](V4.5_OPTIMIZATION.md) for methodology.
+**Gate:** Phase 3 complete when 8M model trained and validated.
 
 ---
 
-### Phase 5: Advanced Long-Context Evaluation (Optional - "Later Game")
+### Phase 4: Advanced Long-Context Evaluation (Optional - "Later Game")
 
 **Prerequisites:** Must pass Phase 4 NIAH tests (>80% accuracy at 16K tokens) before attempting these benchmarks.
 
