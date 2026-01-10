@@ -1,11 +1,11 @@
 # V4 Agent Handoff Document
 
 **Purpose:** Continuity snapshot (version & task status only)  
-**Current Version:** 4.10-Alpha (Phase 3.8 Task 36 Complete)  
+**Current Version:** 4.10-Alpha (Phase 3.8 Task 37 Ready)  
 **Updated:** 2026-01-10  
-**Last Agent Action:** Task 36 - Higher Mamba LR (1.0) made imbalance WORSE (R/M 0.10→0.08)  
+**Last Agent Action:** Made scheduler V3-compliant (10% warmup), new baseline val_loss 1.578  
 **Repository:** https://github.com/9to5ninja-projects/groundthink  
-**Git Status:** ✅ Clean (commit b8c9dbb)
+**Git Status:** ✅ Clean (commit df04327)
 
 ---
 
