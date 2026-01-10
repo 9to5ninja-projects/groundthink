@@ -1,7 +1,8 @@
 # V4 Agent Handoff Document
 
 **Purpose:** Single source of truth for agent continuity  
-**Updated:** 2026-01-09
+**Updated:** 2026-01-09  
+**Repository:** https://github.com/9to5ninja-projects/groundthink
 
 ---
 
@@ -98,6 +99,8 @@ Record what you did:
 ```
 [DATE] [TASK] - [OUTCOME]
 ---
+2026-01-09 LINUX MIGRATION - Migrated to native Linux. CUDA kernels (causal-conv1d, mamba-ssm) now working. 33K tok/s achieved.
+2026-01-09 FIRST TRAINING RUN - 3.8M model on Shakespeare. Loss 1.37, perplexity ~3.0. Gradient ratio WARN (0.15-0.16).
 2026-01-09 Task 3 (Build Model) - Created hybrid_v4.py, verified forward pass on CUDA. See V4_BUILD_LOG.md for spec comparison.
 2026-01-09 Environment fixes - Added env_init.py, documented OpenMP/CUDA requirements in V4_DESIGN.md
 2026-01-08 Documentation - Fixed V4_STRATEGY.md, V4_DESIGN.md, created V4_HANDOFF.md
@@ -124,21 +127,30 @@ x = torch.randint(..., device=device)
 
 ---
 
-## ⚠️ WINDOWS LIMITATIONS (DO NOT RETRY)
+## ✅ LINUX ENVIRONMENT (CURRENT)
+
+**We have migrated to native Linux.** CUDA kernels now work.
+
+| Package | Status |
+|---------|--------|
+| causal-conv1d v1.2.0 | ✅ Working |
+| mamba-ssm v2.2.0 | ✅ Working |
+| PyTorch 2.4.0+cu124 | ✅ Working |
+
+**Performance:** ~33K tokens/sec (vs ~2.6K on Windows/Triton)
+
+**Setup script:** `setup_hybrid_env.sh`
+
+---
+
+## ⚠️ WINDOWS LIMITATIONS (HISTORICAL)
 
 **causal-conv1d and mamba-ssm CANNOT be installed on Windows:**
 - These packages use GCC/Clang C++ syntax (`and`, `or` operators)
 - MSVC doesn't support these - compile fails with "syntax error: missing ')' before identifier 'and'"
 - **No workaround exists** - code would need upstream patches
 
-**Runtime warnings are EXPECTED and UNFIXABLE on Windows:**
-```
-"The fast path is not available because `selective_state_update` is None..."
-"The CUDA backend is not available because `causal_conv1d` is None..."
-```
-
-**Status:** FLA's Triton fallback is the BEST AVAILABLE on Windows. ~2-3x slower than native CUDA kernels.
-For production training at scale, use Linux.
+**This is why we migrated to Linux.**
 
 ---
 

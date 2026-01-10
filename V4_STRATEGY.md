@@ -2,6 +2,7 @@
 
 **Created:** 2026-01-08  
 **Updated:** 2026-01-09  
+**Repository:** https://github.com/9to5ninja-projects/groundthink  
 **Purpose:** Ordered queue of tasks to be completed one at a time  
 **Current Goal:** Build RWKV-6 + Mamba-2 hybrid at 5M scale, find best configuration
 
@@ -60,6 +61,23 @@ This dramatically changes hybrid ratio calculations.
 2. **Val Loss** - Log every 100-1000 steps
 
 Both must be tracked, plotted, and checked for divergence.
+
+---
+
+## V3 Materials (Archived)
+
+**All V3 documentation and code have been moved to `archive/` for reference.**
+
+V3 was scrapped because agents built RWKV-7 instead of RWKV-6. V4 uses FLA library implementations (RWKV6Attention + Mamba2) exclusively.
+
+**V3 files in archive:**
+- Documentation: V3_STRATEGY.md, V3_BUILD_LOG.md, V3_CROSS_REFERENCE.md, V3_RESEARCH_NOTES.md, V3_DEPRECATED.md
+- Code: train_v030.py, data_v030.py, layers_v030.py, tokenizer_v030.py, layers_v020.py
+- Old tests and diagnostics: check_*.py, test_*.py, verify_*.py, trace_*.py, gate_g35_diagnostic.py
+- Build scripts: build_causal.sh, build_step5.sh, fla_replacements.py, rwkv6_layer.py
+- V2 materials: V2_INSTRUCTIONS.md, design_v2_notes.txt, original_design_notes.txt
+
+**These can be referenced but should not be copied forward without careful review.**
 
 ---
 

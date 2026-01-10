@@ -146,7 +146,60 @@ dataset, tokenizer = load_stateful_dataset(
 
 ---
 
+## Build Session 3: 2026-01-09
+
+### Linux Environment Migration
+
+**Status:** ✅ COMPLETE
+
+**Reason:** Windows/WSL CUDA limitations. Native Linux required for:
+- Full NVIDIA driver integration
+- `causal-conv1d` and `mamba-ssm` CUDA kernels (won't compile on Windows)
+- Filesystem performance during training
+
+**Setup (see `setup_hybrid_env.sh` for full script):**
+
+| Component | Version/Config |
+|-----------|----------------|
+| OS | Ubuntu (native Linux) |
+| CUDA | 12.4 |
+| PyTorch | 2.4.0+cu124 |
+| GCC | 11.x (required for CUDA kernels) |
+| causal-conv1d | v1.2.0 |
+| mamba-ssm | v2.2.0 |
+| GPU | RTX 4050 (sm_89) |
+
+**Key fixes applied:**
+- C++11 ABI flag: `-D_GLIBCXX_USE_CXX11_ABI=1`
+- Architecture: `-gencode arch=compute_89,code=sm_89`
+- Build with `--no-build-isolation`
+
+---
+
+### First Training Run
+
+**Status:** ✅ COMPLETE
+
+| Metric | Value |
+|--------|-------|
+| Model params | 3.8M |
+| Throughput | ~33K tokens/sec |
+| VRAM usage | ~422 MB |
+| Final loss | 1.37-1.38 |
+| Perplexity | ~3.0 |
+
+**Gradient Health (needs attention):**
+- RWKV/Mamba ratio: 0.15-0.16
+- Status: WARN (outside [0.33, 3.0] range)
+- Interpretation: RWKV gradients smaller than Mamba, possible imbalance
+
+**Performance Validation:**
+- Native CUDA kernels confirmed working
+- 10-20x faster than Windows/Triton fallback
+
+---
+
 ## Next Steps
 
-- [ ] Task 4: Create `train_v4.py` with differential LR, warmup 2000, plateau protocol
-- [ ] Task 5: Run G1-G2 gate check (100 steps, verify loss drops and both components have gradients)
+- [ ] Investigate gradient ratio imbalance (RWKV too weak?)
+- [ ] Consider adjusting `mamba_lr_mult` or RWKV initialization

@@ -55,3 +55,7 @@ groundthink_v2_dataset_raw/
 
 # Jupyter Notebooks
 .ipynb_checkpoints/
+.venv/
+training_debug.log
+*.pt
+__pycache__/
