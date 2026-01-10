@@ -1115,3 +1115,114 @@ python train_v4.py --model 8M --config configs/train_8m_50k.yaml
 ```
 
 ---
+
+## Build Session 12: 2026-01-10 — Repo Cleanup + HGF Variant
+
+### 12.1: Repo Reorganization (Stages 1-7)
+
+Reorganized project structure for clarity:
+
+**Completed Stages:**
+| Stage | Action | Status |
+|-------|--------|--------|
+| 1 | Move `hybrid_v4*.py` → `models/` | ✅ |
+| 2 | Components (skipped - kept at root) | ✅ |
+| 3 | Move data files → `data/` | ✅ |
+| 4 | Move tests → `tests/` | ✅ |
+| 5 | Update checkpoint paths → `checkpoints/` | ✅ |
+| 6 | Docs (skipped - ~100 cross-refs) | ✅ |
+| 7 | Cleanup junk files, update README | ✅ |
+
+**New Structure:**
+```
+groundthink/
+├── models/           # Registry + all hybrid_v4*.py
+├── data/             # data_loader, tokenizer, shakespeare.txt  
+├── configs/          # YAML training configs
+├── checkpoints/      # Model weights (gitignored)
+├── tests/            # Test suite
+└── [core scripts]    # train_v4.py, benchmark_*.py
+```
+
+### 12.2: Naming Scheme Overhaul
+
+Resolved size ambiguity ("5M" model was actually 3.6M params):
+
+| Name | Actual Params | Legacy Alias |
+|------|---------------|--------------|
+| `tiny` | 0.5M | `1M` |
+| `small` | 3.6M | `5M` |
+| `medium` | 7.9M | `8M` |
+
+Updated: `models/__init__.py`, `data/tokenizer.py`, `configs/train_medium_50k.yaml`
+
+### 12.3: V4_FUSION_MODELS.md Created
+
+New technical reference documenting all fusion variants:
+
+| Variant | Fusion Params | Granularity |
+|---------|---------------|-------------|
+| HY | 256 | Per-dimension, fixed across positions |
+| GF | 257 | Per-position, same across dimensions |
+| GF-MH | 257 | Per-position + Mamba bias (★ WINNER) |
+| CP | 32,896 | Full learned combination |
+| WS | 1 | Global scalar |
+| RF | 1 | Global scalar residual |
+
+### 12.4: HGF Variant Created
+
+**New file:** `models/hybrid_v4_HGF.py`
+
+**Concept:** Per-position AND per-dimension gating — combines HY's dimension control with GF's position adaptivity.
+
+```python
+# HGF: gate is [batch, seq, hidden=128] not [batch, seq, 1]
+gate = sigmoid(Linear([rwkv, mamba]))  # → [B, S, 128]
+fused = gate * rwkv + (1-gate) * mamba  # Elementwise per-dim
+```
+
+**Registry entries added:**
+- `HGF` — Balanced init (50/50)
+- `HGF-MH` — Mamba-Heavy init (30% RWKV)
+- `HGF-RH` — RWKV-Heavy init (70% RWKV)
+
+**Params:** 3.84M (slightly more than GF due to larger gate projection)
+
+### 12.5: Verification
+
+```bash
+$ python -c "from models import get_model; m = get_model('HGF'); print(m.count_parameters())"
+3,844,448
+
+$ python -c "from models import list_models; list_models(show=True)"
+# Shows all 16 variants including HGF, HGF-MH, HGF-RH
+```
+
+### 12.6: Git Commits
+
+1. `refactor: Stage 1 - move model files to models/`
+2. `refactor: Stages 2-3 + naming scheme overhaul`
+3. `docs: update handoff with new project structure and naming scheme`
+4. `refactor: Stage 4-7 - tests dir, checkpoints path, cleanup junk`
+5. `docs: update README with new project structure`
+6. `feat: add show param to list_models() for formatted output`
+7. `docs: add 'read your handoff' reminder to mandatory workflow`
+8. `feat: add HGF variant (per-position + per-dimension gating) + V4_FUSION_MODELS.md`
+
+---
+
+## Session 12 Status: ✅ COMPLETE
+
+**Deliverables:**
+- ✓ Repo reorganized (models/, data/, tests/, checkpoints/)
+- ✓ Naming scheme fixed (tiny/small/medium with legacy aliases)
+- ✓ V4_FUSION_MODELS.md — Technical reference for all variants
+- ✓ HGF variant — Per-position + per-dimension gating
+- ✓ README updated with new structure
+
+**Recommended Top 3 for Extended Testing:**
+1. **GF-MH** — Current Phase 2 winner
+2. **CP** — Most expressive (33K fusion params)
+3. **HGF** — New, maximum control over learning shape
+
+---
