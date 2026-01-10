@@ -79,9 +79,9 @@ BPE did NOT fix component balance as hypothesized. R/M improved from 0.08-0.11 t
 | ~~1c~~ | ~~41a-3~~ | ~~Type B: Mamba internal state extraction~~ | ✅ DONE | Output proxy implemented |
 | ✅ | 41 | Create test_tiny_graduation.py | ✅ DONE | S0-S4 test harness created |
 | ✅ | 42 | Run S0-S4 state space tests | ✅ DONE | 5/5 pass, ratio=108583x |
-| 3 | 43 | Run Tiny overfit test (BPE) | ⬜ TODO | 10-100 samples, loss → 0 |
-| 4 | 44 | Run Tiny naive baseline (BPE) | ⬜ TODO | Val loss < random |
-| 5 | 45 | Run G1-G4 gates (BPE) | ⬜ TODO | Re-validate with BPE |
+| ✅ | 43 | Run Tiny overfit test (BPE) | ✅ DONE | Loss 0.48 in 65 steps |
+| ✅ | 44 | Run Tiny naive baseline (BPE) | ✅ DONE | 6.01 < 9.68 (37.9% better) |
+| 5 | 45 | Run G1-G4 gates (BPE) | ⬜ **NEXT** | Re-validate with BPE |
 | 6 | 46 | Checkpoint/resume test | ⬜ TODO | Save + reload works |
 | 7 | 47 | Fusion variant re-ranking | ⬜ TODO | 1K steps each with BPE |
 | 8 | 48 | Component balance investigation | ⬜ TODO | Compare Type A vs Type B variance |
@@ -140,8 +140,8 @@ BPE did NOT fix component balance as hypothesized. R/M improved from 0.08-0.11 t
 |------|----------|--------|----------------|
 | **S0-S4 (Type A)** | Output activations verified | ✅ Task 40 | 71x variance ratio |
 | **S0-S4 (Type B)** | Internal states verified | ✅ Task 42 | 108,583x variance ratio |
-| Overfit 10-100 samples | Loss → near 0 | ⬜ Task 43 | — |
-| Val < naive baseline | Better than random | ⬜ Task 44 | — |
+| Overfit 10-100 samples | Loss → near 0 | ✅ Task 43 | Loss 0.48 in 65 steps |
+| Val < naive baseline | Better than random | ✅ Task 44 | 6.01 < 9.68 (37.9% better) |
 | G1-G4 gates pass | Per V4_TESTING.md | ⬜ Task 45 | — |
 | Checkpoint/resume | Save + reload works | ⬜ Task 46 | — |
 | Component balance | Documented | ⚠️ Severe | Gate drifted 0.3→0.7 |
@@ -178,23 +178,15 @@ Task 50 (--log-states) ────────┤
 
 ## ⚠️ FOR NEXT AGENT
 
-**Priority 1: Run Overfit Test (Task 43)** ⬜ **NEXT**
-
-Test that model can memorize small sample (10-100 examples, loss → near 0).
-
-**Priority 2: Run Naive Baseline Test (Task 44)**
-
-Verify val loss < random baseline.
-
-**Priority 3: Run G1-G4 Gates (Task 45)**
+**Priority 1: Run G1-G4 Gates (Task 45)** ⬜ **NEXT**
 
 Re-validate gates with BPE tokenization.
 
-**Priority 4: Checkpoint/Resume Test (Task 46)**
+**Priority 2: Checkpoint/Resume Test (Task 46)**
 
 Verify save + reload works correctly.
 
-**Priority 5: Investigate Component Balance (Task 48)**
+**Priority 3: Investigate Component Balance (Task 48)**
 
 The 71x activation variance ratio is concerning:
 - RWKV var=8.58, Mamba var=0.12

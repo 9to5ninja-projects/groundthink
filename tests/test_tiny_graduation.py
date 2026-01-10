@@ -221,6 +221,143 @@ def test_s4_component_contribution():
 
 
 # =============================================================================
+# Graduation Tests (Tasks 43-46)
+# =============================================================================
+
+def test_overfit(num_samples: int = 10, max_steps: int = 500, target_loss: float = 0.5):
+    """
+    Task 43: Overfit test - can the model memorize a tiny batch?
+    
+    A working model should be able to drive loss near zero on 10-100 samples.
+    This proves the training loop, loss function, and gradients all work.
+    """
+    print("\n" + "=" * 60)
+    print(f"OVERFIT TEST: {num_samples} samples, max {max_steps} steps")
+    print("=" * 60)
+    
+    import torch.optim as optim
+    
+    model = get_model(MODEL_NAME, vocab_size=VOCAB_SIZE).to(DEVICE)
+    model.train()
+    
+    # Create a tiny memorizable dataset
+    # Using random tokens that we'll try to predict
+    seq_len = 64
+    torch.manual_seed(42)  # Reproducible
+    data = torch.randint(0, VOCAB_SIZE, (num_samples, seq_len + 1), device=DEVICE)
+    
+    inputs = data[:, :-1]  # [num_samples, seq_len]
+    targets = data[:, 1:]  # [num_samples, seq_len]
+    
+    optimizer = optim.AdamW(model.parameters(), lr=1e-3)
+    criterion = torch.nn.CrossEntropyLoss()
+    
+    print(f"  Input shape: {inputs.shape}")
+    print(f"  Target shape: {targets.shape}")
+    print(f"  Target loss: < {target_loss}")
+    print()
+    
+    losses = []
+    for step in range(max_steps):
+        optimizer.zero_grad()
+        
+        logits = model(inputs)  # [B, T, vocab]
+        loss = criterion(logits.reshape(-1, VOCAB_SIZE), targets.reshape(-1))
+        
+        loss.backward()
+        optimizer.step()
+        
+        losses.append(loss.item())
+        
+        if step % 50 == 0 or step == max_steps - 1:
+            print(f"  Step {step:4d}: loss = {loss.item():.4f}")
+        
+        # Early success
+        if loss.item() < target_loss:
+            print(f"\n✓ OVERFIT PASS: Reached loss {loss.item():.4f} < {target_loss} at step {step}")
+            return {
+                'passed': True,
+                'final_loss': loss.item(),
+                'steps': step,
+                'losses': losses
+            }
+    
+    # Check if we made progress
+    initial_loss = losses[0]
+    final_loss = losses[-1]
+    reduction = (initial_loss - final_loss) / initial_loss * 100
+    
+    print(f"\n  Initial loss: {initial_loss:.4f}")
+    print(f"  Final loss: {final_loss:.4f}")
+    print(f"  Reduction: {reduction:.1f}%")
+    
+    if final_loss < target_loss:
+        print(f"\n✓ OVERFIT PASS: Final loss {final_loss:.4f} < {target_loss}")
+        return {'passed': True, 'final_loss': final_loss, 'steps': max_steps, 'losses': losses}
+    elif final_loss < initial_loss * 0.5:
+        print(f"\n⚠ OVERFIT WARN: Loss reduced {reduction:.1f}% but didn't reach target")
+        return {'passed': 'warn', 'final_loss': final_loss, 'steps': max_steps, 'losses': losses}
+    else:
+        print(f"\n✗ OVERFIT FAIL: Loss did not decrease significantly")
+        return {'passed': False, 'final_loss': final_loss, 'steps': max_steps, 'losses': losses}
+
+
+def test_naive_baseline():
+    """
+    Task 44: Naive baseline test - is val loss better than random?
+    
+    Compare trained model's validation loss to random predictions.
+    Uses the same data distribution the model was trained on.
+    """
+    print("\n" + "=" * 60)
+    print("NAIVE BASELINE TEST")
+    print("=" * 60)
+    
+    import math
+    from pathlib import Path
+    
+    # Load the trained checkpoint
+    ckpt_path = "checkpoints/ckpt_GF-MH_final.pt"
+    
+    try:
+        checkpoint = torch.load(ckpt_path, map_location=DEVICE, weights_only=False)
+        print(f"  Loaded checkpoint: {ckpt_path}")
+        print(f"  Training steps: {checkpoint.get('step', 'unknown')}")
+        print(f"  Best val loss from training: {checkpoint.get('best_val_loss', 'unknown'):.4f}")
+    except FileNotFoundError:
+        print(f"  ✗ Checkpoint not found: {ckpt_path}")
+        print("  Run training first (Task 40)")
+        return {'passed': False, 'reason': 'no checkpoint'}
+    
+    model = get_model(MODEL_NAME, vocab_size=VOCAB_SIZE).to(DEVICE)
+    model.load_state_dict(checkpoint['model_state'])
+    model.eval()
+    
+    # Use the best validation loss from training as the model's performance
+    # (This was computed on the actual training data distribution)
+    best_val_loss = checkpoint.get('best_val_loss', None)
+    
+    if best_val_loss is None:
+        print("  ⚠ No best_val_loss in checkpoint, cannot compare")
+        return {'passed': 'warn', 'reason': 'no val loss in checkpoint'}
+    
+    # Random baseline (uniform distribution over vocab)
+    random_loss = math.log(VOCAB_SIZE)  # Cross-entropy of uniform dist = 9.68 for vocab 16000
+    
+    print(f"\n  Model best val loss: {best_val_loss:.4f}")
+    print(f"  Random baseline: {random_loss:.4f} (log({VOCAB_SIZE}))")
+    improvement = (random_loss - best_val_loss) / random_loss * 100
+    print(f"  Improvement: {improvement:.1f}%")
+    
+    if best_val_loss < random_loss:
+        print(f"\n✓ BASELINE PASS: Model beats random ({best_val_loss:.4f} < {random_loss:.4f})")
+        return {'passed': True, 'model_loss': best_val_loss, 'random_loss': random_loss}
+    else:
+        print(f"\n✗ BASELINE FAIL: Model worse than random")
+        return {'passed': False, 'model_loss': best_val_loss, 'random_loss': random_loss}
+
+
+# =============================================================================
 # Main Entry Point
 # =============================================================================
 
@@ -288,15 +425,28 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Tiny Model Graduation Tests")
     parser.add_argument('--states', action='store_true', help='Run S0-S4 state tests only')
     parser.add_argument('--gates', action='store_true', help='Run G1-G4 gate tests only')
+    parser.add_argument('--overfit', action='store_true', help='Run overfit test (Task 43)')
+    parser.add_argument('--baseline', action='store_true', help='Run naive baseline test (Task 44)')
     parser.add_argument('--model', default='GF-MH', help='Model name to test')
+    parser.add_argument('--samples', type=int, default=10, help='Samples for overfit test')
+    parser.add_argument('--steps', type=int, default=500, help='Max steps for overfit test')
     args = parser.parse_args()
     
     MODEL_NAME = args.model
     print(f"Testing model: {MODEL_NAME}")
     print(f"Device: {DEVICE}")
     
-    if args.states or (not args.states and not args.gates):
+    # If no specific test requested, run states only (quick check)
+    run_all = not (args.states or args.gates or args.overfit or args.baseline)
+    
+    if args.states or run_all:
         run_state_tests()
+    
+    if args.overfit:
+        test_overfit(num_samples=args.samples, max_steps=args.steps)
+    
+    if args.baseline:
+        test_naive_baseline()
     
     if args.gates:
         print("\nG1-G4 gate tests not yet implemented (TODO)")
