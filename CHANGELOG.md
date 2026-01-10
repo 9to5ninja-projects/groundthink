@@ -6,6 +6,51 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [4.8-Alpha] - 2026-01-10 (Phase 3.7 Planned)
+
+### Summary
+Phase 3.6 complete with fusion variant comparison. Discovered trade-off: position-adaptive fusion achieves lower loss but causes RWKV dominance. Phase 3.7 designed to test if dominance is signal-based or architectural.
+
+### Added
+- **V4_BLEND_RATIOS.md**: Complete hyperparameter analysis for blend ratio experiments
+  - Adjustability matrix for all 6 fusion variants
+  - How `gate_init` works (logit transform)
+  - Phase 3.7 experiment plan with commands and results template
+  - Interpretation guide for signal vs architectural dominance
+
+### Changed
+- **V4_STRATEGY.md**:
+  - Phase 3.6 marked COMPLETE with results
+  - Phase 3.7 added (Tasks 31-35: Blend Ratio Sweep)
+  - Next actions updated to prioritize dominance testing
+- **V4_HANDOFF.md**:
+  - Updated to v4.8-Alpha
+  - Next Agent Instructions now focus on Phase 3.7
+  - Available variants documented with gate_init values
+- **VERSION**: Updated to 4.8-Alpha
+
+### Phase 3.6 Key Findings
+
+| Variant | Val Loss | R/M Ratio | Verdict |
+|---------|----------|-----------|---------|
+| **GF-MH** | **1.59** | 0.10 ⚠️ | Best loss, RWKV dominant |
+| GF | 1.61 | 0.12 ⚠️ | Good loss, RWKV dominant |
+| CP | 1.61 | 0.19 ⚠️ | Good loss, RWKV dominant |
+| HGF | 1.69 | 0.21 ⚠️ | Mid loss, RWKV dominant |
+| **HY** | 1.69 | **0.45** ✅ | Mid loss, balanced |
+
+**Trade-off identified:** Lower loss ↔ Worse component balance
+
+### Phase 3.7 Plan
+Test symmetric configurations to determine RWKV dominance cause:
+- Task 31: GF-RH (gate_init=0.7, RWKV-heavy)
+- Task 32: HGF-MH (gate_init=0.3, Mamba-heavy)
+- Task 33: HGF-RH (gate_init=0.7, RWKV-heavy)
+- Task 34: Gate drift analysis
+- Task 35: Signal vs architectural conclusion
+
+---
+
 ## [4.2-Alpha] - 2026-01-09 (Phase 2 Complete)
 
 ### Summary

@@ -1,11 +1,11 @@
 # V4 Agent Handoff Document
 
 **Purpose:** Single source of truth for agent continuity & versioning  
-**Current Version:** 4.7-Alpha (Phase 3.6 Complete)  
+**Current Version:** 4.8-Alpha (Phase 3.7 Planned)  
 **Updated:** 2026-01-10  
-**Last Agent Action:** Fusion variant comparison, checkpoint naming fix, Phase 3.6 complete  
+**Last Agent Action:** Blend ratio hyperparameter analysis, Phase 3.7 planning documented  
 **Repository:** https://github.com/9to5ninja-projects/groundthink  
-**Git Status:** 🔄 Uncommitted changes (Phase 3.6 results)
+**Git Status:** ✅ Clean (commit 37e4d3d)
 
 ---
 
@@ -167,9 +167,9 @@ Implements Task 19. Phase 3 status: Task 19 complete, Task 20 next.
 
 ## Current Status
 
-**Phase:** Phase 3.6 COMPLETE — Ready for extended training  
+**Phase:** Phase 3.6 COMPLETE, Phase 3.7 PLANNED  
 **Last Updated:** 2026-01-10  
-**Status:** Fusion variants ranked. Checkpoint naming fixed. Next: extended training runs.
+**Status:** Blend ratio experiments designed. Ready to test signal vs architectural RWKV dominance.
 
 **Session 13 Completed:**
 - ✅ HGF Validation Gates (G1-G4) — All passed with warnings
@@ -179,6 +179,8 @@ Implements Task 19. Phase 3 status: Task 19 complete, Task 20 next.
 - ✅ 1K training comparison on 5 fusion variants
 - ✅ Fixed checkpoint naming: now `ckpt_{MODEL}_*.pt`
 - ✅ Documented results in V4_FUSION_MODELS.md
+- ✅ Analyzed blend ratio hyperparameters (V4_BLEND_RATIOS.md)
+- ✅ Created Phase 3.7 experiment plan (Tasks 31-35)
 
 **Phase 3.6 Results (1K Step Training):**
 | Variant | Val Loss | R/M Ratio | Verdict |
@@ -197,10 +199,14 @@ Implements Task 19. Phase 3 status: Task 19 complete, Task 20 next.
 - Training now saves: `ckpt_{MODEL}_step{N}.pt` and `ckpt_{MODEL}_final.pt`
 - Example: `ckpt_GF-MH_step1000.pt`, `ckpt_HGF_final.pt`
 
-**Next Actions:**
-1. Extended training (5K+ steps) on top variants (GF-MH, HY, HGF)
-2. Multi-worker parallel training (Task 23)
-3. HGF balance tuning with gate_init=0.3 (Task 24.1)
+**Next Actions (Phase 3.7):**
+1. **Task 31:** GF-RH 1K training (gate_init=0.7, RWKV-heavy)
+2. **Task 32:** HGF-MH 1K training (gate_init=0.3, Mamba-heavy)
+3. **Task 33:** HGF-RH 1K training (gate_init=0.7, RWKV-heavy)
+4. **Task 34:** Gate drift analysis — compare init vs final gate values
+5. **Task 35:** Conclude: signal vs architectural dominance
+
+See [V4_BLEND_RATIOS.md](V4_BLEND_RATIOS.md) for full experiment plan.
 
 ---
 
@@ -248,48 +254,45 @@ Legacy aliases (`1M`, `5M`, `8M`) still work for backward compatibility.
 
 ## Next Agent Instructions
 
-**Current Priority:** Run HGF variant through validation gates and benchmarks
+**Current Priority:** Phase 3.7 — Blend Ratio Sweep
 
-**Repo Cleanup: ✅ COMPLETE**
-- ✅ All stages done (models/, data/, tests/, checkpoints/)
-- ✅ README updated with new structure
-- ✅ Naming scheme: tiny/small/medium (legacy aliases work)
+**Goal:** Determine if RWKV dominance is **architectural** (built-in) or **signal-based** (learnable).
 
-**NEW: HGF Variant Ready for Testing**
+**Background:** Phase 3.6 showed ALL gated variants become RWKV-dominant (R/M = 0.10-0.21). We need to test if starting RWKV-heavy changes the outcome.
 
-HGF (Hybrid-Gated Fusion) combines per-position AND per-dimension gating:
+**Immediate Tasks (Phase 3.7):**
+
+| Task | Model | Command | Purpose |
+|------|-------|---------|---------|
+| 31 | GF-RH | `python train_v4.py --model GF-RH --steps 1000` | 70:30 RWKV-heavy baseline |
+| 32 | HGF-MH | `python train_v4.py --model HGF-MH --steps 1000` | 30:70 Mamba-heavy HGF |
+| 33 | HGF-RH | `python train_v4.py --model HGF-RH --steps 1000` | 70:30 RWKV-heavy HGF |
+
+**Analysis Required:**
+- Track **final gate value** vs **init gate value** (drift)
+- If GF-RH (started 70:30) drifts toward Mamba → Signal dominance
+- If GF-RH stays 70:30 → Architectural persistence
+
+**Key Documentation:**
+- [V4_BLEND_RATIOS.md](V4_BLEND_RATIOS.md) — Full hyperparameter analysis & results template
+- [V4_STRATEGY.md](V4_STRATEGY.md) — Task 31-35 details
+- [V4_FUSION_MODELS.md](V4_FUSION_MODELS.md) — Fusion variant reference
+
+**Available Variants in Registry:**
 ```python
-# GF: gate is [B, S, 1] — same blend for all dims at each position
-# HGF: gate is [B, S, 128] — different blend per dim per position
 from models import get_model
-model = get_model('HGF')      # Balanced init
-model = get_model('HGF-MH')   # Mamba-heavy init
-model = get_model('HGF-RH')   # RWKV-heavy init
+model = get_model('GF-RH')    # gate_init=0.7 (RWKV-heavy)
+model = get_model('GF-MH')    # gate_init=0.3 (Mamba-heavy) — already tested
+model = get_model('HGF')      # gate_init=0.5 (balanced) — already tested
+model = get_model('HGF-MH')   # gate_init=0.3 (Mamba-heavy HGF)
+model = get_model('HGF-RH')   # gate_init=0.7 (RWKV-heavy HGF)
 ```
-
-**What to do next:**
-1. **G1 (Forward Pass)** — Verify HGF produces valid output, no NaN
-2. **G2 (Init Entropy)** — Check initialization is healthy (2.0-5.0)
-3. **G3 (Train 1K)** — Run 1000 steps, verify loss decreases
-4. **G4 (Balance)** — Check gradient ratio between RWKV/Mamba (0.3-3.0)
-5. **Benchmark** — Compare HGF vs GF-MH vs CP on 500-step runs
-
-**Top 3 for Comparative Testing:**
-| Rank | Model | Why |
-|------|-------|-----|
-| 1 | **GF-MH** | Phase 2 winner (baseline) |
-| 2 | **CP** | Most expressive (33K fusion params) |
-| 3 | **HGF** | New: maximum control over learning shape |
-
-**Key Files:**
-- `V4_FUSION_MODELS.md` — Technical reference for all variants
-- `V4_TESTING.md` — Validation gate procedures
-- `tests/test_phase0_complete.py` — Environment validation
 
 **Before starting:**
 1. Read this document completely ✓
-2. Read V4_FUSION_MODELS.md for HGF details
+2. Read [V4_BLEND_RATIOS.md](V4_BLEND_RATIOS.md) for experiment plan
 3. Use `manage_todo_list` tool to write task breakdown (REQUIRED)
+4. Run Task 31 first (GF-RH), then proceed sequentially
 
 ---
 
