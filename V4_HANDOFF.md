@@ -1,11 +1,11 @@
 # V4 Agent Handoff Document
 
 **Purpose:** Single source of truth for agent continuity & versioning  
-**Current Version:** 4.5-Alpha (HGF Validated + GPU Analysis)  
+**Current Version:** 4.6-Alpha (Pre-Training Benchmarks)  
 **Updated:** 2026-01-10  
-**Last Agent Action:** HGF G1-G4 validation, GPU VRAM analysis, Phase 3.5 tasks added  
+**Last Agent Action:** Phase 3.6 created - LRD test, NIAH discovery, fusion comparison framework  
 **Repository:** https://github.com/9to5ninja-projects/groundthink  
-**Git Status:** 🔄 Uncommitted changes (session 13 work)
+**Git Status:** 🔄 Uncommitted changes (session 13 continued)
 
 ---
 
@@ -167,15 +167,23 @@ Implements Task 19. Phase 3 status: Task 19 complete, Task 20 next.
 
 ## Current Status
 
-**Phase:** Phase 2.5 + 3.5 IN PROGRESS  
+**Phase:** Phase 3.6 IN PROGRESS (Pre-Training Benchmark Suite)  
 **Last Updated:** 2026-01-10  
-**Status:** HGF validated (G1-G4), GPU analysis complete. Multi-worker training next.
+**Status:** LRD test script complete. Fusion variant comparison next.
 
 **Session 13 Completed:**
 - ✅ HGF Validation Gates (G1-G4) — All passed with warnings
 - ✅ Fixed HGF integration issues (tokenizer.py, get_num_params method)
 - ✅ GPU VRAM Analysis — 2x small @ batch=32 fits in 47% VRAM (2.9GB)
-- ✅ Added Phase 3.5 tasks (Tasks 22-24.1) for parallel training & tuning
+- ✅ Created LRD test script (tests/test_lrd.py)
+- ✅ Discovered NIAH not appropriate for char-level models
+- ✅ Added Phase 3.6 tasks (pre-training benchmark suite)
+
+**Key Discovery (Session 13):**
+- NIAH retrieval tests don't work for char-level models (they predict, not retrieve)
+- LRD (Long-Range Dependency) tests measure context utilization correctly
+- HY model shows 21-43% improvement from 8→64 context (model DOES use long context)
+- Fusion variant testing should happen BEFORE expensive training runs
 
 **HGF Validation Results:**
 | Gate | Result | Notes |
@@ -185,43 +193,29 @@ Implements Task 19. Phase 3 status: Task 19 complete, Task 20 next.
 | G3 | ✅ PASS | Loss 4.64→1.68, 20K tok/s |
 | G4 | ⚠️ WARN | Gradient ratio 0.22 (<0.3), activation variance 47x |
 
-**Phase 2.5 Progress:**
-- Task 18.1 ✅ COMPLETE: Model Registry & Factory (`models/__init__.py`)
-- Task 18.2 ✅ COMPLETE: Centralized Config System (`configs/*.yaml`)
-- Task 18.3 ⬜ PENDING: NIAH Test Implementation
-- Task 18.4 ⬜ PENDING: Qualitative Eval Suite
-- Task 18.5 ✅ COMPLETE: HGF validated through G1-G4
+**Phase 3.6 Progress (Pre-Training Benchmarks):**
+- Task 25 ✅ COMPLETE: LRD Test Script (tests/test_lrd.py)
+- Task 26 ⬜ **NEXT**: Fusion Variant LRD Comparison
+- Task 27 ⚠️ DEPRIORITIZED: NIAH (not appropriate for char-level)
+- Task 28 ⬜ PENDING: Quick Train Comparison (1K steps per variant)
+- Task 29 ⬜ PENDING: Component Balance Tests
+- Task 30 ⬜ PENDING: Fusion Variant Ranking
 
-**Phase 3.5 Progress (NEW):**
+**Phase 3.5 Progress:**
 - Task 22 ✅ COMPLETE: GPU VRAM Analysis
-- Task 23 ⬜ **NEXT**: Multi-Worker Training Script
+- Task 23 ⬜ PENDING: Multi-Worker Training Script
 - Task 24 ⬜ PENDING: Architecture Tuning Guide
 - Task 24.1 ⬜ PENDING: HGF Balance Tuning
 
-**Phase 3 (After 2.5):**
-- Task 19 ✅ COMPLETE: medium model built (`models/hybrid_v4_8m.py`)
-- Task 20 ⬜ PENDING: Extended training (`--model medium --config configs/train_medium_50k.yaml`)
-- Task 21 ⬜ PENDING: Post-training eval
-
-**Key Insight:**
-Tasks 18.1 + 18.2 are COMPLETE. Training any model is now:
-```bash
-# With config file (preferred)
-python train_v4.py --config configs/train_medium_50k.yaml
-
-# With CLI args  
-python train_v4.py --model medium --max-steps 1000
-
-# Quick test
-python train_v4.py --config configs/train_quick.yaml
-```
-No import edits. No config scatter. See [V4_TRAINING_GUIDE.md](V4_TRAINING_GUIDE.md#-model-registry--config-system-v45) for full docs.
+**Key Files Created:**
+- `tests/test_lrd.py` — Long-Range Dependency test
+- `tests/test_niah_char.py` — NIAH test (deprioritized)
 
 **Existing Checkpoints (for eval):**
-- `ckpt_HY_step1000.pt` through `ckpt_HY_step5000.pt`
-- `ckpt_HY_final.pt`
+- `ckpt_HY_step2000.pt` through `ckpt_HY_step5000.pt` — HY model (real checkpoints)
+- `ckpt_HY_final.pt`, `ckpt_HY_step1000.pt` — HGF model (misnamed)
 
-See [V4_STRATEGY.md - Phase 3.5](V4_STRATEGY.md#phase-35-parallel-training--architecture-tuning) for full task details.
+See [V4_STRATEGY.md - Phase 3.6](V4_STRATEGY.md#phase-36-pre-training-benchmark-suite-training-for-training) for full task details.
 
 ---
 

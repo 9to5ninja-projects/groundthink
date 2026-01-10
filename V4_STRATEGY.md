@@ -848,6 +848,173 @@ warmup_steps: 2500
 
 ---
 
+### Phase 3.6: Pre-Training Benchmark Suite ("Training for Training")
+
+**Rationale:** Before expensive training runs, we test fusion variants on cheap diagnostic benchmarks. This finds optimal "brain mix" without wasting GPU hours.
+
+**Key Insight (Session 13):** 
+- NIAH retrieval tests don't work for char-level models (they predict, not retrieve)
+- LRD (Long-Range Dependency) tests show context utilization via perplexity improvement
+- Fusion variants can be compared on untrained models to find best architecture
+
+| # | Task | Status | Depends On | Complexity | Details |
+|---|------|--------|------------|------------|---------|
+| 25 | LRD Test Script | ✅ COMPLETE | - | S | tests/test_lrd.py - measures context benefit |
+| 26 | Fusion Variant LRD Comparison | ⬜ **NEXT** | Task 25 | M | Compare HY/GF/GF-MH/HGF/CP on untrained models |
+| 27 | NIAH Test Script | ⚠️ DEPRIORITIZED | - | S | tests/test_niah_char.py exists but needs word-level BPE |
+| 28 | Quick Train Comparison | ⬜ PENDING | Task 26 | M | 1K-step training on top fusion variants |
+| 29 | Component Balance Tests | ⬜ PENDING | Task 28 | M | Gradient ratio, activation variance per variant |
+| 30 | Fusion Variant Ranking | ⬜ PENDING | Task 29 | S | Document winner for extended training |
+
+**Gate:** Phase 3.6 complete when we have ranked fusion variants by:
+1. LRD score (context utilization)
+2. 1K-step loss/PPL
+3. Component balance (gradient ratio)
+
+---
+
+#### Task 25: LRD Test Script
+
+**Status:** ✅ COMPLETE (2026-01-10)  
+**Complexity:** S (Small)  
+**Time:** ~20 min  
+
+**Created:** `tests/test_lrd.py`
+
+**What it measures:**
+- Perplexity at context lengths 8, 16, 32, 64, 128, 256
+- "Context benefit" = (loss@8 - loss@128) / loss@8 × 100%
+- Higher = model uses long context better
+
+**Key Findings (HY model, step 5000):**
+- PPL improves 21-43% from 8→64 context
+- Model DOES use long-range context effectively
+- This is the right test for char-level models (not NIAH)
+
+**Usage:**
+```bash
+python tests/test_lrd.py --model HY --checkpoint checkpoints/ckpt_HY_step5000.pt
+```
+
+---
+
+#### Task 26: Fusion Variant LRD Comparison
+
+**Status:** ⬜ NEXT  
+**Complexity:** M (Medium)  
+**Time:** ~1 hour  
+**Priority:** 🔴 BLOCKER - Needed before expensive training
+
+**Goal:** Compare ALL fusion variants on LRD test (both untrained and after 1K steps):
+
+**Variants to test:**
+1. HY - Hybrid per-channel gains
+2. GF - Gated fusion
+3. GF-MH - Gated fusion, Mamba-heavy (Phase 2 winner)
+4. HGF - Hybrid-gated fusion (new)
+5. CP - Concatenate + Project
+
+**Metrics to collect (per variant):**
+
+| Metric | Untrained | @1K steps | @5K steps |
+|--------|-----------|-----------|-----------|
+| LRD context benefit (8→128) | % | % | % |
+| Val loss | - | value | value |
+| Val PPL | - | value | value |
+| Gradient ratio | - | value | value |
+| Training tok/s | - | value | value |
+
+**Acceptance Criteria:**
+- [ ] All 5 variants tested on LRD
+- [ ] Results table in V4_FUSION_MODELS.md
+- [ ] Top 2 variants identified for extended training
+
+---
+
+#### Task 27: NIAH Test Script
+
+**Status:** ⚠️ DEPRIORITIZED  
+**Complexity:** S (Small)  
+**Note:** Script exists but test is not appropriate for char-level models
+
+**Problem (discovered Session 13):**
+- Char-level models predict next char based on language patterns
+- They don't "retrieve" injected patterns (0% accuracy expected)
+- After "X" in "XYZQWK", model predicts "a" (38.7%) because "Xa" is common
+
+**Future Option (word-level):**
+- Requires BPE tokenizer
+- Requires instruction-following training data
+- Add to Phase 5 or later
+
+---
+
+#### Task 28: Quick Train Comparison
+
+**Status:** ⬜ PENDING  
+**Complexity:** M (Medium)  
+**Time:** ~45 min (1K steps × 5 variants)  
+**Depends On:** Task 26 (know which variants to focus on)
+
+**Goal:** Run 1K training steps on each fusion variant, measure:
+- Final loss/PPL
+- Training speed (tok/s)
+- Gradient ratio
+- Memory usage
+
+**Config:**
+```yaml
+model: [variant]
+batch_size: 32
+seq_len: 64
+max_steps: 1000
+eval_every: 100
+```
+
+---
+
+#### Task 29: Component Balance Tests
+
+**Status:** ⬜ PENDING  
+**Complexity:** M (Medium)  
+**Time:** ~30 min  
+**Depends On:** Task 28
+
+**Goal:** After 1K training, measure component balance for each variant:
+
+| Metric | Target Range | How to Measure |
+|--------|--------------|----------------|
+| Gradient ratio (Mamba/RWKV) | 0.3-3.0 | train_v4.py logs |
+| Activation variance ratio | <10x | Custom script |
+| Gate distribution | 0.3-0.7 mean | For GF/HGF variants |
+
+**Acceptance Criteria:**
+- [ ] All variants' balance metrics documented
+- [ ] Identify variants with poor balance
+- [ ] Recommend tuning for imbalanced variants
+
+---
+
+#### Task 30: Fusion Variant Ranking
+
+**Status:** ⬜ PENDING  
+**Complexity:** S (Small)  
+**Time:** ~15 min  
+**Depends On:** Tasks 26, 28, 29
+
+**Goal:** Create final ranking table combining all metrics:
+
+| Rank | Variant | LRD Score | Val Loss | Grad Ratio | Recommendation |
+|------|---------|-----------|----------|------------|----------------|
+| 1 | ? | ? | ? | ? | Extended training |
+| 2 | ? | ? | ? | ? | Extended training |
+| 3 | ? | ? | ? | ? | Monitor |
+| 4-5 | ? | ? | ? | ? | Deprioritize |
+
+**Output:** Update V4_FUSION_MODELS.md with ranking and recommendation.
+
+---
+
 ### Phase 4: Advanced Long-Context Evaluation (Optional - "Later Game")
 
 **Prerequisites:** Must pass Phase 4 NIAH tests (>80% accuracy at 16K tokens) before attempting these benchmarks.
