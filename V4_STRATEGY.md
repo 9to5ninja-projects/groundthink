@@ -1126,10 +1126,11 @@ def forward(self, x, return_activations=False, return_states=False, ...):
 
 #### Task 50: State Monitoring in Training
 
-**Status:** ⬜ TODO  
+**Status:** ✅ COMPLETE  
 **Complexity:** M (Medium)  
-**Time:** ~1.5 hours  
-**Dependencies:** Task 41a ✅
+**Time:** ~15 minutes  
+**Dependencies:** Task 41a ✅  
+**Completed:** 2026-01-10
 
 **Purpose:** Add state monitoring alongside activation monitoring in train_v4.py.
 

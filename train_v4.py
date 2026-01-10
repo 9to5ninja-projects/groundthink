@@ -349,6 +349,8 @@ if __name__ == "__main__":
                         help='Tokenizer type: char (default) or bpe')
     parser.add_argument('--resume', type=str, default=None, 
                         help='Checkpoint to resume from')
+    parser.add_argument('--log-states', action='store_true', dest='log_states',
+                        help='Enable internal state monitoring (S0-S4 diagnostics)')
     
     args = parser.parse_args()
     
@@ -361,6 +363,7 @@ if __name__ == "__main__":
         'mamba_grad_scale': args.mamba_grad_scale,
         'rwkv_dropout_start': args.rwkv_dropout_start,
         'rwkv_dropout_end': 0.1 if args.rwkv_dropout_start else None,  # Anneal to 10% if enabled
+        'log_states': args.log_states,
     }
     
     # Load config with overrides
@@ -503,6 +506,44 @@ if __name__ == "__main__":
         model.train()
         return stats, entropy
 
+    # ============ State Monitoring Function (Task 50) ============
+    @torch.no_grad()
+    def get_state_diagnostics(model, x):
+        """Capture internal states for S0-S4 style monitoring.
+        
+        Returns dict with:
+            - rwkv_state_norm: L2 norm of RWKV recurrent state
+            - mamba_state_norm: L2 norm of Mamba output proxy
+            - state_ratio: rwkv_norm / mamba_norm
+            - gate: fusion gate value (model-dependent)
+        """
+        model.eval()
+        try:
+            logits, states = model(x, return_states=True)
+        except TypeError:
+            # Model doesn't support return_states
+            model.train()
+            return None
+        
+        rwkv_state = states.get('rwkv_state')
+        mamba_state = states.get('mamba_state')
+        
+        rwkv_norm = rwkv_state.norm().item() if rwkv_state is not None else 0.0
+        mamba_norm = mamba_state.norm().item() if mamba_state is not None else 0.0
+        
+        # Avoid division by zero
+        state_ratio = rwkv_norm / max(mamba_norm, 1e-8)
+        
+        diagnostics = {
+            'rwkv_state_norm': rwkv_norm,
+            'mamba_state_norm': mamba_norm,
+            'state_ratio': state_ratio,
+            'gate': states.get('gate', 0.5),
+        }
+        
+        model.train()
+        return diagnostics
+
     # Training loop with monitoring
     resume_info = f" (resuming from {start_step})" if start_step > 0 else ""
     print(f"\n=== Training 5000 steps (HY Fusion){resume_info} ===", flush=True)
@@ -624,6 +665,13 @@ if __name__ == "__main__":
                 if step % 500 == 0:
                     print(f"    RWKV: var={act_stats['rwkv']['mean_var']:.4f} std={act_stats['rwkv']['mean_std']:.4f}", flush=True)
                     print(f"    Mamba: var={act_stats['mamba']['mean_var']:.4f} std={act_stats['mamba']['mean_std']:.4f}", flush=True)
+                
+                # State monitoring (enabled with --log-states)
+                if CONFIG.get('log_states', False):
+                    state_diag = get_state_diagnostics(model, x)
+                    if state_diag is not None:
+                        print(f"    STATE: rwkv={state_diag['rwkv_state_norm']:.1f} mamba={state_diag['mamba_state_norm']:.1f} "
+                              f"ratio={state_diag['state_ratio']:.1f}x gate={state_diag['gate']:.3f}", flush=True)
                 
                 # Track best val
                 if val_loss < best_val_loss:
