@@ -26,6 +26,7 @@ from .hybrid_v4_RF import create_hybrid_RF_5m
 from .hybrid_v4_CP import create_hybrid_CP_5m
 from .hybrid_v4_ratio import create_hybrid_GF_RH_5m, create_hybrid_GF_MH_5m
 from .hybrid_v4_8m import create_hybrid_GF_MH_8m
+from .hybrid_v4_HGF import create_hgf_balanced, create_hgf_mamba_heavy, create_hgf_rwkv_heavy
 
 
 # Model registry - maps user-friendly names to factory functions
@@ -42,6 +43,11 @@ REGISTRY = {
     'WS': create_hybrid_WS_5m,         # Weighted Sum
     'RF': create_hybrid_RF_5m,         # Residual Fusion
     'CP': create_hybrid_CP_5m,         # Concat+Project
+    
+    # === HGF: Hybrid-Gated Fusion (per-position + per-dimension) ===
+    'HGF': create_hgf_balanced,        # Balanced init (50/50)
+    'HGF-MH': create_hgf_mamba_heavy,  # Mamba-Heavy init (30% RWKV)
+    'HGF-RH': create_hgf_rwkv_heavy,   # RWKV-Heavy init (70% RWKV)
     
     # === Ratio variants (SMALL scale, GF fusion) ===
     'GF-RH': create_hybrid_GF_RH_5m,   # RWKV-Heavy (gate init 0.7)
@@ -110,7 +116,12 @@ def list_models(show=False):
         'RF':     '3.6M | Residual Fusion',
         'CP':     '3.6M | Concat+Project',
         
-        # Ratio variants
+        # HGF: Hybrid-Gated Fusion (per-position + per-dimension)
+        'HGF':    '3.6M | Hybrid-Gated Fusion (pos+dim control)',
+        'HGF-MH': '3.6M | HGF Mamba-Heavy (gate 0.3)',
+        'HGF-RH': '3.6M | HGF RWKV-Heavy (gate 0.7)',
+        
+        # GF Ratio variants
         'GF-RH':  '3.6M | Gated Fusion RWKV-Heavy (gate 0.7)',
         'GF-MH':  '3.6M | Gated Fusion Mamba-Heavy (gate 0.3) ★ PHASE 2 WINNER',
         
