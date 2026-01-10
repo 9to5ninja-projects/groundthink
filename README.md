@@ -141,17 +141,23 @@ print(f"Output shape: {logits.shape}")  # Should be [4, 64, 97]
 
 ## Documentation Map
 
-- **[V4_DESIGN.md](V4_DESIGN.md)** — Architecture specification, layer math, fusion options, proposed future variants
-- **[V4_STRATEGY.md](V4_STRATEGY.md)** — Task backlog, Phase 1-3 progress, validation gates
-- **[V4_HANDOFF.md](V4_HANDOFF.md)** — Current status, known issues, ready for Phase 3 scaling
+**Start here (in order):**
+1. **[ONBOARDING.md](ONBOARDING.md)** — What are RWKV and Mamba? Why combine them? (For everyone)
+2. **[README.md](README.md)** — This file: quick start and Phase 2 results
+3. **[V4_DESIGN.md](V4_DESIGN.md)** — Architecture specification, layer math, implementation details
+
+**For specific needs:**
+- **[V4_DESIGN.md](V4_DESIGN.md)** — Architecture specification, layer math, fusion options
+- **[V4_STRATEGY.md](V4_STRATEGY.md)** — Task backlog, complexity assessment, validation gates
+- **[V4_HANDOFF.md](V4_HANDOFF.md)** — Current status, audit summary, git approval protocol
 - **[CHANGELOG.md](CHANGELOG.md)** — Version history with dates and major changes
 - **[VERSION](VERSION)** — Current semantic version
+- **[V4_TRAINING_GUIDE.md](V4_TRAINING_GUIDE.md)** — Training procedures and hyperparameter tuning
+- **[V4.5_OPTIMIZATION.md](V4.5_OPTIMIZATION.md)** — Performance optimization & monitoring
 
-### Legacy Documentation
-
-- **[README_A100.md](README_A100.md)** — A100 cloud training setup (Vast.ai, RunPod)
+**Legacy/Reference:**
+- **[README_A100.md](README_A100.md)** — A100 cloud training setup (legacy)
 - **[VERSIONS.md](VERSIONS.md)** — Old v0.1-0.2 version records (reference only)
-- **[V4_TRAINING_GUIDE.md](V4_TRAINING_GUIDE.md)** — Training procedures
 
 ---
 

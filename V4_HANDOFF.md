@@ -12,9 +12,9 @@
 ## ⚠️ MANDATORY WORKFLOW
 
 **CRITICAL WORKFLOW (Mandatory Order):**
-1. **Read** this document completely
-2. **Understand** current version status (above) and git commit hash
-3. **Audit** task list in V4_STRATEGY.md (check complexity ratings, use Task Assessment Matrix)
+1. **Read** [ONBOARDING.md](ONBOARDING.md) first (understand concepts: RWKV, Mamba, why hybrids)
+2. **Skim** this document (understand current status and git state)
+3. **Audit** task list in V4_STRATEGY.md using Task Assessment Matrix
 4. **Use `manage_todo_list`** to write your task breakdown
 5. **Verify** documentation links work before starting implementation
 6. **Then** begin work
