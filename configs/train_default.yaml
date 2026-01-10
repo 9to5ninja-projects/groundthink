@@ -3,7 +3,7 @@
 # Created: 2026-01-10
 
 # Model selection
-model: 5M
+model: small
 
 # Training duration
 max_steps: 5000

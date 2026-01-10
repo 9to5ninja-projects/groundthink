@@ -1,9 +1,9 @@
-# GroundThink Training Config - 8M Extended Training
-# Task 20: 50K step training run for 8M GF-MH model
+# GroundThink Training Config - Medium (7.9M) Extended Training
+# Task 20: 50K step training run for medium scale GF-MH model
 # Created: 2026-01-10
 
 # Model selection (from registry)
-model: 8M
+model: medium
 
 # Training duration
 max_steps: 50000

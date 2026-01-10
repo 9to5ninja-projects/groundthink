@@ -23,7 +23,7 @@ import torch.nn.functional as F
 from torch.amp import autocast, GradScaler
 
 from models import get_model
-from data_loader import load_stateful_dataset
+from data import load_stateful_dataset
 
 
 # ============================================================================
@@ -315,7 +315,7 @@ if __name__ == "__main__":
     # Load dataset
     print("Loading dataset...")
     dataset, tokenizer = load_stateful_dataset(
-        'shakespeare.txt',
+        'data/shakespeare.txt',
         batch_size=config['batch_size'],
         seq_len=config['seq_len'],
         scale='8M',

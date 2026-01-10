@@ -28,7 +28,7 @@ from torch.amp import autocast, GradScaler
 # Import model registry
 from models import get_model
 
-from data_loader import load_stateful_dataset
+from data import load_stateful_dataset
 
 # ============ Config ============
 # Same config for ALL variants - fair comparison
@@ -211,7 +211,7 @@ def main():
     # Load data once
     print("\nLoading data...")
     dataset, tokenizer = load_stateful_dataset(
-        filepath="shakespeare.txt",
+        filepath="data/shakespeare.txt",
         batch_size=CONFIG['batch_size'],
         seq_len=CONFIG['seq_len'],
     )

@@ -222,10 +222,20 @@ def get_tokenizer_for_scale(scale: str, corpus_path: str = None) -> GroundThinkT
     - 125M target: 24k BPE
     
     Args:
-        scale: "8M", "30M", or "125M"
+        scale: Model name (tiny/small/medium or variant names)
         corpus_path: Path to training corpus (for BPE training)
     """
-    if scale == "8M":
+    # Normalize to uppercase for matching
+    scale_upper = scale.upper() if isinstance(scale, str) else scale
+    
+    # All small/medium scales use char-level tokenization
+    CHAR_SCALES = {
+        "TINY", "SMALL", "MEDIUM",  # Primary names
+        "1M", "5M", "8M",            # Legacy aliases
+        "HY", "GF", "WS", "RF", "CP", "GF-RH", "GF-MH",  # Variants
+    }
+    
+    if scale_upper in CHAR_SCALES:
         # Char-level for quick architecture validation
         if corpus_path:
             with open(corpus_path, 'r', encoding='utf-8') as f:
@@ -235,12 +245,21 @@ def get_tokenizer_for_scale(scale: str, corpus_path: str = None) -> GroundThinkT
             import string
             return CharTokenizer(string.printable)
     
-    elif scale in ("30M", "125M"):
-        vocab_sizes = {"30M": 16000, "125M": 24000}
+    # Future: BPE for larger scales
+    elif scale_upper in ("LARGE", "30M"):
         tok = BPETokenizer()
         if corpus_path:
-            tok.train([corpus_path], vocab_size=vocab_sizes[scale])
+            tok.train([corpus_path], vocab_size=16000)
+        return tok
+        
+    elif scale_upper in ("XL", "125M"):
+        tok = BPETokenizer()
+        if corpus_path:
+            tok.train([corpus_path], vocab_size=24000)
         return tok
     
     else:
-        raise ValueError(f"Unknown scale: {scale}. Use '8M', '30M', or '125M'")
+        raise ValueError(
+            f"Unknown scale: {scale}. "
+            f"Use 'tiny', 'small', 'medium' or variant names (GF, GF-MH, etc.)"
+        )

@@ -17,7 +17,7 @@ from torch.amp import autocast, GradScaler
 from pathlib import Path
 
 from models import get_model, list_models
-from data_loader import load_stateful_dataset
+from data import load_stateful_dataset
 
 
 # ============ Default Config ============
@@ -318,7 +318,7 @@ if __name__ == "__main__":
     # Load data - shakespeare.txt (proven, ~1MB)
     print("\nLoading dataset...")
     dataset, tokenizer = load_stateful_dataset(
-        'shakespeare.txt',
+        'data/shakespeare.txt',
         batch_size=CONFIG['batch_size'],
         seq_len=CONFIG['seq_len'],
         scale=CONFIG['model'],

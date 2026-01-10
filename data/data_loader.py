@@ -13,8 +13,8 @@ import torch
 from torch.utils.data import Dataset
 from pathlib import Path
 
-# Import tokenizer infrastructure
-from tokenizer import (
+# Import tokenizer infrastructure (same directory)
+from .tokenizer import (
     GroundThinkTokenizer, CharTokenizer, BPETokenizer,
     get_tokenizer_for_scale, EOS_ID, SPECIAL_TOKENS
 )

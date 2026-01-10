@@ -43,9 +43,10 @@ wandb/
 # PDFs and large docs
 *.pdf
 
-# Data files
-data/
-*.txt
+# Data files - track source code in data/, ignore large datasets
+# data/ - now contains source code (data_loader.py, tokenizer.py)
+data/*.txt
+!data/shakespeare.txt
 groundthink_v2_dataset_raw/
 
 # VS Code

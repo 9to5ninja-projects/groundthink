@@ -29,24 +29,28 @@ from .hybrid_v4_8m import create_hybrid_GF_MH_8m
 
 
 # Model registry - maps user-friendly names to factory functions
+# Naming: tiny/small/medium/large/xl (semantic) with param counts in descriptions
 REGISTRY = {
-    # Scale variants (baseline HY architecture)
-    '1M': create_hybrid_1m,
-    '5M': create_hybrid_5m,
+    # === Primary names (semantic sizes) ===
+    'TINY': create_hybrid_1m,          # 0.5M params - quick tests
+    'SMALL': create_hybrid_5m,         # 3.6M params - Phase 1-2 baseline
+    'MEDIUM': create_hybrid_GF_MH_8m,  # 7.9M params - Phase 3 scale
     
-    # Fusion variants (5M scale)
-    'HY': create_hybrid_5m,          # Baseline per-channel gains
-    'GF': create_hybrid_GF_5m,       # Gated Fusion (Phase 2 fusion winner)
-    'WS': create_hybrid_WS_5m,       # Weighted Sum
-    'RF': create_hybrid_RF_5m,       # Residual Fusion
-    'CP': create_hybrid_CP_5m,       # Concat+Project
+    # === Fusion variants (all at SMALL scale ~3.6M) ===
+    'HY': create_hybrid_5m,            # Baseline per-channel gains
+    'GF': create_hybrid_GF_5m,         # Gated Fusion (Phase 2 fusion winner)
+    'WS': create_hybrid_WS_5m,         # Weighted Sum
+    'RF': create_hybrid_RF_5m,         # Residual Fusion
+    'CP': create_hybrid_CP_5m,         # Concat+Project
     
-    # Ratio variants (5M scale, GF fusion)
-    'GF-RH': create_hybrid_GF_RH_5m,  # RWKV-Heavy (gate init 0.7)
-    'GF-MH': create_hybrid_GF_MH_5m,  # Mamba-Heavy (gate init 0.3) - Phase 2 WINNER
+    # === Ratio variants (SMALL scale, GF fusion) ===
+    'GF-RH': create_hybrid_GF_RH_5m,   # RWKV-Heavy (gate init 0.7)
+    'GF-MH': create_hybrid_GF_MH_5m,   # Mamba-Heavy (gate init 0.3) - Phase 2 WINNER
     
-    # Scaled variants
-    '8M': create_hybrid_GF_MH_8m,     # 8M GF-MH (Phase 3)
+    # === Legacy aliases (for backward compatibility) ===
+    '1M': create_hybrid_1m,            # -> TINY
+    '5M': create_hybrid_5m,            # -> SMALL  
+    '8M': create_hybrid_GF_MH_8m,      # -> MEDIUM
 }
 
 
@@ -88,19 +92,29 @@ def list_models():
     List all available models with descriptions.
     
     Returns:
-        dict: Model names mapped to brief descriptions
+        dict: Model names mapped to brief descriptions with param counts
     """
     return {
-        '1M': 'Tiny model for quick tests',
-        '5M': 'Base HY model (per-channel gains)',
-        'HY': 'Alias for 5M',
-        'GF': 'Gated Fusion 5M (Phase 2 fusion winner)',
-        'WS': 'Weighted Sum 5M',
-        'RF': 'Residual Fusion 5M',
-        'CP': 'Concat+Project 5M',
-        'GF-RH': 'Gated Fusion RWKV-Heavy 5M (gate 0.7)',
-        'GF-MH': 'Gated Fusion Mamba-Heavy 5M (gate 0.3) - PHASE 2 WINNER',
-        '8M': 'Gated Fusion Mamba-Heavy 8M (Phase 3)',
+        # Primary names
+        'tiny':   '0.5M params | ~50MB VRAM | Quick tests, debugging',
+        'small':  '3.6M params | ~200MB VRAM | Phase 1-2 baseline (HY architecture)',
+        'medium': '7.9M params | ~400MB VRAM | Phase 3 scale-up (GF-MH)',
+        
+        # Fusion variants (all ~3.6M at small scale)
+        'HY':     '3.6M | Baseline per-channel gains',
+        'GF':     '3.6M | Gated Fusion (Phase 2 fusion winner)',
+        'WS':     '3.6M | Weighted Sum',
+        'RF':     '3.6M | Residual Fusion',
+        'CP':     '3.6M | Concat+Project',
+        
+        # Ratio variants
+        'GF-RH':  '3.6M | Gated Fusion RWKV-Heavy (gate 0.7)',
+        'GF-MH':  '3.6M | Gated Fusion Mamba-Heavy (gate 0.3) ★ PHASE 2 WINNER',
+        
+        # Legacy aliases
+        '1M':     '→ tiny (legacy alias)',
+        '5M':     '→ small (legacy alias)',
+        '8M':     '→ medium (legacy alias)',
     }
 
 
