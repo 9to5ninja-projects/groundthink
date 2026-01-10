@@ -557,7 +557,8 @@ if __name__ == "__main__":
             
             # Checkpointing
             if step % save_every == 0:
-                ckpt_path = f"checkpoints/ckpt_HY_step{step}.pt"
+                model_name = CONFIG['model']
+                ckpt_path = f"checkpoints/ckpt_{model_name}_step{step}.pt"
                 torch.save({
                     'step': step,
                     'model_state': model.state_dict(),
@@ -574,8 +575,9 @@ if __name__ == "__main__":
     # Final summary
     elapsed = time.time() - start_time
     total_tok_per_sec = tokens_processed / elapsed if elapsed > 0 else 0
+    model_name = CONFIG['model']
     print(f"\n{'='*60}", flush=True)
-    print(f"TRAINING COMPLETE: HY Fusion", flush=True)
+    print(f"TRAINING COMPLETE: {model_name}", flush=True)
     print(f"{'='*60}", flush=True)
     print(f"Steps: {step}", flush=True)
     print(f"Time: {elapsed:.1f}s ({step/elapsed:.2f} steps/s)", flush=True)
@@ -584,7 +586,7 @@ if __name__ == "__main__":
     print(f"Val no-improve count: {val_no_improve}", flush=True)
     
     # Save final checkpoint
-    final_path = f"checkpoints/ckpt_HY_final.pt"
+    final_path = f"checkpoints/ckpt_{model_name}_final.pt"
     torch.save({
         'step': step,
         'model_state': model.state_dict(),

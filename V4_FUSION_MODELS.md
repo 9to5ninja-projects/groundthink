@@ -176,6 +176,37 @@ fused = out_rwkv + alpha * out_mamba
 
 ---
 
+## Phase 3.6 Results: 1K Step Comparison (2026-01-10)
+
+**Test conditions:** batch=32, seq_len=64, 1000 steps, Shakespeare char-level
+
+| Variant | Val Loss | Val PPL | R/M Ratio | Balance Status |
+|---------|----------|---------|-----------|----------------|
+| **GF-MH** | **1.59** | **4.90** | 0.10 | ⚠️ RWKV dominant |
+| **GF** | 1.61 | 5.00 | 0.12 | ⚠️ RWKV dominant |
+| **CP** | 1.61 | 4.98 | 0.19 | ⚠️ RWKV dominant |
+| **HGF** | 1.69 | 5.41 | 0.21 | ⚠️ RWKV dominant |
+| **HY** | 1.69 | 5.42 | 0.45 | ✅ Balanced |
+
+**Key Findings:**
+
+1. **GF-MH still wins on loss** (1.59) but has severe component imbalance (R/M=0.10)
+2. **HY has best gradient balance** (R/M=0.45) but worst loss (1.69)
+3. **All gated variants show RWKV dominance** — Mamba underutilized
+4. **Position-adaptive variants (GF, GF-MH, HGF, CP) outperform fixed blend (HY)** on pure loss
+
+**Tradeoff Identified:**
+- Lower loss ↔ Worse component balance
+- The fusion gate learns to rely on RWKV (smoother gradients)
+- Mamba's selective gating may need explicit encouragement
+
+**Recommendations:**
+1. For quick experiments: Use **GF-MH** (best loss)
+2. For balanced training: Use **HY** (best R/M ratio)
+3. For tuning experiments: Try **HGF with gate_init=0.3** (Mamba-heavy start)
+
+---
+
 ## The Missing Piece: HGF (Hybrid-Gated Fusion)
 
 **Proposed:** Combine HY's per-dimension control with GF's per-position adaptivity.

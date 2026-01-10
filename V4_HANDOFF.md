@@ -1,11 +1,11 @@
 # V4 Agent Handoff Document
 
 **Purpose:** Single source of truth for agent continuity & versioning  
-**Current Version:** 4.6-Alpha (Pre-Training Benchmarks)  
+**Current Version:** 4.7-Alpha (Phase 3.6 Complete)  
 **Updated:** 2026-01-10  
-**Last Agent Action:** Phase 3.6 created - LRD test, NIAH discovery, fusion comparison framework  
+**Last Agent Action:** Fusion variant comparison, checkpoint naming fix, Phase 3.6 complete  
 **Repository:** https://github.com/9to5ninja-projects/groundthink  
-**Git Status:** 🔄 Uncommitted changes (session 13 continued)
+**Git Status:** 🔄 Uncommitted changes (Phase 3.6 results)
 
 ---
 
@@ -167,55 +167,40 @@ Implements Task 19. Phase 3 status: Task 19 complete, Task 20 next.
 
 ## Current Status
 
-**Phase:** Phase 3.6 IN PROGRESS (Pre-Training Benchmark Suite)  
+**Phase:** Phase 3.6 COMPLETE — Ready for extended training  
 **Last Updated:** 2026-01-10  
-**Status:** LRD test script complete. Fusion variant comparison next.
+**Status:** Fusion variants ranked. Checkpoint naming fixed. Next: extended training runs.
 
 **Session 13 Completed:**
 - ✅ HGF Validation Gates (G1-G4) — All passed with warnings
-- ✅ Fixed HGF integration issues (tokenizer.py, get_num_params method)
-- ✅ GPU VRAM Analysis — 2x small @ batch=32 fits in 47% VRAM (2.9GB)
+- ✅ GPU VRAM Analysis — 2x small @ batch=32 fits in 47% VRAM
 - ✅ Created LRD test script (tests/test_lrd.py)
 - ✅ Discovered NIAH not appropriate for char-level models
-- ✅ Added Phase 3.6 tasks (pre-training benchmark suite)
+- ✅ 1K training comparison on 5 fusion variants
+- ✅ Fixed checkpoint naming: now `ckpt_{MODEL}_*.pt`
+- ✅ Documented results in V4_FUSION_MODELS.md
 
-**Key Discovery (Session 13):**
-- NIAH retrieval tests don't work for char-level models (they predict, not retrieve)
-- LRD (Long-Range Dependency) tests measure context utilization correctly
-- HY model shows 21-43% improvement from 8→64 context (model DOES use long context)
-- Fusion variant testing should happen BEFORE expensive training runs
+**Phase 3.6 Results (1K Step Training):**
+| Variant | Val Loss | R/M Ratio | Verdict |
+|---------|----------|-----------|---------|
+| **GF-MH** | **1.59** | 0.10 ⚠️ | Best loss, RWKV dominant |
+| GF | 1.61 | 0.12 ⚠️ | Good loss, RWKV dominant |
+| CP | 1.61 | 0.19 ⚠️ | Good loss, RWKV dominant |
+| HGF | 1.69 | 0.21 ⚠️ | Mid loss, RWKV dominant |
+| **HY** | 1.69 | **0.45** ✅ | Mid loss, **balanced** |
 
-**HGF Validation Results:**
-| Gate | Result | Notes |
-|------|--------|-------|
-| G1 | ✅ PASS | Forward pass, 3.84M params, no NaN |
-| G2 | ✅ PASS | Init entropy 4.42 (target 2.0-5.0) |
-| G3 | ✅ PASS | Loss 4.64→1.68, 20K tok/s |
-| G4 | ⚠️ WARN | Gradient ratio 0.22 (<0.3), activation variance 47x |
+**Key Insight:** Trade-off between loss and component balance:
+- Position-adaptive fusion (GF variants) → lower loss, but Mamba underutilized
+- Fixed per-dimension blend (HY) → balanced gradients, but higher loss
 
-**Phase 3.6 Progress (Pre-Training Benchmarks):**
-- Task 25 ✅ COMPLETE: LRD Test Script (tests/test_lrd.py)
-- Task 26 ⬜ **NEXT**: Fusion Variant LRD Comparison
-- Task 27 ⚠️ DEPRIORITIZED: NIAH (not appropriate for char-level)
-- Task 28 ⬜ PENDING: Quick Train Comparison (1K steps per variant)
-- Task 29 ⬜ PENDING: Component Balance Tests
-- Task 30 ⬜ PENDING: Fusion Variant Ranking
+**Checkpoint Naming (FIXED):**
+- Training now saves: `ckpt_{MODEL}_step{N}.pt` and `ckpt_{MODEL}_final.pt`
+- Example: `ckpt_GF-MH_step1000.pt`, `ckpt_HGF_final.pt`
 
-**Phase 3.5 Progress:**
-- Task 22 ✅ COMPLETE: GPU VRAM Analysis
-- Task 23 ⬜ PENDING: Multi-Worker Training Script
-- Task 24 ⬜ PENDING: Architecture Tuning Guide
-- Task 24.1 ⬜ PENDING: HGF Balance Tuning
-
-**Key Files Created:**
-- `tests/test_lrd.py` — Long-Range Dependency test
-- `tests/test_niah_char.py` — NIAH test (deprioritized)
-
-**Existing Checkpoints (for eval):**
-- `ckpt_HY_step2000.pt` through `ckpt_HY_step5000.pt` — HY model (real checkpoints)
-- `ckpt_HY_final.pt`, `ckpt_HY_step1000.pt` — HGF model (misnamed)
-
-See [V4_STRATEGY.md - Phase 3.6](V4_STRATEGY.md#phase-36-pre-training-benchmark-suite-training-for-training) for full task details.
+**Next Actions:**
+1. Extended training (5K+ steps) on top variants (GF-MH, HY, HGF)
+2. Multi-worker parallel training (Task 23)
+3. HGF balance tuning with gate_init=0.3 (Task 24.1)
 
 ---
 

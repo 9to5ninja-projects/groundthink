@@ -860,16 +860,30 @@ warmup_steps: 2500
 | # | Task | Status | Depends On | Complexity | Details |
 |---|------|--------|------------|------------|---------|
 | 25 | LRD Test Script | ✅ COMPLETE | - | S | tests/test_lrd.py - measures context benefit |
-| 26 | Fusion Variant LRD Comparison | ⬜ **NEXT** | Task 25 | M | Compare HY/GF/GF-MH/HGF/CP on untrained models |
-| 27 | NIAH Test Script | ⚠️ DEPRIORITIZED | - | S | tests/test_niah_char.py exists but needs word-level BPE |
-| 28 | Quick Train Comparison | ⬜ PENDING | Task 26 | M | 1K-step training on top fusion variants |
-| 29 | Component Balance Tests | ⬜ PENDING | Task 28 | M | Gradient ratio, activation variance per variant |
-| 30 | Fusion Variant Ranking | ⬜ PENDING | Task 29 | S | Document winner for extended training |
+| 26 | Fusion Variant LRD Comparison | ✅ COMPLETE | Task 25 | M | Untrained: ~0% all variants (expected) |
+| 27 | NIAH Test Script | ⚠️ DEPRIORITIZED | - | S | Not valid for char-level models |
+| 28 | Quick Train Comparison | ✅ COMPLETE | Task 26 | M | 1K-step training on 5 variants |
+| 29 | Component Balance Tests | ✅ COMPLETE | Task 28 | M | Results in V4_FUSION_MODELS.md |
+| 30 | Fusion Variant Ranking | ✅ COMPLETE | Task 29 | S | See Phase 3.6 Results below |
+| 30.1 | Fix Checkpoint Naming | ✅ COMPLETE | - | S | train_v4.py now uses ckpt_{MODEL}_*.pt |
 
-**Gate:** Phase 3.6 complete when we have ranked fusion variants by:
-1. LRD score (context utilization)
-2. 1K-step loss/PPL
-3. Component balance (gradient ratio)
+**Gate:** ✅ Phase 3.6 COMPLETE (2026-01-10)
+
+**Results Summary:**
+| Variant | Val Loss | R/M Ratio | Verdict |
+|---------|----------|-----------|---------|
+| GF-MH | **1.59** | 0.10 ⚠️ | Best loss, RWKV dominant |
+| GF | 1.61 | 0.12 ⚠️ | Good loss, RWKV dominant |
+| CP | 1.61 | 0.19 ⚠️ | Good loss, RWKV dominant |
+| HGF | 1.69 | 0.21 ⚠️ | Mid loss, RWKV dominant |
+| HY | 1.69 | **0.45** ✅ | Mid loss, balanced |
+
+**Key Insight:** Position-adaptive fusion (GF variants) achieves lower loss but causes Mamba underutilization. HY's fixed per-dimension blend maintains component balance.
+
+**Next Steps:**
+1. For quick experiments: Use GF-MH (best loss)
+2. For balanced training: Use HY (best gradient ratio)
+3. For extended testing: Try HGF with gate_init=0.3 (Mamba-heavy)
 
 ---
 
