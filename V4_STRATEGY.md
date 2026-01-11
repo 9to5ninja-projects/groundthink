@@ -127,7 +127,7 @@ Mamba-2 uses mamba-ssm native CUDA kernels. RWKV-6 uses prototype + CUDA wrapper
 | 0.1 | Mamba-2 CUDA kernels | ✅ COMPLETE | Pre-installed via mamba-ssm | - | S |
 | 0.2 | RWKV-6 Prototype | ✅ COMPLETE | rwkv6_prototype.py, G1 passed | - | M |
 | 0.3 | RWKV-6 CUDA Wrapper | ✅ COMPLETE | rwkv6_cuda_wrapper.py integrated | 0.2 | L |
-| 0.4 | Hybrid Block Integration | ✅ COMPLETE | fla_replacements.py, hybrid_v4.py | 0.3 | M |
+| 0.4 | Hybrid Block Integration | ✅ COMPLETE | cuda_backends.py, hybrid_v4.py | 0.3 | M |
 
 **Test Results (Full Gate Validation):**
 
@@ -182,7 +182,7 @@ Mamba-2 uses mamba-ssm native CUDA kernels. RWKV-6 uses prototype + CUDA wrapper
 - `test_phase0_complete.py` - Comprehensive validation (7 tests + 5 gates)
 
 **Modified:**
-- `fla_replacements.py` - CUDA wrapper integration with fallback
+- `cuda_backends.py` - CUDA wrapper integration with fallback
 - `rwkv6_cuda_wrapper.py` - Compiler env vars fixed
 
 **Unchanged (Verified Working):**
@@ -212,7 +212,7 @@ Mamba-2 uses mamba-ssm native CUDA kernels. RWKV-6 uses prototype + CUDA wrapper
 | 6.8 | ~~Audit Custom Wrappers~~ | ✅ SUPERSEDED | Tasks 6.6, 6.7 | - | M | SUPERSEDED by Phase 0 |
 | 6.9 | ~~Implement/Fix RWKV-6 Component~~ | ✅ SUPERSEDED | Task 6.8 | G1 | L/XL | SUPERSEDED by Task 0.1 |
 | 6.10 | ~~Implement/Fix Mamba-2 Component~~ | ✅ SUPERSEDED | Task 6.8 | G1 | L/XL | SUPERSEDED by Task 0.2 |
-| 6.11 | ~~Rebuild hybrid_v4.py~~ | ✅ COMPLETE | Tasks 0.1, 0.2 | G1-G2 | M | fla_replacements.py integrates CUDA wrappers |
+| 6.11 | ~~Rebuild hybrid_v4.py~~ | ✅ COMPLETE | Tasks 0.1, 0.2 | G1-G2 | M | cuda_backends.py integrates CUDA wrappers |
 | 6.12 | ~~Verify Model Works~~ | ✅ COMPLETE | Task 6.11 | G1-G2 | M | test_phase0_complete.py - all gates pass |
 | 7 | ~~Baseline Performance Profiling~~ | ✅ COMPLETE | Task 6.12 | - | M | benchmark_suite.py, Session 9 |
 | 8 | ~~Apply Quick Win Optimizations~~ | ✅ COMPLETE | Task 7 | - | L | Session 10: 186K tok/s (+586% vs baseline) |
@@ -853,7 +853,7 @@ See [V5_GATING.md](V5_GATING.md) for cross-comparison plan, [STATEFUL_VALIDATION
 **Current State:**
 ```
 groundthink/
-├── fla_replacements.py      # Hub for RWKV6/Mamba2 imports
+├── cuda_backends.py      # Hub for RWKV6/Mamba2 imports
 ├── rwkv6_prototype.py       # PyTorch RWKV6 fallback
 ├── rwkv6_cuda_wrapper.py    # Our CUDA kernel wrapper
 ├── ops/                     # Exists but underutilized
@@ -864,7 +864,7 @@ groundthink/
 groundthink/
 ├── ops/
 │   ├── __init__.py          # Exports RWKV6Attention, Mamba2
-│   ├── fla_replacements.py  # (renamed: cuda_backends.py?)
+│   ├── cuda_backends.py  # (renamed: cuda_backends.py?)
 │   ├── rwkv6_prototype.py   
 │   └── rwkv6_cuda_wrapper.py
 ```
@@ -879,7 +879,7 @@ groundthink/
 - Requires testing each model variant after move
 
 **Note on FLA Library:**
-FLA (`flash-linear-attention`) is **no longer used** in the active codebase. We built our own CUDA kernel (`rwkv6_cuda_wrapper.py`) to resolve Windows/MSVC incompatibilities. FLA references only exist in archived files. The module `fla_replacements.py` is now a misnomer — consider renaming to `cuda_backends.py` during consolidation.
+FLA (`flash-linear-attention`) is **no longer used** in the active codebase. We built our own CUDA kernel (`rwkv6_cuda_wrapper.py`) to resolve Windows/MSVC incompatibilities. FLA references only exist in archived files. The module `cuda_backends.py` is now a misnomer — consider renaming to `cuda_backends.py` during consolidation.
 
 **Recommendation:** Defer until after Task 47/48. Low priority, non-blocking.
 
@@ -906,7 +906,7 @@ logits, states = model(x, return_states=True)
 # states['gate'] = float (avg gate value)
 ```
 
-**Files Modified:** rwkv6_prototype.py, fla_replacements.py, models/hybrid_v4_ratio.py
+**Files Modified:** rwkv6_prototype.py, cuda_backends.py, models/hybrid_v4_ratio.py
 
 **Limitation:** Only GF-MH model modified. Task 49 propagates to all variants.
 
@@ -1594,7 +1594,7 @@ Results: Loss 1.37, perplexity 3.0, 33K tok/s, gradient ratio warning (0.15-0.16
 **Scope:** Find authoritative RWKV-6 specifications and document requirements
 
 **Decision Context:**
-- FLA library not installed, custom wrappers in `archive/fla_replacements.py` are simplified/fake
+- FLA library not installed, custom wrappers in `archive/cuda_backends.py` are simplified/fake
 - Cannot use FLA (per user decision)
 - Must build correct RWKV-6 and Mamba-2 from scratch
 - **Critical:** V3 failed by making up components - we must get this right
@@ -1674,18 +1674,18 @@ Results: Loss 1.37, perplexity 3.0, 33K tok/s, gradient ratio warning (0.15-0.16
 **Status:** ✅ SUPERSEDED by Phase 0  
 **Complexity:** M (Medium)  
 **Time:** ~1-2 hours  
-**Scope:** Compare fla_replacements.py against official specs
+**Scope:** Compare cuda_backends.py against official specs
 
 **What to Check:**
 
-**RWKV6Attention (lines 9-62 in fla_replacements.py):**
+**RWKV6Attention (lines 9-62 in cuda_backends.py):**
 - [ ] Time mixing uses correct WKV formula
 - [ ] Channel mixing implemented correctly
 - [ ] Token shift mechanism present
 - [ ] State management correct
 - [ ] Return signature matches: (output, attn_weights, past_kv)
 
-**Mamba2 (lines 65-113 in fla_replacements.py):**
+**Mamba2 (lines 65-113 in cuda_backends.py):**
 - [ ] SSM formulation correct
 - [ ] Selective scan mechanism present
 - [ ] Conv1d usage correct (d_conv parameter)
@@ -1742,7 +1742,7 @@ Results: Loss 1.37, perplexity 3.0, 33K tok/s, gradient ratio warning (0.15-0.16
 
 ### Task 6.11: Rebuild hybrid_v4.py
 
-**Status:** ✅ COMPLETE (fla_replacements.py)  
+**Status:** ✅ COMPLETE (cuda_backends.py)  
 **Complexity:** L (Large)  
 **Time:** ~2-3 hours  
 **Scope:** Integrate verified RWKV-6 and Mamba-2 components

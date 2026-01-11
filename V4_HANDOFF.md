@@ -20,10 +20,11 @@
 
 ## Last Session (2026-01-10)
 
-1. Implemented G1-G4 gate tests in test_tiny_graduation.py
-2. Ran all graduation tests — all pass except G4 (warning: gradient imbalance)
-3. Consolidated documentation (archived 4 redundant docs)
-4. Updated CHANGELOG.md and VERSION to 5.0-Alpha
+1. Documentation consolidation: archived Dockerfile, SCALING_MILESTONES.md
+2. Created V5_GATING.md — V5 is a blocker for 8M (not a version bump)
+3. Cleaned requirements.txt (removed 6 unused packages)
+4. Added Tasks 62-66 as V5 gate prerequisites
+5. Strengthened SOP: terminology lock, archive policy, commit hygiene
 
 ---
 
@@ -31,9 +32,9 @@
 
 | Priority | Task | Description |
 |----------|------|-------------|
-| **1** | Task 47 | Fusion variant re-ranking (1K steps each with BPE) |
-| **2** | Task 48 | Component balance investigation (71x activation variance) |
-| **3** | Scale to 8M | If balance issue is acceptable at 3.5M |
+| **1** | Tasks 62-66 | V5 gate prerequisites (GPT-2 baseline, CER, validation tools) |
+| **2** | Task 52-61 | Diagnostic tooling (state tracer, info flow, etc.) |
+| **3** | Scale to 8M | Only after V5 gate passes |
 
 ---
 

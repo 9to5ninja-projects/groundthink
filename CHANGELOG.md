@@ -19,7 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Task 66**: Validation tooling (StateTracer, GroundingScorer) as V5 prerequisite
 
 ### Changed
-- **cuda_backends.py**: Renamed from fla_replacements.py (FLA no longer used)
+- **cuda_backends.py**: Renamed from cuda_backends.py (FLA no longer used)
 - **requirements.txt**: Cleaned—removed 6 unused packages, added mamba-ssm/causal-conv1d
 - **GETTING_STARTED.md**: Rewritten with current test suite and hardware requirements
 - **V4_STRATEGY.md**: Tasks 62-66 are now V5 gate prerequisites
