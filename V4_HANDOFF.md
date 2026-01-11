@@ -1,12 +1,13 @@
 # V4 Agent Handoff
 
-**Version:** 5.0-Alpha | **Phase:** 4.0 COMPLETE | **Updated:** 2026-01-10
+**Version:** 5.0-Alpha | **Phase:** 4.0 COMPLETE | **Updated:** 2026-01-11
 
 ---
 
 ## Current Status
 
-✅ **Phase 4.0 Graduation PASSED** — GF-MH (3.5M params) passes all validation gates.
+✅ **Phase 4.0 Graduation PASSED** — GF-MH passes all validation gates.
+✅ **Task 62 COMPLETE** — GPT-2 baseline comparison on WikiText-103 with BPE.
 
 | Test | Result |
 |------|--------|
@@ -15,27 +16,25 @@
 | Task 44 Baseline | PASS (6.01 vs 9.68, 37.9% better) |
 | G1-G4 Gates | G1✓ G2✓ G3⏭ G4⚠ |
 | Task 46 Checkpoint | PASS (21.5 MB, identical reload) |
+| **Task 62 GPT-2** | **EQUIVALENT** (ratio 1.008) |
 
 ---
 
-## Last Session (2026-01-10)
+## Last Session (2026-01-11)
 
-1. **Data Infrastructure Setup:**
-   - Downloaded WikiText-103 (518MB, ~100M tokens) for V5 benchmarks
-   - Trained BPE tokenizer (16K vocab) on WikiText-103
-   - Archived old untrusted data (fineweb_5m.txt, fineweb_10k.txt)
-   - Created `data/README.md` documenting all datasets
+**Task 62 COMPLETE:** GPT-2 vs GF-MH on WikiText-103 with BPE
 
-2. **Task 62 Initial:** GPT-2 baseline comparison (Observation 17)
-   - Created `models/gpt2.py`: Standard transformer baseline
-   - Quick test on shakespeare: GF-MH 2.33 vs GPT-2 2.51 (7.3% better)
-   - **NOTE:** This was a smoke test only. Full comparison needs:
-     - WikiText-103 data (now available)
-     - BPE tokenization (now available)
-     - Longer training (500+ steps minimum)
+| Model | Params | Val Loss | Time | Memory |
+|-------|--------|----------|------|--------|
+| GPT-2 | 6.81M | 6.798 | 10.0s | 482MB |
+| GF-MH | 5.62M | 6.850 | 45.1s | 534MB |
 
-3. **Tasks 52-54 COMPLETE:** Diagnostic tooling built
-4. **Observation 16:** Synthesis of all findings
+**Ratio: 1.008 → EQUIVALENT**
+
+Key findings:
+- GF-MH matches GPT-2 loss with 17% fewer parameters
+- GF-MH is 4.5x slower (CUDA kernel needs optimization)
+- Memory usage similar
 
 ---
 
@@ -43,10 +42,9 @@
 
 | Priority | Task | Description |
 |----------|------|-------------|
-| **1** | 62 (REDO) | Full GPT-2 comparison on WikiText-103 with BPE |
-| **2** | 63 | CER (Compute-Efficiency Ratio) calculation |
-| **3** | 64 | UCW (Useful Context Window) test |
-| **4** | 65 | SPS (State Persistence Score) at 5/10/20/50 turns |
+| **1** | 63 | CER (Compute-Efficiency Ratio) calculation |
+| **2** | 64 | UCW (Useful Context Window) test |
+| **3** | 65 | SPS (State Persistence Score) at 5/10/20/50 turns |
 
 **CRITICAL:** All V5 benchmarks must use:
 - WikiText-103 data (`data/wikitext103/train.txt`)
