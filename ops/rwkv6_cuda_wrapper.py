@@ -33,7 +33,7 @@ import torch.nn.functional as F
 from torch.utils.cpp_extension import load
 
 # Import prototype for fallback
-from rwkv6_prototype import RWKV6Attention_Prototype
+from .rwkv6_prototype import RWKV6Attention_Prototype
 
 
 class WKV6_CUDA(torch.autograd.Function):

@@ -85,7 +85,7 @@ def profile_kernels_separately():
     print(f"{'='*50}")
     
     # RWKV-6 kernel timing
-    from rwkv6_cuda_wrapper import load_wkv6_cuda
+    from ops import load_wkv6_cuda
     wkv6 = load_wkv6_cuda(head_size=32)
     
     # Mamba-2 kernel timing

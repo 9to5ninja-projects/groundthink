@@ -1,23 +1,57 @@
-# GroundThink V4: Parallel Hybrid RWKV-6 + Mamba-2 Architecture
+# GroundThink: Hybrid RWKV-6 + Mamba-2 Architecture
 
-**Status:** 5.0-Alpha (Phase 4.0 Complete)  
-**Updated:** 2026-01-10  
+**Status:** V0.5 Phase 0 — Base Model Characterization  
+**V4 Status:** ✅ Graduated (GPT-2 parity at 17% fewer params)  
+**Updated:** 2026-01-11  
 **Repository:** https://github.com/9to5ninja-projects/groundthink  
 **License:** MIT (see [LICENSE](LICENSE))
 
-> ⚠️ **EXPERIMENTAL RESEARCH CODE** — Not for production use. No warranties. See [LICENSE](LICENSE) for full disclaimer.
+> ⚠️ **EXPERIMENTAL RESEARCH CODE** — Not for production use. No warranties. See [LICENSE](LICENSE) and [ABOUT.md](ABOUT.md).
 
 ---
 
-## What is GroundThink V4?
+## Quick Links
 
-GroundThink V4 is a **parallel hybrid architecture** combining:
-- **RWKV-6** (smooth, long-range recurrent attention)
-- **Mamba-2** (selective, efficient state-space model)
+- 📖 [About GroundThink](ABOUT.md) — Project overview, status, and goals
+- 🚀 [Getting Started](GETTING_STARTED.md) — Installation and setup
+- 🗺️ [Documentation Map](DOCUMENTATION_MAP.md) — Full documentation index
+- 📊 [V4 Graduation Summary](#v4-graduation-summary) — Phase 4.0 results
+- 🔮 [V0.5 Roadmap](V0.5_ROADMAP.md) — Twin Debate architecture plan
 
-Both components run **in parallel within each block**, fused via gating mechanism. This design leverages RWKV's memory depth and Mamba's selectivity in a single forward pass.
+---
 
-**Key innovation:** Gated Fusion (GF) learns per-position weighting between the two pathways, enabling the model to context-switch between recurrent and selective modes.
+## What's New: V4 → V0.5 Transition
+
+**V4 Achievements (Phase 4.0 Graduated ✅):**
+- GPT-2 parity (loss ratio 1.008) with 17% fewer parameters
+- Identified "Mamba Paradox" (10× gradients, <0.3% contribution)
+- Discovered "Attractor Zone" (gates converge to 10-30% ratio)
+- Long-context stable (1.04× degradation at 512 tokens)
+
+**V0.5 Phase 0 (Current Focus):**
+- Benchmark pure RWKV-6 (4M params, WikiText-103)
+- Benchmark pure Mamba-2 (4M params, WikiText-103)
+- Compare against GPT-1 baseline
+- Characterize individual pathway behavior before fusion
+
+**V0.5 Phase 1 (After Phase 0):**
+- Design informed fusion architecture based on findings
+- Implement GRU Arbiter, Mamba Residual, Twin Debate Loss (if needed)
+
+See [BASE_MODEL_CHARACTERIZATION.md](BASE_MODEL_CHARACTERIZATION.md) and [V4_HANDOFF.md](V4_HANDOFF.md) for details.
+
+---
+
+## What is GroundThink?
+
+GroundThink is an **experimental hybrid architecture** combining:
+- **RWKV-6** (recurrent-style, long-range memory)
+- **Mamba-2** (selective state-space model)
+- **Gated Fusion** (learnable pathway weighting)
+
+Both components run **in parallel within each block**, fused via learned gating. This design leverages RWKV's recurrent continuity and Mamba's selective reasoning in a single forward pass.
+
+**Key innovation:** Learned α-gating enables context-dependent pathway weighting, allowing the model to dynamically choose between recurrent (RWKV) and selective (Mamba) processing modes.
 
 ---
 
@@ -60,6 +94,38 @@ Both components run **in parallel within each block**, fused via gating mechanis
 - Gated Fusion with gate_init=0.3 (favors Mamba)
 - ~3.5M total parameters
 - vocab_size=97 (Shakespeare character tokenizer)
+
+---
+
+## V4 Graduation Summary
+
+### Key Results (Phase 4.0 Complete)
+
+| Metric | Result | Comparison |
+|--------|--------|------------|
+| **GPT-2 Parity** | Loss ratio 1.008 | ✅ EQUIVALENT |
+| **Parameter Efficiency** | 5.6M params | 17% fewer than GPT-2 (6.8M) |
+| **Dataset** | WikiText-103 | 16K BPE tokenization |
+| **Long Context** | 1.04× @ 512 tokens | Stable degradation |
+| **Throughput** | 42.9K tok/s | 4.5× slower (kernel optimization needed) |
+
+### Critical Findings
+
+**1. Mamba Paradox:**
+- Mamba receives 10× larger gradients than RWKV
+- But contributes <0.3% to final state
+- Architectural behavior, not a training bug
+
+**2. Attractor Zone:**
+- All gate initializations converge to 10-30% RWKV/Mamba ratio
+- Optimizer finds same equilibrium regardless of starting bias
+
+**3. Architecture Validated:**
+- Hybrid fusion matches transformer performance at small scale
+- Linear O(n) complexity maintained for both pathways
+- Ready for V0.5 architectural improvements
+
+See [OBSERVATION_SYNTHESIS.md](OBSERVATION_SYNTHESIS.md) for detailed analysis.
 
 ---
 

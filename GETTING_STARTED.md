@@ -1,6 +1,10 @@
 # Getting Started with GroundThink
 
-**Goal:** Verify your environment and run a tiny model test.
+**Version:** V0.5 Phase 0 — Base Model Characterization  
+**V4 Status:** ✅ Graduated  
+**Goal:** Set up environment for benchmarking pure RWKV-6 and Mamba-2.
+
+See [ABOUT.md](ABOUT.md) for project overview and [BASE_MODEL_CHARACTERIZATION.md](BASE_MODEL_CHARACTERIZATION.md) for current research plan.
 
 ---
 

@@ -22,7 +22,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from cuda_backends import RWKV6Attention, Mamba2
+from ops import RWKV6Attention, Mamba2
 
 
 class RMSNorm(nn.Module):

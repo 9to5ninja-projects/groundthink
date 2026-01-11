@@ -188,5 +188,6 @@ This gives us a **2x2 comparison matrix**: Stateful (RWKV, Mamba) vs Stateless (
 
 ---
 
-*Generated: 2026-01-11*
-*Reference: V4_FUSION_MODELS.md Observations 1-18*
+*Generated: 2026-01-11*  
+*Reference: [archive/V4_FUSION_MODELS.md](archive/V4_FUSION_MODELS.md) Observations 1-18*  
+*See also: [V4_STRATEGY.md](V4_STRATEGY.md) for executive summary*

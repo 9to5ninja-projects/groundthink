@@ -1,6 +1,8 @@
-# Contributing to GroundThink V4
+# Contributing to GroundThink
 
 **Welcome!** This guide explains how to contribute to GroundThink's hybrid architecture research.
+
+**Current Status:** V0.5 (Twin Debate) planning phase. V4 graduated with GPT-2 parity. See [ABOUT.md](ABOUT.md) for project overview.
 
 ---
 
@@ -16,10 +18,10 @@ Session-dated files, redundant docs, orphaned code, and stale meta-documents acc
 |------|-------|----------|
 | Current version | `VERSION` | ~~VERSIONS.md, VERSION_REGISTRY.md~~ |
 | Version history | `CHANGELOG.md` | ~~V4_BUILD_LOG.md~~ |
-| Task backlog | `V4_STRATEGY.md` | ~~session summaries~~ |
+| V4 task backlog | `V4_STRATEGY.md` (archived summary) | ~~session summaries~~ |
+| V0.5 roadmap | `V0.5_ROADMAP.md` | ~~scattered docs~~ |
 | Current status | `V4_HANDOFF.md` | ~~V4_STRATEGY.md header~~ |
 | Test definitions | `V4_TESTING.md` + `CANARY_TESTS.md` | ~~scattered in strategy~~ |
-| V5 planning | `V5_GATING.md` | — |
 
 ### Document Creation Rules
 
@@ -36,14 +38,15 @@ Session-dated files, redundant docs, orphaned code, and stale meta-documents acc
 ```
 When to bump VERSION:
 - Phase completion → Minor bump (4.0 → 5.0)
+- Architecture change → Version update (V4 → V0.5)
 - Significant milestone → Patch bump (5.0 → 5.1)
-- Breaking change → Major bump (v4 → v5 architecture change)
+- Breaking change → Major bump
 
 VERSION format:
-  X.Y-Status (Phase Z.W Complete)
+  X.Y-Status (Version Z Architecture)
   
 Example:
-  5.0-Alpha (Phase 4.0 Complete)
+  5.0-Alpha (V0.5 Twin Debate Architecture)
 ```
 
 **Always update CHANGELOG.md when bumping VERSION.**

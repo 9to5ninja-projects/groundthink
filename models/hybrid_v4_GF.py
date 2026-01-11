@@ -23,8 +23,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 # FLA library imports
-from cuda_backends import RWKV6Attention
-from cuda_backends import Mamba2
+from ops import RWKV6Attention, Mamba2
 
 
 class RMSNorm(nn.Module):

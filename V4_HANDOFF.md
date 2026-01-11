@@ -1,6 +1,6 @@
 # V4 Agent Handoff
 
-**Version:** 5.0-Alpha | **Phase:** 4.0 COMPLETE | **Updated:** 2026-01-11
+**Version:** 5.0-Alpha | **Phase:** 0.5 PLANNING (Harmonization) | **Updated:** 2026-01-11
 
 ---
 
@@ -9,6 +9,7 @@
 ✅ **Phase 4.0 Graduation PASSED** — GF-MH passes all validation gates.
 ✅ **Task 62 COMPLETE** — GPT-2 baseline comparison on WikiText-103 with BPE.
 ✅ **Tasks 55-60 COMPLETE** — Diagnostic tooling suite built.
+✅ **Librarian Audit COMPLETE** — Gap analysis between V4 and V0.5 performed.
 
 | Test | Result |
 |------|--------|
@@ -26,29 +27,52 @@
 
 ## Last Session (2026-01-11)
 
-**Tasks 55-60 COMPLETE:** Diagnostic tooling suite
+**Librarian Audit & Harmonization:**
+- Reconciled V4 diagnostic findings with V0.5 "Twin Debate" architecture.
+- Identified critical "missed implementations" (GRUs, Qualia Fade, Semantic Weighting Sensors).
+- Established new documentation strategy: Incremental conversion of research paper to tasks.
+- Consolidated `ops/` package with core CUDA and prototype wrappers.
 
-| Task | File | Result |
-|------|------|--------|
-| 55 | tools/information_flow_tracer.py | Mamba <0.3% |
-| 56 | tools/thresholds.py | Unified thresholds |
-| 57 | train_v4.py | --log-states enhanced |
-| 58 | tests/test_ablation.py | RWKV 99.9%, Mamba 0.1% |
-| 59 | tests/test_state_evolution.py | PASS |
-| 60 | tests/test_long_context.py | 1.04x PASS |
-
-**Key finding:** Mamba contribution is essentially zero. RWKV dominates.
-Long-context stable (no degradation at 512 tokens).
+**Diagnostic Tooling Results:**
+- **Mamba Paradox:** Confirmed Mamba gradients are 10x larger vs RWKV, but state contribution is <0.3%.
+- **Attractor Zone:** Verified all gate initializations gravitate toward 10-30% R/M ratio.
+- **BPE Efficacy:** Confirmed 16K BPE significantly improves component balance over char-level.
 
 ---
 
-## Next Actions (In Order)
+## Next Actions (V0.5 Strategy)
 
+### Phase 0: Base Model Characterization (CURRENT PRIORITY)
+| Priority | Task | Description | Status |
+|----------|------|-------------|--------|
+| **0.0.1** | Pure RWKV-6 Benchmark | 4M params, WikiText-103, BPE 16K | ⬜ TODO |
+| **0.0.2** | Pure Mamba-2 Benchmark | 4M params, WikiText-103, BPE 16K | ⬜ TODO |
+| **0.0.3** | GPT-1 Baseline | 4M params for fair comparison | ⬜ TODO |
+| **0.0.4** | Comparative Analysis | Document findings, inform fusion design | ⬜ TODO |
+
+**Rationale:** Understand individual pathway behavior before implementing fusion.
+
+See [BASE_MODEL_CHARACTERIZATION.md](BASE_MODEL_CHARACTERIZATION.md) for detailed plan.
+
+### Phase A: Documentation Cleanup (Sonnet) ✅ COMPLETE
+| Priority | Task | Description | Status |
+|----------|------|-------------|--------|
+| **A1** | Trim V4_STRATEGY.md | Archive completed task details, keep only summary tables. Target: <500 lines. | ✅ COMPLETE (206 lines) |
+| **A2** | Consolidate V4 Docs | Merge redundant findings into OBSERVATION_SYNTHESIS.md. | ✅ COMPLETE (archived 2 docs) |
+| **A3** | Finalize V0.5_ROADMAP.md | Ensure all Section 1 tasks have clear acceptance criteria. | ✅ COMPLETE (6 tasks defined) |
+| **A4** | Update DOCUMENTATION_MAP.md | Reflect new file structure (V0.5 docs, archived V4 details). | ✅ COMPLETE (navigation updated) |
+
+### Phase B: Implementation (Sonnet) - READY TO START
 | Priority | Task | Description |
 |----------|------|-------------|
-| **1** | 63 | CER (Compute-Efficiency Ratio) calculation |
-| **2** | 64 | UCW (Useful Context Window) test |
-| **3** | 65 | SPS (State Persistence Score) at 5/10/20/50 turns |
+| **B1** | GRU Arbiter (Task 0.1) | Replace `nn.Linear` gate with `nn.GRUCell` in `ops/`. |
+| **B2** | Mamba Residual (Task 0.2) | Add `h = x + mamba(x)` skip connection. |
+| **B3** | Debate Loss (Task 0.3) | Implement cosine similarity penalty in `tools/`. |
+| **B4** | Pilot Run (Task 0.4) | 5K steps, verify Mamba contribution > 5%. |
+
+**✅ Phase A Gate: PASSED** - Documentation clean, ready for implementation.
+
+---
 
 **CRITICAL:** All V5 benchmarks must use:
 - WikiText-103 data (`data/wikitext103/train.txt`)

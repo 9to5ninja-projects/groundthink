@@ -13,7 +13,7 @@ os.environ['CC'] = '/usr/bin/gcc'
 import torch
 import torch.nn.functional as F
 import numpy as np
-from cuda_backends import RWKV6Attention, Mamba2, RWKV6_CUDA_AVAILABLE
+from ops import RWKV6Attention, Mamba2, RWKV6_CUDA_AVAILABLE
 from models import get_model
 from models.hybrid_v4 import ParallelHybridBlock
 

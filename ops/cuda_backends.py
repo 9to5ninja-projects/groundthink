@@ -19,11 +19,11 @@ import torch.nn as nn
 
 # Try CUDA wrapper first, fall back to prototype
 try:
-    from rwkv6_cuda_wrapper import RWKV6Attention_CUDA
+    from .rwkv6_cuda_wrapper import RWKV6Attention_CUDA
     RWKV6_IMPL = RWKV6Attention_CUDA
     RWKV6_CUDA_AVAILABLE = True
-except ImportError:
-    from rwkv6_prototype import RWKV6Attention_Prototype
+except (ImportError, ValueError):
+    from .rwkv6_prototype import RWKV6Attention_Prototype
     RWKV6_IMPL = RWKV6Attention_Prototype
     RWKV6_CUDA_AVAILABLE = False
 
@@ -63,7 +63,7 @@ class RWKV6Attention(nn.Module):
     def _get_prototype_for_state(self):
         """Lazy-init prototype for state extraction when using CUDA"""
         if self._prototype_for_state is None:
-            from rwkv6_prototype import RWKV6Attention_Prototype
+            from .rwkv6_prototype import RWKV6Attention_Prototype
             head_size = self.hidden_size // self.num_heads
             self._prototype_for_state = RWKV6Attention_Prototype(
                 hidden_size=self.hidden_size,

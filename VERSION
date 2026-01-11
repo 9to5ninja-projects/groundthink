@@ -1,10 +1,12 @@
-5.0-Alpha (Phase 4.0 Complete)
+5.0-Alpha (V0.5 Twin Debate Architecture)
 Created: 2026-01-08
-Updated: 2026-01-10
-Status: GRADUATION COMPLETE — GF-MH passes all validation gates
-Current Focus: Diagnostic tooling (Tasks 52-61), then V5 gate (Tasks 62-66)
+Updated: 2026-01-11
+Status: V0.5 PHASE 0 — Base Model Characterization (RWKV-6, Mamba-2, GPT-1)
+V4 Status: GRADUATED — GPT-2 parity achieved (loss ratio 1.008)
+Current Focus: Pure pathway benchmarks before fusion design
 
 For detailed version history, see CHANGELOG.md
-For next steps, see V4_STRATEGY.md
-For V5 gate criteria, see V5_GATING.md
-For graduation results, see CANARY_TESTS.md
+For V4 results, see V4_STRATEGY.md and OBSERVATION_SYNTHESIS.md
+For Phase 0 characterization plan, see BASE_MODEL_CHARACTERIZATION.md
+For Phase 1 fusion plan, see V0.5_ROADMAP.md
+For current development context, see V4_HANDOFF.md
