@@ -20,12 +20,18 @@
 
 ## Last Session (2026-01-10)
 
-1. **GF-XM/GF-XR extreme ratio variants** (Observation 14: attractor behavior)
-2. **Tasks 52-54 COMPLETE:** Diagnostic tooling built
+1. **Task 62 COMPLETE:** GPT-2 baseline comparison (Observation 17)
+   - Created `models/gpt2.py`: Standard transformer baseline
+   - GF-MH val loss 2.33 vs GPT-2 2.51 (7.3% better)
+   - GF-MH 4x slower (CUDA needs optimization)
+   - Verdict: **EXCELLENT** — hybrid beats transformer
+
+2. **GF-XM/GF-XR extreme ratio variants** (Observation 14: attractor behavior)
+3. **Tasks 52-54 COMPLETE:** Diagnostic tooling built
    - `tests/test_diagnostics.py`: D1-D4 tests (373 lines)
    - `tools/state_metrics.py`: StateMetrics tracker (138 lines)
    - `tools/gradient_coupling.py`: Gradient analyzer (141 lines)
-3. **Observation 16:** Synthesis of all findings
+4. **Observation 16:** Synthesis of all findings
    - RWKV is accumulator (grows with seq), Mamba is selector (stays bounded)
    - Imbalance is architectural, not a bug
    - Attractor zone (~10-30% RWKV) is thermodynamic equilibrium

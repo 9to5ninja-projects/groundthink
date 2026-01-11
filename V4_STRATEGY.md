@@ -4,7 +4,7 @@
 **Updated:** 2026-01-10 (Tasks 52-54 COMPLETE, Observation 16)  
 **Repository:** https://github.com/9to5ninja-projects/groundthink  
 **Purpose:** Ordered queue of tasks to be completed one at a time  
-**Current Goal:** ✅ Phase 4.0 PASSED — Tasks 52-54 COMPLETE, Next: Task 55+ or Task 62 (GPT-2)
+**Current Goal:** ✅ Phase 4.0 PASSED — Task 62 COMPLETE, Next: Task 63 (CER) or Task 64 (UCW)
 
 ---
 
@@ -662,7 +662,7 @@ These phases used **char-level tokenization** (Shakespeare) for quick sanity che
 | 58 | Component ablation test | ⬜ TODO | M | Zero each state → measure loss impact |
 | 59 | Linear state evolution test | ⬜ TODO | M | Predictable state changes with varied input |
 | 60 | Long-context degradation test | ⬜ TODO | M | 64→128→256→512 token degradation curve |
-| 62 | Train GPT-2 baseline (8M) | ⬜ TODO | M | Same data/tokenizer, NanoGPT implementation |
+| 62 | Train GPT-2 baseline (5M) | ✅ DONE | M | Observation 17: GF-MH 7.3% better loss |
 | 63 | Run CER comparison (8M) | ⬜ TODO | S | Compute-Efficiency Ratio vs GPT-2-8M |
 | 64 | Run Useful Context Window test | ⬜ TODO | M | Train 2K, eval 2K→32K degradation |
 | 65 | Run State Persistence Score test | ⬜ TODO | M | Fact recall at 5/10/20/50 turns |
