@@ -2,13 +2,17 @@
 
 **GroundThink** is an experimental hybrid language model architecture combining RWKV-6 and Mamba-2 pathways with learnable gated fusion.
 
+**Attribution:** This project builds on RWKV-6 (Peng et al., 2024) and Mamba-2 (Dao & Gu, 2024) architectures. Our contribution is the specific fusion mechanism, training methodology, and validation framework. See [ATTRIBUTION.md](ATTRIBUTION.md) for full citations.
+
 ---
 
 ## What Is This Project?
 
 GroundThink explores whether **dual-pathway linear-complexity models** can match transformer performance while maintaining O(n) efficiency. The architecture runs RWKV-6 (recurrent-style) and Mamba-2 (selective state-space) in parallel, fusing their outputs via learned gating.
 
-**Key Innovation:** Context-dependent pathway weighting allows the model to dynamically choose between recurrent continuity (RWKV) and selective reasoning (Mamba) based on input characteristics.
+**Key Innovation (Our Contribution):** Context-dependent pathway weighting allows the model to dynamically choose between recurrent continuity (RWKV) and selective reasoning (Mamba) based on input characteristics.
+
+**Building On:** RWKV-6 architecture (Peng et al., 2024), Mamba-2 architecture (Dao & Gu, 2024), structured state space models (Gu et al., 2021).
 
 ---
 
@@ -91,9 +95,15 @@ See [BASE_MODEL_CHARACTERIZATION.md](BASE_MODEL_CHARACTERIZATION.md) for Phase 0
 ## Technical Foundation
 
 ### Architecture: Parallel Hybrid Blocks
+**Our Contribution:**
 ```
 Input → [RWKV-6 ∥ Mamba-2] → Gated Fusion → FFN → Output
 ```
+
+**Building On:**
+- RWKV-6: "Eagle and Finch: RWKV with Matrix-Valued States" (Peng et al., 2024)
+- Mamba-2: "Mamba: Linear-Time Sequence Modeling" (Dao & Gu, 2024)
+- Gating inspired by: Mixture-of-Experts (Shazeer et al., 2017)
 
 Each block:
 - **RWKV-6 Pathway:** Linear recurrence, smooth long-range dependencies
@@ -155,12 +165,29 @@ If you use GroundThink in research, please cite:
 ```bibtex
 @software{groundthink2026,
   title={GroundThink: Hybrid RWKV-6 + Mamba-2 Architecture with Gated Fusion},
-  author={GroundThink Contributors},
+  author={9to5ninja},
   year={2026},
-  url={https://github.com/9to5ninja-projects/groundthink},
+  url={https://github.com/9to5ninja/groundthink},
   note={V4 (Phase 4.0) — Experimental research code}
 }
 ```
+
+**AND please cite the foundational works:**
+```bibtex
+@article{peng2024eagle,
+    title={Eagle and Finch: RWKV with Matrix-Valued States},
+    author={Peng, Bo and others},
+    year={2024}
+}
+
+@article{dao2024mamba,
+    title={Mamba: Linear-Time Sequence Modeling},
+    author={Dao, Tri and Gu, Albert},
+    year={2024}
+}
+```
+
+See [ATTRIBUTION.md](ATTRIBUTION.md) for complete citation requirements.
 
 *(Update with proper publication information if/when published)*
 
@@ -181,19 +208,21 @@ MIT License — See [LICENSE](LICENSE) for full text.
 ## Acknowledgments
 
 ### Research Foundations
-- **RWKV Team:** For RWKV-6 (Finch) architecture and kernels
-- **Mamba Team:** For Mamba-2 SSD and selective state-space models
-- **FLA Project:** For efficient linear attention implementations
+- **RWKV-6:** Created by Bo Peng et al. (2024) — "Eagle and Finch: RWKV with Matrix-Valued States"
+- **Mamba-2:** Created by Tri Dao & Albert Gu (2024) — "Mamba: Linear-Time Sequence Modeling"
+- **S4:** Structured State Spaces (Gu et al., 2021) — foundation for both RWKV and Mamba
+- **FLA Library:** Flash Linear Attention (Yang et al., 2024) — efficient implementations we rely on
 
 ### Dependencies
-- PyTorch, mamba-ssm, causal-conv1d, triton
-- See [requirements.txt](requirements.txt) for full dependency list
+- PyTorch, FLA (flash-linear-attention), mamba-ssm, causal-conv1d, triton
+- WikiText-103 dataset (Merity et al., 2016)
+- See [requirements.txt](requirements.txt) and [ATTRIBUTION.md](ATTRIBUTION.md) for full details
 
 ---
 
 ## Contact & Links
 
-- **Repository:** https://github.com/9to5ninja-projects/groundthink
+- **Repository:** https://github.com/9to5ninja/groundthink
 - **Documentation:** [DOCUMENTATION_MAP.md](DOCUMENTATION_MAP.md)
 - **Issues:** (GitHub Issues if repository is public)
 

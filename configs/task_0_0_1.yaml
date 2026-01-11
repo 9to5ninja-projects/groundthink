@@ -1,0 +1,37 @@
+# Task 0.0.1: Pure RWKV-6 Baseline Configuration
+#
+# Purpose: Establish baseline characteristics for pure RWKV-6 model
+# before hybrid fusion experiments (Phase 0 characterization).
+#
+# Model: 8 layers × 144 hidden, ~4.46M parameters
+# Dataset: WikiText-103 with BPE 16K tokenization
+# Target: Convergence or 10K steps maximum
+
+# Optimizer
+lr: 3.0e-4                # Peak learning rate
+min_lr: 3.0e-5            # Minimum LR (10% of peak)
+weight_decay: 0.1         # AdamW weight decay
+betas: [0.9, 0.95]        # Adam beta parameters
+
+# Learning Rate Schedule
+warmup_ratio: 0.1         # 10% of max_steps for warmup
+lr_decay: cosine          # Cosine annealing after warmup
+
+# Batch Configuration
+batch_size: 64            # Batch size per step
+seq_len: 64               # Sequence length (WikiText-103 standard)
+grad_clip: 1.0            # Gradient clipping threshold
+
+# Training Duration
+max_steps: 10000          # Maximum training steps (or until convergence)
+eval_every: 100           # Evaluation frequency
+save_every: 1000          # Checkpoint save frequency
+log_every: 50             # Console logging frequency
+
+# Metrics Collection
+collect_variance: true    # Enable variance analysis (Task 4)
+run_niah_at: [1000, 3000, 5000]  # NIAH test at these checkpoints (Task 5)
+
+# Output
+checkpoint_dir: checkpoints/task_0_0_1
+log_dir: logs/task_0_0_1

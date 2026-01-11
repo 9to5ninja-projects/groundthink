@@ -5,6 +5,8 @@
 **Updated:** 2026-01-11  
 **Purpose:** Benchmark pure RWKV-6 and Mamba-2 before fusion design
 
+**Attribution:** This characterization uses RWKV-6 (Peng et al., 2024) and Mamba-2 (Dao & Gu, 2024) architectures. Our contribution is the systematic characterization methodology and comparative analysis framework. See [ATTRIBUTION.md](ATTRIBUTION.md).
+
 ---
 
 ## Objective
@@ -12,6 +14,8 @@
 Understand individual pathway behavior **before** implementing hybrid fusion. Findings inform V0.5 gating and fusion architecture decisions.
 
 **Key Question:** What do RWKV-6 and Mamba-2 do well/poorly on their own?
+
+**Methodology:** Novel systematic characterization protocol comparing pure implementations before fusion.
 
 ---
 

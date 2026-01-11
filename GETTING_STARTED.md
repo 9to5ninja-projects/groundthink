@@ -38,7 +38,7 @@ See [ABOUT.md](ABOUT.md) for project overview and [BASE_MODEL_CHARACTERIZATION.m
 
 ```bash
 # 1. Clone and enter directory
-git clone --recursive https://github.com/9to5ninja-projects/groundthink.git
+git clone --recursive https://github.com/9to5ninja/groundthink.git
 cd groundthink
 
 # 2. Create and activate venv

@@ -227,7 +227,7 @@ Example:
 ### For Code Changes
 ```bash
 # 1. Clone and setup
-git clone https://github.com/9to5ninja-projects/groundthink.git
+git clone https://github.com/9to5ninja/groundthink.git
 cd groundthink
 source .venv/bin/activate
 pip install -r requirements.txt

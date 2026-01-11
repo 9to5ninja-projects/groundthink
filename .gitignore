@@ -1,3 +1,6 @@
+# Archive with legacy documentation (excluded from public repo)
+archive/
+
 # Python
 __pycache__/
 *.py[cod]

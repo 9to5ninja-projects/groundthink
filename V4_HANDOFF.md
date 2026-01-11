@@ -45,12 +45,22 @@
 ### Phase 0: Base Model Characterization (CURRENT PRIORITY)
 | Priority | Task | Description | Status |
 |----------|------|-------------|--------|
-| **0.0.1** | Pure RWKV-6 Benchmark | 4M params, WikiText-103, BPE 16K | ⬜ TODO |
+| **0.0.1** | Pure RWKV-6 Benchmark | 4M params, WikiText-103, BPE 16K | ✅ READY |
 | **0.0.2** | Pure Mamba-2 Benchmark | 4M params, WikiText-103, BPE 16K | ⬜ TODO |
 | **0.0.3** | GPT-1 Baseline | 4M params for fair comparison | ⬜ TODO |
 | **0.0.4** | Comparative Analysis | Document findings, inform fusion design | ⬜ TODO |
 
 **Rationale:** Understand individual pathway behavior before implementing fusion.
+
+**Task 0.0.1 Implementation Complete (2026-01-11):**
+- ✅ Model: models/rwkv6_pure.py (8 layers × 144 hidden, 4.46M params, tied embeddings)
+- ✅ Test Script: tests/task_0_0_1_rwkv6_benchmark.py (integrated training + metrics)
+- ✅ Config: configs/task_0_0_1.yaml (10K steps, WikiText-103 + BPE 16K)
+- ✅ Variance Tool: tools/variance_analysis.py (layer-wise output variance tracking)
+- ✅ NIAH Test: tests/test_niah_bpe.py (BPE needle-in-haystack at multiple depths)
+- 📋 Requirements inventory: /tmp/phase0_inventory.txt (tools verified, 5 new components created)
+
+**Next Step:** Execute training run (Task 6), generate BASE_MODEL_FINDINGS_RWKV6.md
 
 See [BASE_MODEL_CHARACTERIZATION.md](BASE_MODEL_CHARACTERIZATION.md) for detailed plan.
 

@@ -3,16 +3,19 @@
 **Status:** V0.5 Phase 0 — Base Model Characterization  
 **V4 Status:** ✅ Graduated (GPT-2 parity at 17% fewer params)  
 **Updated:** 2026-01-11  
-**Repository:** https://github.com/9to5ninja-projects/groundthink  
+**Repository:** https://github.com/9to5ninja/groundthink  
 **License:** MIT (see [LICENSE](LICENSE))
 
-> ⚠️ **EXPERIMENTAL RESEARCH CODE** — Not for production use. No warranties. See [LICENSE](LICENSE) and [ABOUT.md](ABOUT.md).
+> ⚠️ **EXPERIMENTAL RESEARCH CODE** — Not for production use. No warranties.
+>
+> ⚖️ **ATTRIBUTION:** This project builds on RWKV-6 (Peng et al., 2024) and Mamba-2 (Dao & Gu, 2024). Our contribution is the fusion architecture, training methodology, and validation framework. See [ATTRIBUTION.md](ATTRIBUTION.md) for full citations.
 
 ---
 
 ## Quick Links
 
 - 📖 [About GroundThink](ABOUT.md) — Project overview, status, and goals
+- ⚖️ [Attribution & Citations](ATTRIBUTION.md) — **Required reading for usage/citation**
 - 🚀 [Getting Started](GETTING_STARTED.md) — Installation and setup
 - 🗺️ [Documentation Map](DOCUMENTATION_MAP.md) — Full documentation index
 - 📊 [V4 Graduation Summary](#v4-graduation-summary) — Phase 4.0 results
@@ -45,9 +48,11 @@ See [BASE_MODEL_CHARACTERIZATION.md](BASE_MODEL_CHARACTERIZATION.md) and [V4_HAN
 ## What is GroundThink?
 
 GroundThink is an **experimental hybrid architecture** combining:
-- **RWKV-6** (recurrent-style, long-range memory)
-- **Mamba-2** (selective state-space model)
-- **Gated Fusion** (learnable pathway weighting)
+- **RWKV-6** (Peng et al., 2024) — recurrent-style, long-range memory
+- **Mamba-2** (Dao & Gu, 2024) — selective state-space model
+- **Gated Fusion** (our contribution) — learnable pathway weighting
+
+**Our Contribution:** The specific fusion mechanism, training methodology, and validation framework. We did not create RWKV-6 or Mamba-2 — we are exploring how to optimally combine them.
 
 Both components run **in parallel within each block**, fused via learned gating. This design leverages RWKV's recurrent continuity and Mamba's selective reasoning in a single forward pass.
 
@@ -183,7 +188,7 @@ pip install causal-conv1d mamba-ssm
 
 ```bash
 # 1. Setup
-git clone https://github.com/9to5ninja-projects/groundthink.git
+git clone https://github.com/9to5ninja/groundthink.git
 cd groundthink
 source .venv/bin/activate
 pip install -r requirements.txt
