@@ -1,8 +1,11 @@
 # GroundThink V4: Parallel Hybrid RWKV-6 + Mamba-2 Architecture
 
-**Status:** Phase 2 Complete — Winning variant identified and benchmarked  
-**Updated:** 2026-01-09  
-**Repository:** https://github.com/9to5ninja-projects/groundthink
+**Status:** 5.0-Alpha (Phase 4.0 Complete)  
+**Updated:** 2026-01-10  
+**Repository:** https://github.com/9to5ninja-projects/groundthink  
+**License:** MIT (see [LICENSE](LICENSE))
+
+> ⚠️ **EXPERIMENTAL RESEARCH CODE** — Not for production use. No warranties. See [LICENSE](LICENSE) for full disclaimer.
 
 ---
 
