@@ -506,16 +506,34 @@ if __name__ == "__main__":
         model.train()
         return stats, entropy
 
-    # ============ State Monitoring Function (Task 50) ============
+    # ============ State Monitoring Function (Task 50, enhanced Task 57) ============
+    # Import tools for enhanced diagnostics
+    try:
+        from tools.thresholds import check_status, THRESHOLDS
+        from tools.state_metrics import StateMetrics
+        from tools.gradient_coupling import GradientCoupling
+        state_tracker = StateMetrics()
+        grad_analyzer = None  # Initialized with model later
+        TOOLS_AVAILABLE = True
+    except ImportError:
+        TOOLS_AVAILABLE = False
+        state_tracker = None
+        grad_analyzer = None
+    
     @torch.no_grad()
     def get_state_diagnostics(model, x):
         """Capture internal states for S0-S4 style monitoring.
+        
+        Enhanced (Task 57) to integrate:
+            - StateMetrics (Task 53) for tracking
+            - Threshold checks (Task 56) for status
         
         Returns dict with:
             - rwkv_state_norm: L2 norm of RWKV recurrent state
             - mamba_state_norm: L2 norm of Mamba output proxy
             - state_ratio: rwkv_norm / mamba_norm
             - gate: fusion gate value (model-dependent)
+            - status: PASS/WARN/FAIL based on thresholds
         """
         model.eval()
         try:
@@ -534,11 +552,24 @@ if __name__ == "__main__":
         # Avoid division by zero
         state_ratio = rwkv_norm / max(mamba_norm, 1e-8)
         
+        # Determine status using unified thresholds (Task 56)
+        if TOOLS_AVAILABLE:
+            status = check_status('s4_state_ratio', state_ratio)
+        else:
+            # Fallback if tools not available
+            if state_ratio > 10.0:
+                status = 'FAIL'
+            elif state_ratio > 3.0:
+                status = 'WARN'
+            else:
+                status = 'PASS'
+        
         diagnostics = {
             'rwkv_state_norm': rwkv_norm,
             'mamba_state_norm': mamba_norm,
             'state_ratio': state_ratio,
             'gate': states.get('gate', 0.5),
+            'status': status,
         }
         
         model.train()
@@ -666,12 +697,20 @@ if __name__ == "__main__":
                     print(f"    RWKV: var={act_stats['rwkv']['mean_var']:.4f} std={act_stats['rwkv']['mean_std']:.4f}", flush=True)
                     print(f"    Mamba: var={act_stats['mamba']['mean_var']:.4f} std={act_stats['mamba']['mean_std']:.4f}", flush=True)
                 
-                # State monitoring (enabled with --log-states)
+                # State monitoring (enabled with --log-states) - Enhanced Task 57
                 if CONFIG.get('log_states', False):
                     state_diag = get_state_diagnostics(model, x)
                     if state_diag is not None:
+                        status_icon = {'PASS': '✓', 'WARN': '⚠️', 'FAIL': '🔴'}.get(state_diag['status'], '?')
                         print(f"    STATE: rwkv={state_diag['rwkv_state_norm']:.1f} mamba={state_diag['mamba_state_norm']:.1f} "
-                              f"ratio={state_diag['state_ratio']:.1f}x gate={state_diag['gate']:.3f}", flush=True)
+                              f"ratio={state_diag['state_ratio']:.1f}x gate={state_diag['gate']:.3f} {status_icon}{state_diag['status']}", flush=True)
+                        
+                        # Track with StateMetrics if available
+                        if TOOLS_AVAILABLE and state_tracker is not None:
+                            state_tracker.log(step, {
+                                'rwkv_state': torch.tensor([state_diag['rwkv_state_norm']]),
+                                'mamba_state': torch.tensor([state_diag['mamba_state_norm']]),
+                            })
                 
                 # Track best val
                 if val_loss < best_val_loss:

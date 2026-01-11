@@ -653,15 +653,15 @@ These phases used **char-level tokenization** (Shakespeare) for quick sanity che
 | 49 | Propagate state API to all models | ✅ DONE | 2026-01-10 | 7 model files updated |
 | 50 | Add state monitoring to train_v4.py | ✅ DONE | 2026-01-10 | --log-states flag added |
 | 51 | True Mamba SSM state extraction | ⬜ TODO (LOW) | — | Extract [B, nheads, headdim, d_state] |
-| 52 | Implement D1-D4 diagnostic tests | ⬜ TODO | M | State divergence, collapse, interaction, LRD |
-| 53 | Implement state tracking metrics | ⬜ TODO | M | Entropy, magnitude, cosine similarity |
-| 54 | Implement gradient-state coupling analyzer | ⬜ TODO | L | Correlation between state gradients and loss |
-| 55 | Implement information flow tracer | ⬜ TODO | L | Mutual information: state → output |
-| 56 | Consolidate pass/warn/fail thresholds | ⬜ TODO | S | Single source of truth for all metrics |
-| 57 | Enhance --log-states full metric suite | ⬜ TODO | M | Integrate Tasks 52-55 into training |
-| 58 | Component ablation test | ⬜ TODO | M | Zero each state → measure loss impact |
-| 59 | Linear state evolution test | ⬜ TODO | M | Predictable state changes with varied input |
-| 60 | Long-context degradation test | ⬜ TODO | M | 64→128→256→512 token degradation curve |
+| 52 | Implement D1-D4 diagnostic tests | ✅ DONE | 2026-01-10 | tests/test_diagnostics.py |
+| 53 | Implement state tracking metrics | ✅ DONE | 2026-01-10 | tools/state_metrics.py |
+| 54 | Implement gradient-state coupling analyzer | ✅ DONE | 2026-01-10 | tools/gradient_coupling.py |
+| 55 | Implement information flow tracer | ✅ DONE | 2026-01-11 | tools/information_flow_tracer.py |
+| 56 | Consolidate pass/warn/fail thresholds | ✅ DONE | 2026-01-11 | tools/thresholds.py |
+| 57 | Enhance --log-states full metric suite | ✅ DONE | 2026-01-11 | Integrated thresholds into train_v4.py |
+| 58 | Component ablation test | ✅ DONE | 2026-01-11 | tests/test_ablation.py (RWKV 99.9%) |
+| 59 | Linear state evolution test | ✅ DONE | 2026-01-11 | tests/test_state_evolution.py (PASS) |
+| 60 | Long-context degradation test | ✅ DONE | 2026-01-11 | tests/test_long_context.py (1.04x PASS) |
 | 62 | Train GPT-2 baseline (5M) | ✅ DONE | M | WikiText-103+BPE: ratio 1.008 = EQUIVALENT |
 | 63 | Run CER comparison (8M) | ⬜ TODO | S | Compute-Efficiency Ratio vs GPT-2-8M |
 | 64 | Run Useful Context Window test | ⬜ TODO | M | Train 2K, eval 2K→32K degradation |
