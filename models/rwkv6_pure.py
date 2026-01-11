@@ -1,25 +1,33 @@
 """
-Pure RWKV-6 Model for Base Model Characterization (Task 0.0.1)
+Modified RWKV-6 Model for Base Model Characterization (Task 0.0.1)
 
 GroundThink — Phase 0: Base Model Characterization
-Copyright (c) 2026 Matthew [m_tes]
+Copyright (c) 2026 9to5ninja
+
+IMPORTANT: This is NOT pure RWKV-6 from the original paper.
+We use GroundThink's custom ops/ package instead of the Flash Linear Attention (FLA)
+library due to dependency management issues. The effects of this modification are UNKNOWN
+and accepted as baseline reality for Phase 0.
+
+Future work may explore FLA integration for comparative testing, but for progress we proceed
+with this modified implementation as our "pure" RWKV-6 baseline.
 
 ATTRIBUTION:
 This implementation uses RWKV-6 architecture from:
     - Paper: "Eagle and Finch: RWKV with Matrix-Valued States" (Peng et al., 2024)
-    - Implementation: Flash Linear Attention (FLA) library
-    - Source: https://github.com/sustcsonglin/flash-linear-attention
+    - Implementation: GroundThink ops/ package (custom CUDA wrapper + PyTorch prototype)
+                      NOT the FLA library from the original paper
+    - Original: https://github.com/BlinkDL/RWKV-LM
 
 OUR CONTRIBUTION:
-    - Pure RWKV-6 implementation for baseline characterization (no fusion)
+    - Modified RWKV-6 for baseline characterization (no fusion, no FLA)
     - 4M parameter configuration for fair comparison with hybrid models
     - Integration with GroundThink validation methodology
 
 If you use this code, please cite:
     1. RWKV-6 paper (Peng et al., 2024)
-    2. FLA library (Yang et al., 2024)
-    3. GroundThink project (this work)
-
+    2. GroundThink project (this work)
+    3. Note the FLA modification in your methodology
 See ATTRIBUTION.md for full citation details.
 
 Architecture:
@@ -32,7 +40,7 @@ Target: ~4M parameters for direct comparison with hybrid models.
 
 import torch
 import torch.nn as nn
-from fla.layers import RWKV6Attention
+from ops import RWKV6Attention  # Uses GroundThink ops/ package, not FLA
 
 
 class RMSNorm(nn.Module):
@@ -55,14 +63,18 @@ class RWKV6Block(nn.Module):
     - Pre-norm + FFN
     Both with residual connections.
     """
-    def __init__(self, hidden_size: int, ffn_mult: float = 4.0):
+    def __init__(self, hidden_size: int, ffn_mult: float = 4.0, num_heads: int = 4, layer_idx: int = 0):
         super().__init__()
+        self.hidden_size = hidden_size
+        
+        # Pre-norm layers (RMSNorm standard for modern LLMs)
         self.ln1 = RMSNorm(hidden_size)
+        
+        # RWKV-6 attention mechanism (using ops/ package)
         self.rwkv = RWKV6Attention(
             hidden_size=hidden_size,
-            expand_k=0.5,   # Standard RWKV-6 expansion
-            expand_v=1.0,
-            num_heads=1,    # RWKV traditionally uses single "head"
+            num_heads=num_heads,
+            layer_idx=layer_idx,
         )
         
         self.ln2 = RMSNorm(hidden_size)
@@ -80,8 +92,8 @@ class RWKV6Block(nn.Module):
         Returns:
             x: [batch_size, seq_len, hidden_size]
         """
-        # RWKV attention pathway
-        x = x + self.rwkv(self.ln1(x))[0]  # FLA returns (output, state)
+        # RWKV attention pathway (ops.RWKV6Attention returns (output, None, state_dict))
+        x = x + self.rwkv(self.ln1(x))[0]
         
         # FFN pathway
         x = x + self.ffn(self.ln2(x))
@@ -117,8 +129,8 @@ class RWKV6Model(nn.Module):
         
         # RWKV-6 blocks
         self.blocks = nn.ModuleList([
-            RWKV6Block(hidden_size, ffn_mult)
-            for _ in range(num_layers)
+            RWKV6Block(hidden_size, ffn_mult, num_heads=4, layer_idx=i)
+            for i in range(num_layers)
         ])
         
         # Output projection

@@ -59,6 +59,31 @@
 }
 ```
 
+## RWKV-6 Architecture (Modified)
+
+**IMPORTANT**: GroundThink uses a MODIFIED RWKV-6 implementation via custom ops/ package
+(CUDA wrapper + PyTorch prototype) instead of the Flash Linear Attention (FLA) library
+from the original paper. This was done to avoid dependency management nightmares.
+
+**Effects**: Unknown but accepted as baseline for Phase 0 characterization.  
+**Future Work**: FLA integration remains open for comparative testing if desired.
+
+**Original Source**: "Eagle and Finch: RWKV with Matrix-Valued States and Dynamic Recurrence"  
+**Authors**: Bo Peng et al.  
+**Year**: 2024  
+**Repository**: https://github.com/BlinkDL/RWKV-LM
+
+**Our Usage**: Modified RWKV-6 as one of two parallel attention pathways in hybrid models.
+
+**Citation**:
+```bibtex
+@article{peng2024eagle,
+    title={Eagle and Finch: RWKV with Matrix-Valued States},
+    author={Peng, Bo and others},
+    year={2024}
+}
+```
+
 ### NVIDIA Hybrid Architecture Study
 - **Source**: NVIDIA Research on Hybrid SSM Architectures
 - **Finding**: ~43% Mamba-2 + attention outperforms pure models

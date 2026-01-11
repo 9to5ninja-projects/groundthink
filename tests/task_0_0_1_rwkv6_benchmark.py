@@ -1,13 +1,15 @@
 """
-Task 0.0.1: Pure RWKV-6 Baseline Benchmark
+Task 0.0.1: Modified RWKV-6 Baseline Benchmark
 
 GroundThink — Phase 0: Base Model Characterization
-Copyright (c) 2026 Matthew [m_tes]
+Copyright (c) 2026 9to5ninja
+
+IMPORTANT: This benchmarks MODIFIED RWKV-6 using GroundThink ops/ package (NOT FLA).
+Effects of FLA removal unknown but accepted as baseline. Future FLA comparison is open.
 
 ATTRIBUTION:
 Built on top of:
-    - RWKV-6 architecture (Peng et al., 2024)
-    - WikiText-103 dataset (Merity et al., 2016)
+    - RWKV-6 architecture (Peng et al., 2024) - modified implementation
     - Standard training practices from PyTorch ecosystem
 
 OUR CONTRIBUTION:
