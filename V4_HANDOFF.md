@@ -28,13 +28,16 @@
 
 ---
 
-## Next Actions (Pick One)
+## Next Actions (In Order)
 
-| Priority | Task | Description |
-|----------|------|-------------|
-| **1** | Tasks 62-66 | V5 gate prerequisites (GPT-2 baseline, CER, validation tools) |
-| **2** | Task 52-61 | Diagnostic tooling (state tracer, info flow, etc.) |
-| **3** | Scale to 8M | Only after V5 gate passes |
+| Priority | Tasks | Description |
+|----------|-------|-------------|
+| **1** | 52-57 | Diagnostic tooling (D1-D4 tests, state tracking, gradient-state coupling) |
+| **2** | 58-61 | Analysis tools (component ablation, linear state evolution, long-context) |
+| **3** | 62-66 | V5 gate (GPT-2 baseline, CER, UCW, SPS, validation tooling) |
+
+**V5 is a blocker** — no 8M scaling until Tasks 62-66 pass.
+But Tasks 52-61 inform 62-66, so build diagnostics first.
 
 ---
 
