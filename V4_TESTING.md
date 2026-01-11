@@ -301,6 +301,44 @@ metric = gradient_norm_ratio(RWKV_grads, Mamba_grads)
 - **Measure:** Perplexity improvement per FLOP
 - Critical for identifying efficient architectures
 
+### 5. Compute-Efficiency Ratio (CER)
+
+```python
+our_cer = (our_perplexity) / (our_compute_flops)
+baseline_cer = (baseline_perplexity) / (baseline_compute_flops)
+
+# If our_cer > baseline_cer: Architectural advantage
+# If our_cer < baseline_cer: Architecture needs fixes
+```
+
+**Purpose:** Compare efficiency against transformer baseline at same parameter count.
+
+### 6. Useful Context Window
+
+| Architecture | Expected Useful Context |
+|--------------|-------------------------|
+| Standard transformer | 0.25 × trained length |
+| GroundThink (claim) | 1.0 × trained length |
+
+**Test Protocol:**
+1. Train on 2K context
+2. Evaluate at 2K, 4K, 8K, 16K, 32K
+3. Measure: Does perplexity degrade gracefully or catastrophically?
+
+### 7. State Persistence Score
+
+**Metric:** How many conversation turns before a key fact is lost?
+
+| Model Type | Expected Turns |
+|------------|----------------|
+| Transformer baseline | 3-5 turns |
+| GroundThink target | 50+ turns |
+
+**Test Protocol:**
+1. Inject a key fact at turn 1
+2. Query for that fact at turns 5, 10, 20, 50
+3. Measure: Accuracy of recall at each distance
+
 ---
 
 ## Minimum Viable Tests per Archetype
