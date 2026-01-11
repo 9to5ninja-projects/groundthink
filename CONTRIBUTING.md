@@ -88,10 +88,15 @@ Example:
 
 | Trigger | Action |
 |---------|--------|
-| "SOP commit" | Update CHANGELOG + VERSION → commit → push |
-| "SOP review" | Update CHANGELOG + VERSION → show diff → wait for approval |
+| "SOP commit" | Run ref check → Update CHANGELOG + VERSION → commit → push |
+| "SOP review" | Run ref check → Update CHANGELOG + VERSION → show diff → wait |
 | Session end | Always push before closing |
 | Logical milestone | Commit immediately (don't batch unrelated changes) |
+
+**Before pushing, run:**
+```bash
+./tools/check_refs.sh  # Validates cross-references
+```
 
 ### Handoff Document Rules
 
