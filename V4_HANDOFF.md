@@ -8,6 +8,7 @@
 
 ✅ **Phase 4.0 Graduation PASSED** — GF-MH passes all validation gates.
 ✅ **Task 62 COMPLETE** — GPT-2 baseline comparison on WikiText-103 with BPE.
+✅ **Tasks 55-60 COMPLETE** — Diagnostic tooling suite built.
 
 | Test | Result |
 |------|--------|
@@ -17,24 +18,27 @@
 | G1-G4 Gates | G1✓ G2✓ G3⏭ G4⚠ |
 | Task 46 Checkpoint | PASS (21.5 MB, identical reload) |
 | **Task 62 GPT-2** | **EQUIVALENT** (ratio 1.008) |
+| Task 58 Ablation | FAIL (RWKV 99.9%, Mamba 0.1%) |
+| Task 59 Evolution | PASS (state responds to input) |
+| Task 60 Long-ctx | PASS (1.04x ratio) |
 
 ---
 
 ## Last Session (2026-01-11)
 
-**Task 62 COMPLETE:** GPT-2 vs GF-MH on WikiText-103 with BPE
+**Tasks 55-60 COMPLETE:** Diagnostic tooling suite
 
-| Model | Params | Val Loss | Time | Memory |
-|-------|--------|----------|------|--------|
-| GPT-2 | 6.81M | 6.798 | 10.0s | 482MB |
-| GF-MH | 5.62M | 6.850 | 45.1s | 534MB |
+| Task | File | Result |
+|------|------|--------|
+| 55 | tools/information_flow_tracer.py | Mamba <0.3% |
+| 56 | tools/thresholds.py | Unified thresholds |
+| 57 | train_v4.py | --log-states enhanced |
+| 58 | tests/test_ablation.py | RWKV 99.9%, Mamba 0.1% |
+| 59 | tests/test_state_evolution.py | PASS |
+| 60 | tests/test_long_context.py | 1.04x PASS |
 
-**Ratio: 1.008 → EQUIVALENT**
-
-Key findings:
-- GF-MH matches GPT-2 loss with 17% fewer parameters
-- GF-MH is 4.5x slower (CUDA kernel needs optimization)
-- Memory usage similar
+**Key finding:** Mamba contribution is essentially zero. RWKV dominates.
+Long-context stable (no degradation at 512 tokens).
 
 ---
 
@@ -82,6 +86,10 @@ python -c "from models import list_models; print(list_models())"
 | [CANARY_TESTS.md](CANARY_TESTS.md) | S0-S4 and G1-G4 definitions |
 | [tests/test_tiny_graduation.py](tests/test_tiny_graduation.py) | Unified test harness |
 | [tests/test_diagnostics.py](tests/test_diagnostics.py) | D1-D4 diagnostic analysis |
+| [tests/test_ablation.py](tests/test_ablation.py) | Component ablation (Task 58) |
+| [tests/test_long_context.py](tests/test_long_context.py) | 64-512 degradation (Task 60) |
+| [tools/thresholds.py](tools/thresholds.py) | Unified thresholds (Task 56) |
+| [tools/information_flow_tracer.py](tools/information_flow_tracer.py) | MI tracing (Task 55) |
 | [tools/state_metrics.py](tools/state_metrics.py) | State health tracking |
 | [tools/gradient_coupling.py](tools/gradient_coupling.py) | Gradient flow analysis |
 

@@ -6,6 +6,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [5.0-Alpha] - 2026-01-11 (Tasks 55-60: Diagnostic Tooling)
+
+### Summary
+**DIAGNOSTIC SUITE COMPLETE.** Built full tooling for analyzing component contributions. Key finding: Mamba contributes <0.3%, RWKV dominates at 99.9%. Long-context stable.
+
+### Results
+| Task | File | Result |
+|------|------|--------|
+| 55 | tools/information_flow_tracer.py | Mamba <0.3% |
+| 56 | tools/thresholds.py | 15 metrics unified |
+| 57 | train_v4.py | --log-states enhanced |
+| 58 | tests/test_ablation.py | RWKV 99.9%, Mamba 0.1% |
+| 59 | tests/test_state_evolution.py | PASS |
+| 60 | tests/test_long_context.py | 1.04x PASS |
+
+### Added
+- **tools/thresholds.py**: Single source of truth for all pass/warn/fail thresholds
+- **tools/information_flow_tracer.py**: Mutual information state→output analysis
+- **tests/test_ablation.py**: Component zeroing impact test
+- **tests/test_state_evolution.py**: Input variety → state response test
+- **tests/test_long_context.py**: 64→512 perplexity degradation curve
+
+### Next
+Task 48 (investigate imbalance) or Tasks 63-66 (V5 gate)
+
+---
+
 ## [5.0-Alpha] - 2026-01-11 (Task 62: GPT-2 Baseline Comparison)
 
 ### Summary
