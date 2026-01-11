@@ -3,7 +3,7 @@
 **Status:** V0.5 Phase 0 — Base Model Characterization  
 **V4 Status:** ✅ Graduated (GPT-2 parity at 17% fewer params)  
 **Updated:** 2026-01-11  
-**Repository:** https://github.com/9to5ninja/groundthink  
+**Repository:** https://github.com/9to5ninja-projects/groundthink  
 **License:** MIT (see [LICENSE](LICENSE))
 
 > ⚠️ **EXPERIMENTAL RESEARCH CODE** — Not for production use. No warranties.
@@ -188,7 +188,7 @@ pip install causal-conv1d mamba-ssm
 
 ```bash
 # 1. Setup
-git clone https://github.com/9to5ninja/groundthink.git
+git clone https://github.com/9to5ninja-projects/groundthink.git
 cd groundthink
 source .venv/bin/activate
 pip install -r requirements.txt

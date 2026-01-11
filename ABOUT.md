@@ -167,7 +167,7 @@ If you use GroundThink in research, please cite:
   title={GroundThink: Hybrid RWKV-6 + Mamba-2 Architecture with Gated Fusion},
   author={9to5ninja},
   year={2026},
-  url={https://github.com/9to5ninja/groundthink},
+  url={https://github.com/9to5ninja-projects/groundthink},
   note={V4 (Phase 4.0) — Experimental research code}
 }
 ```
@@ -222,7 +222,7 @@ MIT License — See [LICENSE](LICENSE) for full text.
 
 ## Contact & Links
 
-- **Repository:** https://github.com/9to5ninja/groundthink
+- **Repository:** https://github.com/9to5ninja-projects/groundthink
 - **Documentation:** [DOCUMENTATION_MAP.md](DOCUMENTATION_MAP.md)
 - **Issues:** (GitHub Issues if repository is public)
 

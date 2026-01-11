@@ -259,7 +259,7 @@ Please cite:
            with Learned Arbitration},
     author={9to5ninja},
     year={2026},
-    url={https://github.com/9to5ninja/groundthink}
+    url={https://github.com/9to5ninja-projects/groundthink}
 }
 ```
 
@@ -316,4 +316,4 @@ Every ML paper builds on prior work. The value is in the specific combination, m
 
 **Last Updated**: 2026-01-11  
 **Maintainer**: 9to5ninja  
-**Contact**: https://github.com/9to5ninja
+**Contact**: https://github.com/9to5ninja-projects
