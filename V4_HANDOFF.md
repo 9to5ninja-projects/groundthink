@@ -107,9 +107,9 @@ python -c "from models import list_models; print(list_models())"
 ## Git Status
 
 ```
-Latest: 32b92eb
+Latest: c6c2f59
 Branch: main
-Status: Clean
+Status: Clean (pending doc sync)
 ```
 
 ---

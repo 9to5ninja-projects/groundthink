@@ -6,6 +6,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [5.0-Alpha] - 2026-01-11 (Task 62: GPT-2 Baseline Comparison)
+
+### Summary
+**V5 GATE PROGRESS.** GPT-2 vs GF-MH comparison on WikiText-103 with BPE tokenization. Result: EQUIVALENT (ratio 1.008). GF-MH matches transformer loss with 17% fewer parameters.
+
+### Results
+| Model | Params | Val Loss | Time | Memory |
+|-------|--------|----------|------|--------|
+| GPT-2 | 6.81M | 6.798 | 10.0s | 482MB |
+| GF-MH | 5.62M | 6.850 | 45.1s | 534MB |
+
+### Key Findings
+- **Loss ratio: 1.008** → EQUIVALENT per V5_GATING.md thresholds
+- GF-MH achieves same loss with 17% fewer parameters
+- GF-MH is 4.5x slower (CUDA kernel optimization needed)
+- Architecture validated: hybrid competitive with transformer
+
+### Added
+- **data/wikitext103/**: WikiText-103 dataset (518MB, ~100M tokens)
+- **data/tokenizer_wikitext.json**: BPE tokenizer (16K vocab)
+- **data/README.md**: Dataset documentation with sources/dates
+- **models/gpt2.py**: Standard GPT-2 transformer baseline
+- **tests/exp001_wikitext_small.py**: Controlled comparison script
+
+### Next
+Task 63 (CER), Task 64 (UCW), Task 65 (SPS)
+
+---
+
 ## [5.0-Alpha] - 2026-01-10 (Tasks 53-54 + Observation 16)
 
 ### Summary
