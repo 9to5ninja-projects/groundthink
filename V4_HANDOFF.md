@@ -20,13 +20,16 @@
 
 ## Last Session (2026-01-10)
 
-1. Created GF-XM/GF-XR extreme ratio variants (Observation 14: attractor behavior)
-2. **Task 52 COMPLETE:** D1-D4 diagnostic tests in `tests/test_diagnostics.py`
-   - D1: State divergence → ⚠️ WARN (RWKV grows 2.5x over 512 tokens)
-   - D2: State collapse → ✅ PASS (both states vary with input)
-   - D3: Component interaction → ⚠️ WARN (Mamba 0.2% contribution)
-   - D4: Information flow → ✅ PASS (65% relative diff)
-3. Diagnostics confirm known imbalance pattern from Observation 14
+1. **GF-XM/GF-XR extreme ratio variants** (Observation 14: attractor behavior)
+2. **Tasks 52-54 COMPLETE:** Diagnostic tooling built
+   - `tests/test_diagnostics.py`: D1-D4 tests (373 lines)
+   - `tools/state_metrics.py`: StateMetrics tracker (138 lines)
+   - `tools/gradient_coupling.py`: Gradient analyzer (141 lines)
+3. **Observation 16:** Synthesis of all findings
+   - RWKV is accumulator (grows with seq), Mamba is selector (stays bounded)
+   - Imbalance is architectural, not a bug
+   - Attractor zone (~10-30% RWKV) is thermodynamic equilibrium
+   - Mamba refines, RWKV does heavy lifting
 
 ---
 
@@ -34,12 +37,11 @@
 
 | Priority | Tasks | Description |
 |----------|-------|-------------|
-| **1** | 52-57 | Diagnostic tooling (D1-D4 tests, state tracking, gradient-state coupling) |
-| **2** | 58-61 | Analysis tools (component ablation, linear state evolution, long-context) |
-| **3** | 62-66 | V5 gate (GPT-2 baseline, CER, UCW, SPS, validation tooling) |
+| **1** | 55-57 | Remaining diagnostics (info flow tracer, thresholds, log-states) |
+| **2** | 62-66 | V5 gate (GPT-2 baseline, CER, UCW, SPS) ← **RECOMMENDED NEXT** |
+| **3** | 58-61 | Analysis tools (ablation, linear evolution, long-context) |
 
-**V5 is a blocker** — no 8M scaling until Tasks 62-66 pass.
-But Tasks 52-61 inform 62-66, so build diagnostics first.
+**Observation 16 says:** Stop fighting the attractor. Focus on capability tests (GPT-2 comparison).
 
 ---
 
@@ -70,6 +72,8 @@ python -c "from models import list_models; print(list_models())"
 | [CANARY_TESTS.md](CANARY_TESTS.md) | S0-S4 and G1-G4 definitions |
 | [tests/test_tiny_graduation.py](tests/test_tiny_graduation.py) | Unified test harness |
 | [tests/test_diagnostics.py](tests/test_diagnostics.py) | D1-D4 diagnostic analysis |
+| [tools/state_metrics.py](tools/state_metrics.py) | State health tracking |
+| [tools/gradient_coupling.py](tools/gradient_coupling.py) | Gradient flow analysis |
 
 ---
 

@@ -6,6 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [5.0-Alpha] - 2026-01-10 (Tasks 53-54 + Observation 16)
+
+### Summary
+**DIAGNOSTIC TOOLS + SYNTHESIS.** Added state tracking and gradient analysis tools. Documented Observation 16: comprehensive synthesis connecting all observed behaviors.
+
+### Added
+- **tools/state_metrics.py** (138 lines): StateMetrics tracker for training
+- **tools/gradient_coupling.py** (141 lines): Gradient flow analyzer
+- **Observation 16** in V4_FUSION_MODELS.md: Synthesis of all findings
+
+### Observation 16 Key Inferences
+1. **Imbalance is architectural** — RWKV accumulates (grows), Mamba selects (bounds)
+2. **Mamba paradox** — Gets 10x larger gradients but contributes 0.2%
+3. **Attractor zone** — All inits converge to ~10-30% RWKV (thermodynamic equilibrium)
+4. **Division of labor** — RWKV does heavy lifting, Mamba provides refinement
+
+### Practical Takeaway
+Stop fighting the attractor. GF-MH (0.3 init) is near-optimal. Focus on capability tests.
+
+---
+
 ## [5.0-Alpha] - 2026-01-10 (Task 52: D1-D4 Diagnostics)
 
 ### Summary
