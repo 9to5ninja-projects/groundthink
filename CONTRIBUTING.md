@@ -4,11 +4,24 @@
 
 ---
 
+## Document Naming Convention
+
+| Prefix | Purpose | Example |
+|--------|---------|---------|
+| `V4_` | Core documentation (current architecture) | V4_DESIGN.md, V4_STRATEGY.md |
+| `V4.5_` | Lessons learned for future versions | V4.5_CUDA_KERNELS.md |
+| No prefix | Standard files (README, CHANGELOG, etc.) | CHANGELOG.md, VERSION |
+| `archive/` | Superseded documents (keep for reference) | archive/V4_BUILD_LOG.md |
+
+**Rule:** V4.5 documents are "notes for V5" — they capture optimization research and implementation learnings that may be useful when building the next major version.
+
+---
+
 ## Before You Start
 
 1. **Read [ONBOARDING.md](ONBOARDING.md)** — Understand RWKV, Mamba, and the hybrid hypothesis
-2. **Understand the current state** — Read [V4_HANDOFF.md](V4_HANDOFF.md) "AUDIT SUMMARY"
-3. **Know what we need** — Check [V4_STRATEGY.md](V4_STRATEGY.md) for Phase 3+ tasks
+2. **Understand the current state** — Read [V4_HANDOFF.md](V4_HANDOFF.md) for quick status
+3. **Know what we need** — Check [V4_STRATEGY.md](V4_STRATEGY.md) for Phase 4.0+ tasks
 
 ---
 
@@ -60,7 +73,7 @@
 **Example:** Code crashes, incorrect results, import errors
 
 **Process:**
-1. Check [V4_BUILD_LOG.md](V4_BUILD_LOG.md) for known issues
+1. Check [CHANGELOG.md](CHANGELOG.md) for known issues
 2. Run [test_phase0_complete.py](test_phase0_complete.py) to verify environment
 3. Open an issue with:
    - Exact error message and traceback

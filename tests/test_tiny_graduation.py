@@ -363,6 +363,267 @@ def test_naive_baseline():
 
 
 # =============================================================================
+# G1-G4 Validation Gates (Task 45)
+# =============================================================================
+
+def test_g1_forward_pass():
+    """G1: Forward pass sanity check - no NaN, correct shapes."""
+    print("\n" + "=" * 60)
+    print("G1: FORWARD PASS")
+    print("=" * 60)
+    
+    model = get_model(MODEL_NAME, vocab_size=VOCAB_SIZE).to(DEVICE)
+    model.eval()
+    
+    batch_size, seq_len = 4, 64
+    x = torch.randint(0, VOCAB_SIZE, (batch_size, seq_len), device=DEVICE)
+    
+    try:
+        with torch.no_grad():
+            logits = model(x)
+        
+        # Check for NaN
+        has_nan = torch.isnan(logits).any().item()
+        has_inf = torch.isinf(logits).any().item()
+        
+        # Check shape
+        expected_shape = (batch_size, seq_len, VOCAB_SIZE)
+        shape_ok = logits.shape == expected_shape
+        
+        print(f"  Output shape: {logits.shape} (expected {expected_shape})")
+        print(f"  Has NaN: {has_nan}")
+        print(f"  Has Inf: {has_inf}")
+        print(f"  Mean: {logits.mean().item():.4f}")
+        print(f"  Std: {logits.std().item():.4f}")
+        
+        if not shape_ok:
+            print(f"\n✗ G1 FAIL: Shape mismatch")
+            return {'passed': False, 'reason': 'shape_mismatch'}
+        if has_nan:
+            print(f"\n✗ G1 FAIL: NaN in output")
+            return {'passed': False, 'reason': 'nan'}
+        if has_inf:
+            print(f"\n✗ G1 FAIL: Inf in output")
+            return {'passed': False, 'reason': 'inf'}
+        
+        print(f"\n✓ G1 PASS: Forward pass healthy")
+        return {'passed': True, 'shape': logits.shape, 'mean': logits.mean().item()}
+        
+    except Exception as e:
+        print(f"\n✗ G1 FAIL: {e}")
+        return {'passed': False, 'reason': str(e)}
+
+
+def test_g2_init_entropy():
+    """G2: Initialization entropy - is model properly initialized?"""
+    print("\n" + "=" * 60)
+    print("G2: INITIALIZATION ENTROPY")
+    print("=" * 60)
+    
+    # Create fresh (untrained) model
+    model = get_model(MODEL_NAME, vocab_size=VOCAB_SIZE).to(DEVICE)
+    model.eval()
+    
+    x = torch.randint(0, VOCAB_SIZE, (1, 128), device=DEVICE)
+    
+    with torch.no_grad():
+        logits = model(x)
+    
+    # Compute entropy of last token prediction
+    probs = F.softmax(logits[0, -1], dim=-1)
+    entropy = -(probs * torch.log(probs + 1e-9)).sum().item()
+    
+    # Max entropy for uniform distribution = log(vocab_size)
+    import math
+    max_entropy = math.log(VOCAB_SIZE)
+    entropy_ratio = entropy / max_entropy
+    
+    print(f"  Entropy: {entropy:.2f}")
+    print(f"  Max possible: {max_entropy:.2f}")
+    print(f"  Ratio: {entropy_ratio:.2%}")
+    
+    # For an untrained model, high entropy (near uniform) is expected and healthy
+    # - Near-uniform (>90%) = healthy untrained model
+    # - Medium (50-90%) = partially initialized
+    # - Low (<20%) = collapsed/problematic
+    
+    if entropy_ratio >= 0.90:
+        print(f"\n✓ G2 PASS: Init entropy = {entropy:.2f} (near-uniform, healthy init)")
+        return {'passed': True, 'entropy': entropy, 'ratio': entropy_ratio}
+    elif entropy_ratio >= 0.50:
+        print(f"\n⚠ G2 WARN: Init entropy = {entropy:.2f} (partially collapsed)")
+        return {'passed': 'warn', 'entropy': entropy, 'ratio': entropy_ratio}
+    else:
+        print(f"\n✗ G2 FAIL: Init entropy = {entropy:.2f} (collapsed)")
+        return {'passed': False, 'entropy': entropy, 'ratio': entropy_ratio}
+
+
+def test_g4_component_balance():
+    """G4: Component gradient balance - are both RWKV and Mamba training?"""
+    print("\n" + "=" * 60)
+    print("G4: COMPONENT GRADIENT BALANCE")
+    print("=" * 60)
+    
+    import numpy as np
+    
+    model = get_model(MODEL_NAME, vocab_size=VOCAB_SIZE).to(DEVICE)
+    model.train()
+    
+    # Do one forward-backward pass
+    x = torch.randint(0, VOCAB_SIZE, (4, 64), device=DEVICE)
+    targets = torch.randint(0, VOCAB_SIZE, (4, 64), device=DEVICE)
+    
+    logits = model(x)
+    loss = F.cross_entropy(logits.reshape(-1, VOCAB_SIZE), targets.reshape(-1))
+    loss.backward()
+    
+    # Collect gradient norms by component
+    rwkv_grads = []
+    mamba_grads = []
+    other_grads = []
+    
+    for name, param in model.named_parameters():
+        if param.grad is not None:
+            grad_norm = param.grad.norm().item()
+            name_lower = name.lower()
+            if 'rwkv' in name_lower:
+                rwkv_grads.append(grad_norm)
+            elif 'mamba' in name_lower:
+                mamba_grads.append(grad_norm)
+            else:
+                other_grads.append(grad_norm)
+    
+    rwkv_avg = np.mean(rwkv_grads) if rwkv_grads else 0
+    mamba_avg = np.mean(mamba_grads) if mamba_grads else 0
+    
+    print(f"  RWKV params with grads: {len(rwkv_grads)}")
+    print(f"  Mamba params with grads: {len(mamba_grads)}")
+    print(f"  Other params with grads: {len(other_grads)}")
+    print(f"  RWKV avg grad norm: {rwkv_avg:.6f}")
+    print(f"  Mamba avg grad norm: {mamba_avg:.6f}")
+    
+    if mamba_avg > 0:
+        ratio = rwkv_avg / mamba_avg
+        print(f"  Gradient ratio (RWKV/Mamba): {ratio:.2f}")
+    else:
+        print(f"  Gradient ratio: Mamba has no gradients!")
+        ratio = float('inf')
+    
+    if 0.3 <= ratio <= 3.0:
+        print(f"\n✓ G4 PASS: Gradient ratio = {ratio:.2f} (balanced)")
+        return {'passed': True, 'ratio': ratio, 'rwkv_avg': rwkv_avg, 'mamba_avg': mamba_avg}
+    elif (0.1 <= ratio < 0.3) or (3.0 < ratio <= 10):
+        print(f"\n⚠ G4 WARN: Gradient ratio = {ratio:.2f} (imbalanced)")
+        return {'passed': 'warn', 'ratio': ratio, 'rwkv_avg': rwkv_avg, 'mamba_avg': mamba_avg}
+    else:
+        print(f"\n✗ G4 FAIL: Gradient ratio = {ratio:.2f} (component dead)")
+        return {'passed': False, 'ratio': ratio, 'rwkv_avg': rwkv_avg, 'mamba_avg': mamba_avg}
+
+
+def test_checkpoint_resume():
+    """Task 46: Checkpoint/resume test - can we save and reload?"""
+    print("\n" + "=" * 60)
+    print("CHECKPOINT/RESUME TEST")
+    print("=" * 60)
+    
+    import tempfile
+    import os
+    
+    # Create model and get initial output
+    model = get_model(MODEL_NAME, vocab_size=VOCAB_SIZE).to(DEVICE)
+    model.eval()
+    
+    x = torch.randint(0, VOCAB_SIZE, (1, 32), device=DEVICE)
+    
+    with torch.no_grad():
+        output_before = model(x)
+    
+    # Save to temp file
+    with tempfile.NamedTemporaryFile(suffix='.pt', delete=False) as f:
+        temp_path = f.name
+    
+    try:
+        torch.save(model.state_dict(), temp_path)
+        print(f"  Saved checkpoint: {temp_path}")
+        print(f"  Size: {os.path.getsize(temp_path) / 1024 / 1024:.2f} MB")
+        
+        # Create new model and load
+        model2 = get_model(MODEL_NAME, vocab_size=VOCAB_SIZE).to(DEVICE)
+        model2.load_state_dict(torch.load(temp_path, map_location=DEVICE, weights_only=True))
+        model2.eval()
+        
+        with torch.no_grad():
+            output_after = model2(x)
+        
+        # Check outputs match
+        diff = (output_before - output_after).abs().max().item()
+        print(f"  Max output diff: {diff:.2e}")
+        
+        if diff < 1e-5:
+            print(f"\n✓ CHECKPOINT PASS: Save/load produces identical outputs")
+            return {'passed': True, 'diff': diff}
+        else:
+            print(f"\n✗ CHECKPOINT FAIL: Outputs differ after reload")
+            return {'passed': False, 'diff': diff}
+            
+    finally:
+        os.unlink(temp_path)
+
+
+def run_gate_tests():
+    """Run G1-G4 validation gates."""
+    print("\n" + "=" * 70)
+    print("RUNNING G1-G4 VALIDATION GATES")
+    print("=" * 70)
+    
+    results = {}
+    
+    try:
+        results['G1'] = test_g1_forward_pass()
+    except Exception as e:
+        print(f"\n✗ G1 FAIL: {e}")
+        results['G1'] = {'passed': False, 'error': str(e)}
+    
+    try:
+        results['G2'] = test_g2_init_entropy()
+    except Exception as e:
+        print(f"\n✗ G2 FAIL: {e}")
+        results['G2'] = {'passed': False, 'error': str(e)}
+    
+    # Note: G3 requires 1K training steps - skip for quick validation
+    print("\n" + "=" * 60)
+    print("G3: TRAINING 1K STEPS")
+    print("=" * 60)
+    print("  ⏭ SKIPPED (use --overfit for training test)")
+    print("  G3 validated by Task 40 (5K steps, loss decreasing)")
+    results['G3'] = {'passed': 'skipped', 'note': 'Validated by Task 40'}
+    
+    try:
+        results['G4'] = test_g4_component_balance()
+    except Exception as e:
+        print(f"\n✗ G4 FAIL: {e}")
+        results['G4'] = {'passed': False, 'error': str(e)}
+    
+    # Summary
+    print("\n" + "=" * 70)
+    print("G1-G4 SUMMARY")
+    print("=" * 70)
+    
+    for gate, result in results.items():
+        status = result.get('passed', False)
+        if status is True:
+            print(f"  {gate}: ✓ PASS")
+        elif status == 'warn':
+            print(f"  {gate}: ⚠ WARN")
+        elif status == 'skipped':
+            print(f"  {gate}: ⏭ SKIPPED")
+        else:
+            print(f"  {gate}: ✗ FAIL")
+    
+    return results
+
+
+# =============================================================================
 # Main Entry Point
 # =============================================================================
 
@@ -432,6 +693,8 @@ if __name__ == "__main__":
     parser.add_argument('--gates', action='store_true', help='Run G1-G4 gate tests only')
     parser.add_argument('--overfit', action='store_true', help='Run overfit test (Task 43)')
     parser.add_argument('--baseline', action='store_true', help='Run naive baseline test (Task 44)')
+    parser.add_argument('--checkpoint', action='store_true', help='Run checkpoint/resume test (Task 46)')
+    parser.add_argument('--all', action='store_true', help='Run all tests')
     parser.add_argument('--model', default='GF-MH', help='Model name to test')
     parser.add_argument('--samples', type=int, default=10, help='Samples for overfit test')
     parser.add_argument('--steps', type=int, default=500, help='Max steps for overfit test')
@@ -442,16 +705,20 @@ if __name__ == "__main__":
     print(f"Device: {DEVICE}")
     
     # If no specific test requested, run states only (quick check)
-    run_all = not (args.states or args.gates or args.overfit or args.baseline)
+    run_all = args.all
+    run_default = not (args.states or args.gates or args.overfit or args.baseline or args.checkpoint or args.all)
     
-    if args.states or run_all:
+    if args.states or run_default:
         run_state_tests()
     
-    if args.overfit:
+    if args.gates or run_all:
+        run_gate_tests()
+    
+    if args.overfit or run_all:
         test_overfit(num_samples=args.samples, max_steps=args.steps)
     
-    if args.baseline:
+    if args.baseline or run_all:
         test_naive_baseline()
     
-    if args.gates:
-        print("\nG1-G4 gate tests not yet implemented (TODO)")
+    if args.checkpoint or run_all:
+        test_checkpoint_resume()

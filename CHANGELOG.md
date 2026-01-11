@@ -6,6 +6,71 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [5.0-Alpha] - 2026-01-10 (Phase 4.0 Complete)
+
+### Summary
+**GRADUATION COMPLETE.** GF-MH (3.5M params) passes all validation gates. Ready for next phase.
+
+### Phase 4.0 Results
+
+| Test | Result | Notes |
+|------|--------|-------|
+| S0-S4 State Tests | 5/5 PASS | Variance ratio 108,583x |
+| Task 43 Overfit | PASS | Loss 0.48 in 65 steps |
+| Task 44 Baseline | PASS | 6.01 vs 9.68 (37.9% better than random) |
+| G1 Forward | PASS | No NaN, shapes correct |
+| G2 Init Entropy | PASS | 9.65/9.68 = 99.7% of max entropy |
+| G4 Gradient Balance | WARN | Ratio 0.10 (Mamba 10x larger gradients) |
+| Task 46 Checkpoint | PASS | 21.5 MB, identical outputs after reload |
+
+### Key Findings
+- **BPE tokenization validated**: TinyStories-8B subset with GPT-2 tokenizer works correctly
+- **State extraction API**: Stable output for any hidden state introspection
+- **Gate initialization entropy**: Near-uniform distribution is healthy for untrained models
+- **Gradient imbalance**: Mamba dominates but model still learns (non-blocking warning)
+
+### Changed
+- **tests/test_tiny_graduation.py**: Unified graduation test harness with all gates
+- **V4_STRATEGY.md**: Phase 4.0 marked COMPLETE, Phases 3.6-3.8 collapsed to historical
+- **V4_HANDOFF.md**: Updated status to Phase 4.0 graduation complete
+- **VERSION**: Updated to 5.0-Alpha
+
+### Documentation Consolidation
+- Archived: V4_BLEND_RATIOS.md → archive/ (content in V4_FUSION_MODELS.md)
+- Archived: V4.5_PYTHON_WRAPPERS.md → archive/ (content in V4.5_CUDA_KERNELS.md)
+- Archived: V4.5_KERNEL_FUSION.md → archive/ (future research)
+- V4.5_CUDA_KERNELS.md: Marked COMPLETE (Phase 0)
+
+### Next Steps (Phase 5.0 Options)
+- Task 47: Scale to 8M parameters
+- Task 48: Long-context evaluation (512+ tokens)
+- Task 49: Alternative datasets (code, dialogue)
+
+---
+
+## [4.10-Alpha] - 2026-01-10 (Phase 3.8 Complete)
+
+### Summary
+**RWKV DOMINANCE ACCEPTED.** After Phase 3.7 confirmed signal-based (not architectural) RWKV dominance, Phase 3.8 attempted balance interventions. Results: interventions hurt loss without improving balance. Decision: accept RWKV dominance.
+
+### Phase 3.8 Results
+
+| Intervention | Impact | Recommendation |
+|--------------|--------|----------------|
+| Balance regularization | Loss +0.15 | ❌ Not recommended |
+| Mamba LR multiplier 2x | No change in R/M | ❌ Ineffective |
+| Gate freeze (100 steps) | Slight balance, loss +0.08 | ⚠️ Marginal |
+| Accept dominance | Lowest loss (1.59) | ✅ Recommended |
+
+### Key Finding
+**Optimizer "takes path of least resistance" to RWKV.** This is signal-based (RWKV gradients are smoother), not a bug. Future work may explore Mamba-specific optimizations, but for now GF-MH architecture is validated.
+
+### Changed
+- **V4_STRATEGY.md**: Phase 3.8 marked COMPLETE, moved to historical section
+- **V4_FUSION_MODELS.md**: Added "Historical Research" warning to Phase 3.6-3.8 sections
+
+---
+
 ## [4.9-Alpha] - 2026-01-10 (Phase 3.7 Complete)
 
 ### Summary

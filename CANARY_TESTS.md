@@ -187,6 +187,20 @@ Failure: One component completely dead — investigate architecture
 | Overfit | ✅ PASS | Loss 0.48 in 65 steps (10 samples, lr=1e-3) |
 | Baseline | ✅ PASS | Val 6.01 < Random 9.68 (37.9% improvement) |
 
+**G1-G4 Validation Gates (Task 45):**
+| Gate | Test | Result | Status |
+|------|------|--------|--------|
+| G1 | Forward pass | Shape OK, no NaN/Inf | ✅ PASS |
+| G2 | Init entropy | 9.65/9.68 (99.7% of max) | ✅ PASS |
+| G3 | 1K training | Validated by Task 40 | ⏭ SKIP |
+| G4 | Gradient balance | RWKV/Mamba = 0.10 | ⚠️ WARN |
+
+**G4 Gradient Analysis:**
+- RWKV: 96 params, avg grad norm 0.0042
+- Mamba: 64 params, avg grad norm 0.0412
+- Mamba gradients ~10x larger at initialization
+- May explain gate drift toward RWKV (0.3→0.7) during training
+
 **Test Harness:** `tests/test_tiny_graduation.py`
 
 ---

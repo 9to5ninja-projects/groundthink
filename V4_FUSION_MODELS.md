@@ -176,7 +176,9 @@ fused = out_rwkv + alpha * out_mamba
 
 ---
 
-## Complete Results: Phase 3.6 + 3.7 (2026-01-10)
+## Historical Research: Phase 3.6 + 3.7 Char-Level Experiments
+
+> ⚠️ **RESEARCH REFERENCE ONLY** — These experiments used **char-level tokenization** (Shakespeare). Results are directionally informative but NOT validated for BPE production conditions. See Phase 4.0 for BPE re-validation.
 
 **Test conditions:** batch=32, seq_len=64, 1000 steps, Shakespeare char-level
 

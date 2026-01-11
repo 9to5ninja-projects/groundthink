@@ -91,6 +91,39 @@ def forward(self, x, return_states=False):
 - Task 43 Overfit: Loss 0.48 in 65 steps (10 samples) — healthy learning
 - Task 44 Baseline: Val 6.01 vs Random 9.68 — 37.9% improvement
 
+### G1-G4 Validation Gates (Task 45)
+
+| Gate | Test | Criteria | Result | Status |
+|------|------|----------|--------|--------|
+| G1 | Forward pass | No NaN/Inf, correct shapes | Shape OK, mean=0.0, std=0.23 | ✓ PASS |
+| G2 | Init entropy | Near-uniform for untrained | 9.65/9.68 (99.7%) | ✓ PASS |
+| G3 | 1K training | Loss decreasing | Validated by Task 40 | ⏭ SKIP |
+| G4 | Gradient balance | RWKV/Mamba ratio 0.3-3.0 | 0.10 (Mamba 10x larger) | ⚠ WARN |
+
+**G4 Gradient Balance Analysis:**
+
+| Component | Params with grads | Avg grad norm |
+|-----------|-------------------|---------------|
+| RWKV | 96 | 0.0042 |
+| Mamba | 64 | 0.0412 |
+| Other | 50 | — |
+
+**Gradient ratio (RWKV/Mamba)**: 0.10
+
+**Interpretation**: Mamba gradients are ~10x larger than RWKV at initialization.
+This gradient imbalance may explain the gate drift from 0.3→0.7 during training:
+the model compensates for Mamba's stronger gradient signal by shifting weight to RWKV.
+
+### Checkpoint/Resume Test (Task 46)
+
+| Metric | Value |
+|--------|-------|
+| Checkpoint size | 21.51 MB |
+| Output diff after reload | 0.00 |
+| Status | ✅ PASS |
+
+**Verified**: Save and reload produces bit-identical outputs.
+
 ### State Monitoring Metrics
 
 **Capture these during any training run:**

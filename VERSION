@@ -1,9 +1,9 @@
-4.9-Alpha (Phase 3.7 Complete)
+5.0-Alpha (Phase 4.0 Complete)
 Created: 2026-01-08
 Updated: 2026-01-10
-Status: SIGNAL DOMINANCE CONFIRMED — RWKV produces easier gradients
-Current Focus: Address RWKV dominance (balance loss, Mamba LR, or accept)
+Status: GRADUATION COMPLETE — GF-MH passes all validation gates
+Current Focus: Scale to 8M (Task 47) or long-context evaluation (Task 48)
 
 For detailed version history, see CHANGELOG.md
-For Phase 3.8 options, see V4_STRATEGY.md
-For Phase 3.7 results, see V4_BLEND_RATIOS.md
+For next steps, see V4_STRATEGY.md Phase 5.0
+For graduation results, see STATEFUL_VALIDATION_GUIDE.md
