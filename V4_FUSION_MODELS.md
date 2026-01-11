@@ -877,6 +877,32 @@ fused = gate * out_rwkv + (1-gate) * out_mamba  # Elementwise
 
 ---
 
+## Observation 18: CUDA Batch Size Scaling (2026-01-11)
+
+**Investigation:** Why is GF-MH 4.5x slower than GPT-2?
+
+**Profiling Results:**
+
+| Batch | GF-MH ms | GPT-2 ms | Ratio | GF-MH tok/s |
+|-------|----------|----------|-------|-------------|
+| 1 | 22.5 | 4.4 | 5.1x | 5,700 |
+| 4 | 19.6 | 6.2 | 3.2x | 26,153 |
+| 8 | 20.6 | 4.1 | 5.0x | 49,638 |
+| **16** | 22.6 | 10.8 | **2.1x** | **90,631** |
+
+**Key Findings:**
+
+1. **GF-MH scales better with batch size** — gap closes from 5.1x to 2.1x
+2. **At batch=16, GF-MH hits 90K tok/s** — practical for training
+3. **RWKV kernel is memory-bound at small batch** — GPU underutilized
+4. **GPT-2 is faster at batch=1 due to highly optimized attention**
+
+**Recommendation:** Use `batch_size ≥ 16` for training to minimize speed gap.
+
+**File:** `tests/profile_cuda.py`
+
+---
+
 ## Usage
 
 ```python
