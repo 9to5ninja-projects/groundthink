@@ -134,6 +134,19 @@ BPE did NOT fix component balance as hypothesized. R/M improved from 0.08-0.11 t
 
 **See [CANARY_TESTS.md](CANARY_TESTS.md#s0-s4-state-space-fundamentals-35m-only--required-first) for implementations.**
 
+### Graduation Tests (Tasks 43-44) — BASELINE RESULTS (2026-01-10)
+
+| Test | Task | Result | Details |
+|------|------|--------|--------|
+| Overfit | 43 | ✅ PASS | Loss 0.48 in 65 steps (10 samples, lr=1e-3) |
+| Baseline | 44 | ✅ PASS | Val 6.01 < Random 9.68 (37.9% better) |
+
+**Observations:**
+- **Fast convergence**: Model memorized 10 samples in only 65 steps (target was 500 max)
+- **Healthy learning**: Initial loss 9.73 → 0.48 shows gradients flow correctly
+- **Meaningful learning**: 37.9% improvement over random confirms model learned patterns, not noise
+- **Val loss 6.01**: Corresponds to perplexity ~407 (vs random perplexity 16000)
+
 ### Tiny Graduation Criteria (per SCALING_MILESTONES.md)
 
 | Test | Criteria | Status | Observed Value |

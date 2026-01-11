@@ -8,16 +8,21 @@ Usage:
     # Activate venv first (required for mamba_ssm)
     source .venv/bin/activate
     
-    python tests/test_tiny_graduation.py              # Run all tests
+    python tests/test_tiny_graduation.py              # Run S0-S4 (default)
     python tests/test_tiny_graduation.py --states     # S0-S4 only
-    python tests/test_tiny_graduation.py --gates      # G1-G4 only
+    python tests/test_tiny_graduation.py --overfit    # Overfit test (Task 43)
+    python tests/test_tiny_graduation.py --baseline   # Baseline test (Task 44)
+    python tests/test_tiny_graduation.py --gates      # G1-G4 (TODO)
 
-Baseline Results (2026-01-10):
-    S0: PASS - RWKV [1,4,32], Mamba [1,128], Gate 0.70
-    S1: PASS - RWKV norm 725.7, Mamba norm 3.7
-    S2: PASS - States evolve with different inputs
+Baseline Results (GF-MH model, 2026-01-10):
+    S0: PASS - RWKV [1,4,32], Mamba [1,128], Gate 0.70 (was 0.3 init)
+    S1: PASS - RWKV norm 725.7, Mamba norm 3.7 (200x magnitude gap)
+    S2: PASS - States evolve (RWKV diff 863.2, Mamba diff 4.5)
     S3: PASS - Deterministic (diff=0)
     S4: WARN - Variance ratio 108,583x (severe imbalance)
+    
+    Task 43 Overfit: PASS - Loss 0.48 in 65 steps (10 samples, target <0.5)
+    Task 44 Baseline: PASS - Val 6.01 < Random 9.68 (37.9% improvement)
 
 Reference: CANARY_TESTS.md, SCALING_MILESTONES.md, V4_TESTING.md
 Created: 2026-01-10 (Task 41)

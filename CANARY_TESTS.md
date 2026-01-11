@@ -162,6 +162,33 @@ Failure: One component completely dead — investigate architecture
 | S3 | Diff < 1e-5 | — | Non-deterministic |
 | S4 | Ratio 0.01-100 | Ratio 0.1-10 | Component dead |
 
+### Baseline Results: GF-MH Model (2026-01-10)
+
+**Model:** GF-MH (3.5M params, gate_init=0.3, trained 5K steps on BPE FineWeb)
+
+| Test | Result | Observed Value |
+|------|--------|----------------|
+| S0 | ✅ PASS | RWKV: [1,4,32], Mamba: [1,128], Gate: 0.70 |
+| S1 | ✅ PASS | RWKV norm: 725.7, Mamba norm: 3.7 |
+| S2 | ✅ PASS | RWKV diff: 863.2, Mamba diff: 4.5 |
+| S3 | ✅ PASS | Both deterministic (diff=0) |
+| S4 | ⚠️ WARN | Variance ratio: 108,583x |
+
+**Key Observations:**
+- Gate learned to 0.70 (started at 0.3) — training increased RWKV dominance
+- RWKV state norm 200x higher than Mamba (725.7 vs 3.7)
+- State evolution ratio ~190x — RWKV changes much more than Mamba
+- Type B (internal state) ratio 108,583x >> Type A (activation) ratio 71x
+- Mamba may be functioning more as feedforward than true SSM
+
+**Graduation Tests (Tasks 43-44):**
+| Test | Result | Details |
+|------|--------|--------|
+| Overfit | ✅ PASS | Loss 0.48 in 65 steps (10 samples, lr=1e-3) |
+| Baseline | ✅ PASS | Val 6.01 < Random 9.68 (37.9% improvement) |
+
+**Test Harness:** `tests/test_tiny_graduation.py`
+
 ---
 
 ## C1: State Persistence (Baseline)

@@ -982,8 +982,8 @@ python train_v4.py --model GF-MH --data data/fineweb_5m.txt --tokenizer bpe --ma
 | Test | Criteria | BPE Status |
 |------|----------|------------|
 | **S0-S4 state tests** | State machinery verified | ✅ 5/5 PASS (Task 42) |
-| Overfit 10-100 samples | Loss → near 0 | ⬜ Task 43 |
-| Val < naive baseline | Better than random | ⬜ Task 44 |
+| Overfit 10-100 samples | Loss → near 0 | ✅ Loss 0.48 in 65 steps (Task 43) |
+| Val < naive baseline | Better than random | ✅ 6.01 < 9.68 (Task 44) |
 | G1-G4 gates pass | Per V4_TESTING.md | ⬜ Task 45 |
 | Checkpoint/resume works | Save + reload | ⬜ Task 46 |
 | Gradient flow | All components receiving gradients | ✅ Task 40 |
@@ -993,6 +993,9 @@ python train_v4.py --model GF-MH --data data/fineweb_5m.txt --tokenizer bpe --ma
 1. ~~**Task 41a** — Implement state extraction API (BLOCKER)~~ ✅ DONE
 2. ~~**Task 41** — Create test_tiny_graduation.py~~ ✅ DONE
 3. ~~**Task 42** — Run S0-S4 state space tests (via test harness)~~ ✅ DONE (5/5 pass)
+4. ~~**Task 43** — Overfit test~~ ✅ DONE (loss 0.48 in 65 steps)
+5. ~~**Task 44** — Naive baseline test~~ ✅ DONE (37.9% better than random)
+6. **Task 45** — G1-G4 gates ⬜ **NEXT**
 4. **Tasks 43-46** — Run remaining graduation tests ⬜ **NEXT**
 5. **Task 47** — Re-rank fusion variants with BPE
 6. **Task 48** — Deep-dive component balance investigation

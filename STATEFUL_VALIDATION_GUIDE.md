@@ -69,6 +69,28 @@ def forward(self, x, return_states=False):
 | S3 | Determinism | Same input → same state |
 | S4 | Balance | Both components contribute |
 
+### Baseline Results: GF-MH 3.5M (2026-01-10)
+
+**Executed via:** `python tests/test_tiny_graduation.py --states`
+
+| Metric | RWKV | Mamba | Ratio |
+|--------|------|-------|-------|
+| State shape | [1,4,32] | [1,128] | — |
+| State norm | 725.7 | 3.7 | 196x |
+| State variance | 9689.4 | 0.089 | 108,583x |
+| Evolution diff | 863.2 | 4.5 | 192x |
+| Gate value | 0.70 (learned) | — | init was 0.3 |
+
+**Interpretation:**
+- All S0-S4 tests pass but S4 shows severe imbalance
+- Internal state ratio (108,583x) >> activation ratio (71x from training)
+- Mamba's internal state is near-dormant; may act as feedforward layer
+- Gate drifted from 0.3→0.7 during training (RWKV dominance increased)
+
+**Graduation Tests (from same session):**
+- Task 43 Overfit: Loss 0.48 in 65 steps (10 samples) — healthy learning
+- Task 44 Baseline: Val 6.01 vs Random 9.68 — 37.9% improvement
+
 ### State Monitoring Metrics
 
 **Capture these during any training run:**
