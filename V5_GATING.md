@@ -548,9 +548,9 @@ check_gradient_norms(your_8M, gpt2_8M)
 2. ~~Which statefulness tests are fairest for comparison?~~ → Answered: Statefulness Tests section (Tier 1-3)
 3. ~~Should we include inference speed comparisons?~~ → Yes: Inference Speed Protocol section
 4. ~~What constitutes "significantly outperforms" (threshold)?~~ → Answered: Decision Thresholds section
-5. **What's our X or Y?** Long context? Real-time? Edge deployment? State persistence?
+5. ~~What's our X or Y?~~ → **Discovery-first:** Run all metrics, let data reveal strengths. Not proving a hypothesis — testing adversarially to find what the architecture actually does well.
 
-**Strategic question #5 defines our positioning.**
+**Question #5 resolved: We observe, then decide. Use case emerges from evidence.**
 
 ---
 
@@ -577,16 +577,18 @@ If after 3 iterations at 8M we're not:
 - "Good enough at X with 100x less cost"
 - OR "Capable of Y that others can't do at any cost"
 
-### Find Our X or Y
+### Metrics to Observe (Discovery Phase)
 
-| Potential X or Y | Why It Matters |
-|------------------|----------------|
-| Long context (100K+) | Linear scaling advantage |
-| Real-time inference | Lower latency per token |
-| Edge deployment | Smaller memory footprint |
-| State persistence | Native architecture feature |
+| Metric | What It Reveals |
+|--------|-----------------|
+| CER vs GPT-2 | Compute efficiency advantage (if any) |
+| UCW degradation curve | Long context viability |
+| SPS at 5/10/20/50 turns | State persistence strength |
+| Inference latency | Real-time potential |
+| Memory footprint | Edge deployment viability |
+| State dynamics (D1-D4) | Architectural health |
 
-**Define our X or Y, then build validation specifically for it.**
+**Run all. See patterns. Then decide positioning.**
 
 ---
 
