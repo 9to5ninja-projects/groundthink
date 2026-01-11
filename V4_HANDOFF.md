@@ -20,34 +20,40 @@
 
 ## Last Session (2026-01-10)
 
-1. **Task 62 COMPLETE:** GPT-2 baseline comparison (Observation 17)
-   - Created `models/gpt2.py`: Standard transformer baseline
-   - GF-MH val loss 2.33 vs GPT-2 2.51 (7.3% better)
-   - GF-MH 4x slower (CUDA needs optimization)
-   - Verdict: **EXCELLENT** — hybrid beats transformer
+1. **Data Infrastructure Setup:**
+   - Downloaded WikiText-103 (518MB, ~100M tokens) for V5 benchmarks
+   - Trained BPE tokenizer (16K vocab) on WikiText-103
+   - Archived old untrusted data (fineweb_5m.txt, fineweb_10k.txt)
+   - Created `data/README.md` documenting all datasets
 
-2. **GF-XM/GF-XR extreme ratio variants** (Observation 14: attractor behavior)
+2. **Task 62 Initial:** GPT-2 baseline comparison (Observation 17)
+   - Created `models/gpt2.py`: Standard transformer baseline
+   - Quick test on shakespeare: GF-MH 2.33 vs GPT-2 2.51 (7.3% better)
+   - **NOTE:** This was a smoke test only. Full comparison needs:
+     - WikiText-103 data (now available)
+     - BPE tokenization (now available)
+     - Longer training (500+ steps minimum)
+
 3. **Tasks 52-54 COMPLETE:** Diagnostic tooling built
-   - `tests/test_diagnostics.py`: D1-D4 tests (373 lines)
-   - `tools/state_metrics.py`: StateMetrics tracker (138 lines)
-   - `tools/gradient_coupling.py`: Gradient analyzer (141 lines)
 4. **Observation 16:** Synthesis of all findings
-   - RWKV is accumulator (grows with seq), Mamba is selector (stays bounded)
-   - Imbalance is architectural, not a bug
-   - Attractor zone (~10-30% RWKV) is thermodynamic equilibrium
-   - Mamba refines, RWKV does heavy lifting
 
 ---
 
 ## Next Actions (In Order)
 
-| Priority | Tasks | Description |
-|----------|-------|-------------|
-| **1** | 55-57 | Remaining diagnostics (info flow tracer, thresholds, log-states) |
-| **2** | 62-66 | V5 gate (GPT-2 baseline, CER, UCW, SPS) ← **RECOMMENDED NEXT** |
-| **3** | 58-61 | Analysis tools (ablation, linear evolution, long-context) |
+| Priority | Task | Description |
+|----------|------|-------------|
+| **1** | 62 (REDO) | Full GPT-2 comparison on WikiText-103 with BPE |
+| **2** | 63 | CER (Compute-Efficiency Ratio) calculation |
+| **3** | 64 | UCW (Useful Context Window) test |
+| **4** | 65 | SPS (State Persistence Score) at 5/10/20/50 turns |
 
-**Observation 16 says:** Stop fighting the attractor. Focus on capability tests (GPT-2 comparison).
+**CRITICAL:** All V5 benchmarks must use:
+- WikiText-103 data (`data/wikitext103/train.txt`)
+- BPE tokenizer (`data/tokenizer_wikitext.json`, vocab=16K)
+- Same data/tokenizer for both GPT-2 and GF-MH
+
+See [V5_GATING.md](V5_GATING.md) for thresholds and criteria.
 
 ---
 
