@@ -20,11 +20,13 @@
 
 ## Last Session (2026-01-10)
 
-1. Documentation consolidation: archived Dockerfile, SCALING_MILESTONES.md
-2. Created V5_GATING.md — V5 is a blocker for 8M (not a version bump)
-3. Cleaned requirements.txt (removed 6 unused packages)
-4. Added Tasks 62-66 as V5 gate prerequisites
-5. Strengthened SOP: terminology lock, archive policy, commit hygiene
+1. Created GF-XM (gate_init=0.03) and GF-XR (gate_init=0.97) extreme ratio variants
+2. Ran 500-step training + S0-S4 graduation on both
+3. **Key Finding (Observation 14):** Bidirectional attractor zone ~0.06-0.27 R/M
+   - GF-XM drifted 0.03→0.25 (toward RWKV)
+   - GF-XR drifted 0.97→0.27 (toward Mamba)
+4. Added `print_test_header()` to graduation suite for proper logging
+5. Documented in V4_FUSION_MODELS.md as Observation 14
 
 ---
 
@@ -75,10 +77,13 @@ python -c "from models import list_models; print(list_models())"
 | Issue | Status | Notes |
 |-------|--------|-------|
 | G4 Gradient Imbalance | ⚠️ WARN | Mamba grads 10x larger than RWKV |
-| S4 State Variance | ⚠️ WARN | 108,583x ratio (Mamba near-dormant) |
-| Gate Drift | ⚠️ INFO | 0.3→0.7 (RWKV dominance increased) |
+| S4 State Variance | ⚠️ WARN | 66K-124K ratio (architecture-dependent) |
+| Gate Attractor | ℹ️ INFO | All gates converge to 0.06-0.27 zone |
 
-**Decision:** Proceed with known imbalance — model still learns (37.9% better than random).
+**Finding (Observation 14):** Optimizer finds loss-minimizing attractor regardless of init.
+- GF-XM (0.03 init): 66K S4 ratio, 1.81 val loss
+- GF-MH (0.30 init): 88K S4 ratio, ~1.58 val loss ← still best
+- GF-XR (0.97 init): 124K S4 ratio, 1.96 val loss
 
 ---
 

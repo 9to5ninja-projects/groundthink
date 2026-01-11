@@ -1,10 +1,10 @@
 # V4 Strategy Document - Task Backlog
 
 **Created:** 2026-01-08  
-**Updated:** 2026-01-10 (Phase 4.0 graduation complete)  
+**Updated:** 2026-01-10 (Observation 14: Attractor Behavior)  
 **Repository:** https://github.com/9to5ninja-projects/groundthink  
 **Purpose:** Ordered queue of tasks to be completed one at a time  
-**Current Goal:** ✅ Phase 4.0 PASSED — Next: Task 47 (fusion re-ranking) or Task 48 (balance investigation)
+**Current Goal:** ✅ Phase 4.0 PASSED — Task 48a COMPLETE, Next: Task 52+ (diagnostic tools)
 
 ---
 
@@ -694,9 +694,10 @@ See [V5_GATING.md](V5_GATING.md) for cross-comparison plan, [STATEFUL_VALIDATION
 7. ~~**Task 46** — Checkpoint/resume test~~ ✅ DONE (21.5 MB, diff=0)
 8. ~~**Task 49** — Propagate state API to all models~~ ✅ DONE
 9. ~~**Task 50** — Add state monitoring to training~~ ✅ DONE
-10. **Task 47** — Re-rank fusion variants with BPE ⬜ **NEXT**
-11. **Task 48** — Component balance investigation ⬜ TODO
-12. **Tasks 52-60** — Advanced diagnostics ⬜ TODO
+10. **Task 47** — Re-rank fusion variants with BPE ⬜ TODO
+11. **Task 48a** — Extreme ratio experiments (GF-XM, GF-XR) ✅ COMPLETE (Observation 14)
+12. **Task 48** — Component balance investigation ⬜ TODO (informed by 48a)
+13. **Tasks 52-60** — Advanced diagnostics ⬜ **NEXT**
 
 **Gate:** ✅ Phase 4.0 PASSED (2026-01-10) — Core graduation criteria met.
 

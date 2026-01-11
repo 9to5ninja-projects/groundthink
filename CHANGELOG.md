@@ -6,6 +6,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [5.0-Alpha] - 2026-01-10 (Observation 14: Attractor Behavior)
+
+### Summary
+**ARCHITECTURE INSIGHT.** Extreme ratio experiments reveal bidirectional attractor zone (~0.06-0.27 R/M). Both Mamba-extreme (0.03) and RWKV-extreme (0.97) inits converge toward center. This is thermodynamic-like behavior — the loss landscape has a preferred operating regime.
+
+### Added
+- **GF-XM variant**: gate_init=0.03 (3% RWKV, 97% Mamba at init)
+- **GF-XR variant**: gate_init=0.97 (97% RWKV, 3% Mamba at init)
+- **print_test_header()**: Proper logging in tests/test_tiny_graduation.py
+- **Observation 14**: Documented in V4_FUSION_MODELS.md
+
+### Changed
+- **models/hybrid_v4_ratio.py**: Added create_hybrid_GF_XM_5m(), create_hybrid_GF_XR_5m()
+- **models/__init__.py**: Registered GF-XM, GF-XR in REGISTRY
+- **data/tokenizer.py**: Added GF-XM, GF-XR to CHAR_SCALES set
+- **V4_STRATEGY.md**: Task 48a marked COMPLETE
+
+### Key Finding: Bidirectional Attractor
+| Model | Init Gate | Final Gate | Drift |
+|-------|-----------|------------|-------|
+| GF-XM | 0.03 | 0.25 | ↑ toward RWKV |
+| GF-MH | 0.30 | 0.18 | ↓ slight |
+| GF-XR | 0.97 | 0.27 | ↓↓ strong toward Mamba |
+
+**Implication:** Gate init doesn't solve imbalance — optimizer finds loss-minimizing zone.
+
+---
+
 ## [5.0-Alpha] - 2026-01-10 (Documentation Harmony + V5 Gate)
 
 ### Summary

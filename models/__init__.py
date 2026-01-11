@@ -126,6 +126,8 @@ def list_models(show=False):
         # GF Ratio variants
         'GF-RH':  '3.6M | Gated Fusion RWKV-Heavy (gate 0.7)',
         'GF-MH':  '3.6M | Gated Fusion Mamba-Heavy (gate 0.3) ★ PHASE 2 WINNER',
+        'GF-XM':  '3.6M | eXtreme Mamba (gate 0.03) - Observation 14',
+        'GF-XR':  '3.6M | eXtreme RWKV (gate 0.97) - Observation 14',
         
         # Legacy aliases
         '1M':     '→ tiny (legacy alias)',
