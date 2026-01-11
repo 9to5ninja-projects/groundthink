@@ -12,10 +12,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 **HOUSEKEEPING SESSION.** Consolidated documentation, established SOP, cleaned dependencies, and defined V5 as a gate (not a version bump). V5 blocks 8M scaling until Tasks 62-66 pass.
 
 ### Added
-- **V5_GATING.md**: GPT-2 cross-comparison strategy with CER, UCW, SPS metrics
+- **V5_GATING.md**: GPT-2 cross-comparison strategy (624→1056 lines)
+  - GPT-2 architecture configs for all scales (3.5M/8M/30M/125M)
+  - Statefulness tests (Tier 1-3)
+  - Inference speed protocol with CER formula
+  - Decision thresholds (Good Enough/Promising/Excellent)
+  - Red line STOP conditions
+  - All 4 open questions resolved
 - **LICENSE**: MIT license with experimental research disclaimer and attribution table
 - **REQUIREMENTS_ANALYSIS.md**: Dependency audit with hardware requirements
 - **CONTRIBUTING.md**: Documentation & Versioning SOP (prevents future doc sprawl)
+- **tools/check_refs.sh**: Stale reference validator (run before push)
 - **Task 66**: Validation tooling (StateTracer, GroundingScorer) as V5 prerequisite
 
 ### Changed

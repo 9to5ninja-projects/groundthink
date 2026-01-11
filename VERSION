@@ -2,9 +2,9 @@
 Created: 2026-01-08
 Updated: 2026-01-10
 Status: GRADUATION COMPLETE — GF-MH passes all validation gates
-Current Focus: V5 gate prerequisites (Tasks 62-66), then 8M scaling
+Current Focus: Diagnostic tooling (Tasks 52-61), then V5 gate (Tasks 62-66)
 
 For detailed version history, see CHANGELOG.md
-For next steps, see V4_STRATEGY.md (Tasks 62-66)
+For next steps, see V4_STRATEGY.md
 For V5 gate criteria, see V5_GATING.md
 For graduation results, see CANARY_TESTS.md
