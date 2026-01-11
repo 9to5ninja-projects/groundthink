@@ -827,6 +827,56 @@ These phases used **char-level tokenization** (Shakespeare) for quick sanity che
 
 ---
 
+### Housekeeping: Code Consolidation (Non-Blocking)
+
+**Purpose:** Clean up root Python files from early development. Does not affect model functionality.
+
+**Completed (2026-01-10):**
+- ✅ Archived 4 orphaned files: `train.py`, `layers.py`, `model.py`, `config.py`
+  - These used broken relative imports or referenced archived dependencies
+  - Active trainer is `train_v4.py` (uses models/ registry)
+
+**Task 61: Consolidate ops/ Package**
+
+| Status | Priority | Risk | Effort |
+|--------|----------|------|--------|
+| ⬜ TODO | P3 (Low) | Medium | 1-2 hrs |
+
+**Current State:**
+```
+groundthink/
+├── fla_replacements.py      # Hub for RWKV6/Mamba2 imports
+├── rwkv6_prototype.py       # PyTorch RWKV6 fallback
+├── rwkv6_cuda_wrapper.py    # Our CUDA kernel wrapper
+├── ops/                     # Exists but underutilized
+```
+
+**Target State:**
+```
+groundthink/
+├── ops/
+│   ├── __init__.py          # Exports RWKV6Attention, Mamba2
+│   ├── fla_replacements.py  # (renamed: cuda_backends.py?)
+│   ├── rwkv6_prototype.py   
+│   └── rwkv6_cuda_wrapper.py
+```
+
+**Dependencies to Update (10 files):**
+- models/hybrid_v4*.py (8 files): `from fla_replacements` → `from ops`
+- tests/test_phase0_complete.py
+- Internal cross-imports within the 3 files
+
+**Risk:**
+- If any import path is wrong, ALL models break
+- Requires testing each model variant after move
+
+**Note on FLA Library:**
+FLA (`flash-linear-attention`) is **no longer used** in the active codebase. We built our own CUDA kernel (`rwkv6_cuda_wrapper.py`) to resolve Windows/MSVC incompatibilities. FLA references only exist in archived files. The module `fla_replacements.py` is now a misnomer — consider renaming to `cuda_backends.py` during consolidation.
+
+**Recommendation:** Defer until after Task 47/48. Low priority, non-blocking.
+
+---
+
 #### Task 41a: State Extraction API
 
 **Status:** ✅ COMPLETE (2026-01-10, Build Session 16)  
