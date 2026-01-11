@@ -2,8 +2,9 @@
 Created: 2026-01-08
 Updated: 2026-01-10
 Status: GRADUATION COMPLETE — GF-MH passes all validation gates
-Current Focus: Scale to 8M (Task 47) or long-context evaluation (Task 48)
+Current Focus: V5 gate prerequisites (Tasks 62-66), then 8M scaling
 
 For detailed version history, see CHANGELOG.md
-For next steps, see V4_STRATEGY.md Phase 5.0
-For graduation results, see STATEFUL_VALIDATION_GUIDE.md
+For next steps, see V4_STRATEGY.md (Tasks 62-66)
+For V5 gate criteria, see V5_GATING.md
+For graduation results, see CANARY_TESTS.md

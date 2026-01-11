@@ -50,14 +50,48 @@ Example:
 
 ### Archive Policy
 
-| File Type | Archive When | Keep In Root |
-|-----------|--------------|--------------|
-| Session-dated files | Immediately after session | Never |
-| Superseded docs | When replaced by consolidated doc | Never |
-| Legacy code | When new implementation verified | Never |
-| Research notes | When integrated into main docs | Never |
+| Condition | Action |
+|-----------|--------|
+| Content moved elsewhere | Archive with commit note citing destination |
+| Session-dated file | Archive immediately after session ends |
+| No references for 30+ days | Archive with "orphaned" note |
+| Superseded by consolidation | Archive, update refs in remaining docs |
+
+**Never archive:** README.md, CHANGELOG.md, LICENSE, CONTRIBUTING.md, VERSION
 
 **Archive path:** `archive/[original-filename]`
+
+### Locked Terminology
+
+| Term | Meaning | NOT This |
+|------|---------|----------|
+| V5 | Gate (blocker for 8M scaling) | Not a version bump |
+| Phase 4.0 | 3.5M validation complete | — |
+| GF-MH | Gated Fusion Mamba-Heavy | Not "hybrid" or "fusion model" |
+| Tasks 62-66 | V5 gate prerequisites | Not "Phase 5 tasks" |
+| cuda_backends.py | CUDA kernel hub | Not "FLA" (FLA removed) |
+| CER | Compute-Efficiency Ratio | — |
+| UCW | Useful Context Window | — |
+| SPS | State Persistence Score | — |
+
+**Rule:** Use locked terms consistently. If you need a new term, add it here first.
+
+### Before Creating a New Document
+
+1. **Check existing docs first** — 80% of content belongs in CHANGELOG, V4_STRATEGY, or existing doc
+2. **If new doc needed:**
+   - Add entry to this table (Single Source of Truth)
+   - Include "Owner" (who updates) and "Archive Trigger" in header
+3. **Session-dated files** (e.g., NOTES_2026_01_10.md) go directly to `archive/`
+
+### Commit Hygiene
+
+| Trigger | Action |
+|---------|--------|
+| "SOP commit" | Update CHANGELOG + VERSION → commit → push |
+| "SOP review" | Update CHANGELOG + VERSION → show diff → wait for approval |
+| Session end | Always push before closing |
+| Logical milestone | Commit immediately (don't batch unrelated changes) |
 
 ### Handoff Document Rules
 

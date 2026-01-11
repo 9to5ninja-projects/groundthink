@@ -6,6 +6,42 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [5.0-Alpha] - 2026-01-10 (Documentation Harmony + V5 Gate)
+
+### Summary
+**HOUSEKEEPING SESSION.** Consolidated documentation, established SOP, cleaned dependencies, and defined V5 as a gate (not a version bump). V5 blocks 8M scaling until Tasks 62-66 pass.
+
+### Added
+- **V5_GATING.md**: GPT-2 cross-comparison strategy with CER, UCW, SPS metrics
+- **LICENSE**: MIT license with experimental research disclaimer and attribution table
+- **REQUIREMENTS_ANALYSIS.md**: Dependency audit with hardware requirements
+- **CONTRIBUTING.md**: Documentation & Versioning SOP (prevents future doc sprawl)
+- **Task 66**: Validation tooling (StateTracer, GroundingScorer) as V5 prerequisite
+
+### Changed
+- **cuda_backends.py**: Renamed from fla_replacements.py (FLA no longer used)
+- **requirements.txt**: Cleaned—removed 6 unused packages, added mamba-ssm/causal-conv1d
+- **GETTING_STARTED.md**: Rewritten with current test suite and hardware requirements
+- **V4_STRATEGY.md**: Tasks 62-66 are now V5 gate prerequisites
+
+### Archived
+- Dockerfile (v1/v2 era, vast.ai reference—using SSH now)
+- SCALING_MILESTONES.md (content moved to V5_GATING.md)
+- 19+ session-dated/redundant files (from earlier consolidation pass)
+
+### V5 Gate Prerequisites (Tasks 62-66)
+| Task | Description | Status |
+|------|-------------|--------|
+| 62 | Train GPT-2 baseline (8M) | ⬜ TODO |
+| 63 | Run CER comparison (8M) | ⬜ TODO |
+| 64 | Useful Context Window test | ⬜ TODO |
+| 65 | State Persistence Score test | ⬜ TODO |
+| 66 | Implement validation tooling | ⬜ TODO |
+
+**V5 is a blocker—no 8M scaling until all pass.**
+
+---
+
 ## [5.0-Alpha] - 2026-01-10 (Phase 4.0 Complete)
 
 ### Summary
