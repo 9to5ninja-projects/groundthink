@@ -27,6 +27,7 @@ from .hybrid_v4_CP import create_hybrid_CP_5m
 from .hybrid_v4_ratio import create_hybrid_GF_RH_5m, create_hybrid_GF_MH_5m, create_hybrid_GF_XM_5m, create_hybrid_GF_XR_5m
 from .hybrid_v4_8m import create_hybrid_GF_MH_8m
 from .hybrid_v4_HGF import create_hgf_balanced, create_hgf_mamba_heavy, create_hgf_rwkv_heavy
+from .gpt2 import create_gpt2_5m, create_gpt2_3m, create_gpt2_8m
 
 
 # Model registry - maps user-friendly names to factory functions
@@ -59,6 +60,11 @@ REGISTRY = {
     '1M': create_hybrid_1m,            # -> TINY
     '5M': create_hybrid_5m,            # -> SMALL  
     '8M': create_hybrid_GF_MH_8m,      # -> MEDIUM
+    
+    # === Baselines (for controlled comparison) ===
+    'GPT2': create_gpt2_5m,            # GPT-2 baseline ~5.5M params
+    'GPT2-3M': create_gpt2_3m,         # Smaller GPT-2 for quick tests
+    'GPT2-8M': create_gpt2_8m,         # Larger GPT-2 for scaling
 }
 
 
