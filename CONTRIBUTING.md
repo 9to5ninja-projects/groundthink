@@ -4,12 +4,94 @@
 
 ---
 
+## Documentation & Versioning SOP
+
+### The Problem We Solved
+
+Session-dated files, redundant docs, orphaned code, and stale meta-documents accumulated because there were no rules. This SOP prevents that.
+
+### Single Source of Truth
+
+| What | Where | NOT Here |
+|------|-------|----------|
+| Current version | `VERSION` | ~~VERSIONS.md, VERSION_REGISTRY.md~~ |
+| Version history | `CHANGELOG.md` | ~~V4_BUILD_LOG.md~~ |
+| Task backlog | `V4_STRATEGY.md` | ~~session summaries~~ |
+| Current status | `V4_HANDOFF.md` | ~~V4_STRATEGY.md header~~ |
+| Test definitions | `V4_TESTING.md` + `CANARY_TESTS.md` | ~~scattered in strategy~~ |
+| V5 planning | `V5_GATING.md` | — |
+
+### Document Creation Rules
+
+| Situation | Action | Wrong Action |
+|-----------|--------|--------------|
+| New task/phase | Add to `V4_STRATEGY.md` | ❌ Create PHASE_X_SUMMARY.md |
+| Session notes | Add to commit message | ❌ Create SESSION_2026_01_10.md |
+| Audit findings | Update relevant doc | ❌ Create AUDIT_COMPLETE.md |
+| New metric | Add to `V4_TESTING.md` | ❌ Create METRICS.md |
+| Completed phase | Update `CHANGELOG.md` + `VERSION` | ❌ Create PHASE_COMPLETE.md |
+
+### Version Bump Protocol
+
+```
+When to bump VERSION:
+- Phase completion → Minor bump (4.0 → 5.0)
+- Significant milestone → Patch bump (5.0 → 5.1)
+- Breaking change → Major bump (v4 → v5 architecture change)
+
+VERSION format:
+  X.Y-Status (Phase Z.W Complete)
+  
+Example:
+  5.0-Alpha (Phase 4.0 Complete)
+```
+
+**Always update CHANGELOG.md when bumping VERSION.**
+
+### Archive Policy
+
+| File Type | Archive When | Keep In Root |
+|-----------|--------------|--------------|
+| Session-dated files | Immediately after session | Never |
+| Superseded docs | When replaced by consolidated doc | Never |
+| Legacy code | When new implementation verified | Never |
+| Research notes | When integrated into main docs | Never |
+
+**Archive path:** `archive/[original-filename]`
+
+### Handoff Document Rules
+
+`V4_HANDOFF.md` must stay under 100 lines. It contains:
+1. Current version/phase (1 line)
+2. Last session summary (5 lines max)
+3. Next actions (5 lines max)
+4. Quick start commands (10 lines)
+5. Links to detailed docs
+
+**If it grows past 100 lines:** Content belongs elsewhere. Move to V4_STRATEGY.md or create appropriate doc.
+
+### Code File Rules
+
+| Location | Purpose | Examples |
+|----------|---------|----------|
+| Root | Entry points, utilities | train_v4.py, cuda_backends.py |
+| `models/` | Model variants | hybrid_v4_GF.py |
+| `tests/` | Test harnesses | test_tiny_graduation.py |
+| `tools/` | Utility scripts | benchmark_suite.py |
+| `ops/` | CUDA operations | (future consolidation) |
+| `archive/` | Deprecated code | train.py, layers.py |
+
+**Rule:** If a file imports from archived files, it should also be archived.
+
+---
+
 ## Document Naming Convention
 
 | Prefix | Purpose | Example |
 |--------|---------|---------|
 | `V4_` | Core documentation (current architecture) | V4_DESIGN.md, V4_STRATEGY.md |
 | `V4.5_` | Lessons learned for future versions | V4.5_CUDA_KERNELS.md |
+| `V5_` | Next major version planning | V5_GATING.md |
 | No prefix | Standard files (README, CHANGELOG, etc.) | CHANGELOG.md, VERSION |
 | `archive/` | Superseded documents (keep for reference) | archive/V4_BUILD_LOG.md |
 
