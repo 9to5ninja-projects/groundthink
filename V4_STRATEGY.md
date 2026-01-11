@@ -780,8 +780,8 @@ Low priority — output proxy sufficient for diagnostics
 | Task | Purpose | Output | Status |
 |------|---------|--------|--------|
 | 52 | D1-D4 diagnostic tests | `tests/test_diagnostics.py` | ✅ COMPLETE |
-| 53 | State tracking metrics | `tools/state_metrics.py` | ⬜ TODO |
-| 54 | Gradient-state coupling | `tools/gradient_coupling_analyzer.py` | ⬜ TODO |
+| 53 | State tracking metrics | `tools/state_metrics.py` | ✅ COMPLETE |
+| 54 | Gradient-state coupling | `tools/gradient_coupling.py` | ✅ COMPLETE |
 | 55 | Information flow tracer | `tools/information_flow_tracer.py` | ⬜ TODO |
 | 56 | Threshold consolidation | `METRIC_THRESHOLDS.md` | ⬜ TODO |
 | 57 | Enhanced --log-states | train_v4.py update | ⬜ TODO |
