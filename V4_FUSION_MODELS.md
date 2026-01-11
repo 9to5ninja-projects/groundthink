@@ -631,6 +631,42 @@ The idea of scheduled component warmups still makes sense, but:
 
 ---
 
+### Observation 15: D1-D4 Diagnostic Results (2026-01-10)
+
+**Purpose:** Quantitative analysis of state behavior beyond pass/fail tests.
+
+**Test Suite:** `tests/test_diagnostics.py` (Task 52)
+
+| Test | What It Measures | GF-MH Result | Status |
+|------|------------------|--------------|--------|
+| **D1** | State divergence (norm growth over seq) | RWKV 2.5x, Mamba 0.91x | ⚠️ WARN |
+| **D2** | State collapse (variance across inputs) | RWKV 26931, Mamba 0.09 | ✓ PASS |
+| **D3** | Component contribution (by state norm) | RWKV 99.8%, Mamba 0.2% | ⚠️ WARN |
+| **D4** | Information flow (early→late) | 65% relative diff | ✓ PASS |
+
+**D1 Details (State Divergence):**
+```
+Position   64: RWKV norm=992,  Mamba norm=3.81
+Position  128: RWKV norm=2008, Mamba norm=3.69
+Position  256: RWKV norm=2635, Mamba norm=3.62
+Position  512: RWKV norm=2492, Mamba norm=3.46
+
+RWKV growth ratio (512/64): 2.51x
+Mamba growth ratio (512/64): 0.91x
+```
+
+**Key Insight:** RWKV accumulates state (grows with sequence), Mamba selectively filters (stable norm). This explains the imbalance: RWKV's accumulator naturally dominates.
+
+**D3 Implication:** 
+The 0.2% Mamba contribution by state norm aligns with Observation 14's attractor finding. The optimizer settles in a regime where RWKV handles most of the work, with Mamba providing marginal refinement.
+
+**Architecture Interpretation:**
+- D2 PASS + D4 PASS = Both components are **functional** (not dead)
+- D1 WARN + D3 WARN = Contribution is **asymmetric** (by design?)
+- This may be the natural equilibrium for this hybrid architecture
+
+---
+
 ## The Missing Piece: HGF (Hybrid-Gated Fusion)
 
 **Implemented:** Combines HY's per-dimension control with GF's per-position adaptivity.

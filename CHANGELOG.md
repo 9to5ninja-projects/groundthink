@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [5.0-Alpha] - 2026-01-10 (Task 52: D1-D4 Diagnostics)
+
+### Summary
+**DIAGNOSTIC TOOLING.** Implemented D1-D4 tests to analyze state behavior beyond pass/fail graduation. Confirms known imbalance pattern quantitatively.
+
+### Added
+- **tests/test_diagnostics.py** (373 lines): D1-D4 diagnostic suite
+  - D1: State divergence (norm growth over sequence)
+  - D2: State collapse (variance across inputs)
+  - D3: Component interaction (contribution by state norm)
+  - D4: Information flow (early input affects late output)
+
+### D1-D4 Results on GF-MH
+| Test | Status | Finding |
+|------|--------|----------|
+| D1 | ⚠️ WARN | RWKV norm grows 2.5x over 512 tokens |
+| D2 | ✅ PASS | Both states vary (RWKV var=26931, Mamba var=0.09) |
+| D3 | ⚠️ WARN | Mamba only 0.2% contribution by state norm |
+| D4 | ✅ PASS | 65% relative diff — information flows through |
+
+**Implication:** Architecture works (D2, D4 pass) but component imbalance is real (D1, D3 warn).
+
+---
+
 ## [5.0-Alpha] - 2026-01-10 (Observation 14: Attractor Behavior)
 
 ### Summary

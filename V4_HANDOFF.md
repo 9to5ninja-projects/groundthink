@@ -20,13 +20,13 @@
 
 ## Last Session (2026-01-10)
 
-1. Created GF-XM (gate_init=0.03) and GF-XR (gate_init=0.97) extreme ratio variants
-2. Ran 500-step training + S0-S4 graduation on both
-3. **Key Finding (Observation 14):** Bidirectional attractor zone ~0.06-0.27 R/M
-   - GF-XM drifted 0.03→0.25 (toward RWKV)
-   - GF-XR drifted 0.97→0.27 (toward Mamba)
-4. Added `print_test_header()` to graduation suite for proper logging
-5. Documented in V4_FUSION_MODELS.md as Observation 14
+1. Created GF-XM/GF-XR extreme ratio variants (Observation 14: attractor behavior)
+2. **Task 52 COMPLETE:** D1-D4 diagnostic tests in `tests/test_diagnostics.py`
+   - D1: State divergence → ⚠️ WARN (RWKV grows 2.5x over 512 tokens)
+   - D2: State collapse → ✅ PASS (both states vary with input)
+   - D3: Component interaction → ⚠️ WARN (Mamba 0.2% contribution)
+   - D4: Information flow → ✅ PASS (65% relative diff)
+3. Diagnostics confirm known imbalance pattern from Observation 14
 
 ---
 
@@ -69,6 +69,7 @@ python -c "from models import list_models; print(list_models())"
 | [STATEFUL_VALIDATION_GUIDE.md](STATEFUL_VALIDATION_GUIDE.md) | Test harness documentation |
 | [CANARY_TESTS.md](CANARY_TESTS.md) | S0-S4 and G1-G4 definitions |
 | [tests/test_tiny_graduation.py](tests/test_tiny_graduation.py) | Unified test harness |
+| [tests/test_diagnostics.py](tests/test_diagnostics.py) | D1-D4 diagnostic analysis |
 
 ---
 
@@ -78,6 +79,8 @@ python -c "from models import list_models; print(list_models())"
 |-------|--------|-------|
 | G4 Gradient Imbalance | ⚠️ WARN | Mamba grads 10x larger than RWKV |
 | S4 State Variance | ⚠️ WARN | 66K-124K ratio (architecture-dependent) |
+| D1 State Divergence | ⚠️ WARN | RWKV norm grows 2.5x over 512 tokens |
+| D3 Component Balance | ⚠️ WARN | Mamba only 0.2% contribution by state norm |
 | Gate Attractor | ℹ️ INFO | All gates converge to 0.06-0.27 zone |
 
 **Finding (Observation 14):** Optimizer finds loss-minimizing attractor regardless of init.
