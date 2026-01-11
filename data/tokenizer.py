@@ -241,6 +241,7 @@ def get_tokenizer_for_scale(scale: str, corpus_path: str = None, force_bpe: bool
         "TINY", "SMALL", "MEDIUM",  # Primary names
         "1M", "5M", "8M",            # Legacy aliases
         "HY", "GF", "WS", "RF", "CP", "GF-RH", "GF-MH",  # Variants
+        "GF-XM", "GF-XR",           # Extreme ratio variants
         "HGF", "HGF-MH", "HGF-RH",   # HGF variants (per-pos + per-dim gating)
     }
     

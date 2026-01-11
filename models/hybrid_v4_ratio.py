@@ -285,6 +285,37 @@ def create_hybrid_GF_MH_5m(vocab_size: int = 10000) -> HybridModel_GF_Ratio:
     )
 
 
+def create_hybrid_GF_XM_5m(vocab_size: int = 10000) -> HybridModel_GF_Ratio:
+    """eXtreme Mamba: Gate heavily biased toward Mamba (init 0.03)
+    
+    Hypothesis: If optimizer drifts from 70/30 to 90/10 (RWKV dominant),
+    starting at 97/3 (Mamba) might drift to ~70/30 — actually balanced.
+    """
+    return HybridModel_GF_Ratio(
+        vocab_size=vocab_size,
+        hidden_size=128,
+        num_layers=8,
+        num_heads=4,
+        ffn_mult=4.0,
+        gate_init=0.03,  # 3% RWKV, 97% Mamba at init
+    )
+
+
+def create_hybrid_GF_XR_5m(vocab_size: int = 10000) -> HybridModel_GF_Ratio:
+    """eXtreme RWKV: Gate heavily biased toward RWKV (init 0.97)
+    
+    Control experiment: Start nearly-pure RWKV to see drift direction.
+    """
+    return HybridModel_GF_Ratio(
+        vocab_size=vocab_size,
+        hidden_size=128,
+        num_layers=8,
+        num_heads=4,
+        ffn_mult=4.0,
+        gate_init=0.97,  # 97% RWKV, 3% Mamba at init
+    )
+
+
 # Quick test
 if __name__ == "__main__":
     print("Testing Ratio Variants...")
@@ -294,6 +325,8 @@ if __name__ == "__main__":
     for name, create_fn, expected_gate in [
         ("GF-RH (RWKV-Heavy)", create_hybrid_GF_RH_5m, 0.7),
         ("GF-MH (Mamba-Heavy)", create_hybrid_GF_MH_5m, 0.3),
+        ("GF-XM (eXtreme Mamba)", create_hybrid_GF_XM_5m, 0.03),
+        ("GF-XR (eXtreme RWKV)", create_hybrid_GF_XR_5m, 0.97),
     ]:
         print(f"\n{name}:")
         model = create_fn(vocab_size=256).to(device)

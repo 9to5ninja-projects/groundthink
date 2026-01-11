@@ -52,6 +52,21 @@ MODEL_NAME = 'GF-MH'  # Default model for graduation tests
 VOCAB_SIZE = 16000    # BPE vocab size
 
 
+def print_test_header(model_name: str, vocab_size: int, test_type: str = "Graduation"):
+    """Print detailed test header for logging."""
+    import datetime
+    print("\n" + "=" * 70)
+    print(f" GROUNDTHINK {test_type.upper()} TEST SUITE")
+    print("=" * 70)
+    print(f"  Timestamp: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"  Model: {model_name}")
+    print(f"  Vocab Size: {vocab_size:,}")
+    print(f"  Device: {DEVICE}")
+    print(f"  PyTorch: {torch.__version__}")
+    print(f"  CUDA: {torch.version.cuda if torch.cuda.is_available() else 'N/A'}")
+    print("=" * 70)
+
+
 # =============================================================================
 # S0-S4: State Space Fundamentals
 # =============================================================================
@@ -701,8 +716,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     MODEL_NAME = args.model
-    print(f"Testing model: {MODEL_NAME}")
-    print(f"Device: {DEVICE}")
+    
+    # Print detailed header for logging
+    print_test_header(MODEL_NAME, VOCAB_SIZE, "Graduation")
     
     # If no specific test requested, run states only (quick check)
     run_all = args.all

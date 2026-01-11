@@ -24,7 +24,7 @@ from .hybrid_v4_GF import create_hybrid_GF_5m
 from .hybrid_v4_WS import create_hybrid_WS_5m
 from .hybrid_v4_RF import create_hybrid_RF_5m
 from .hybrid_v4_CP import create_hybrid_CP_5m
-from .hybrid_v4_ratio import create_hybrid_GF_RH_5m, create_hybrid_GF_MH_5m
+from .hybrid_v4_ratio import create_hybrid_GF_RH_5m, create_hybrid_GF_MH_5m, create_hybrid_GF_XM_5m, create_hybrid_GF_XR_5m
 from .hybrid_v4_8m import create_hybrid_GF_MH_8m
 from .hybrid_v4_HGF import create_hgf_balanced, create_hgf_mamba_heavy, create_hgf_rwkv_heavy
 
@@ -52,6 +52,8 @@ REGISTRY = {
     # === Ratio variants (SMALL scale, GF fusion) ===
     'GF-RH': create_hybrid_GF_RH_5m,   # RWKV-Heavy (gate init 0.7)
     'GF-MH': create_hybrid_GF_MH_5m,   # Mamba-Heavy (gate init 0.3) - Phase 2 WINNER
+    'GF-XM': create_hybrid_GF_XM_5m,   # eXtreme Mamba (gate init 0.03) - 3% RWKV
+    'GF-XR': create_hybrid_GF_XR_5m,   # eXtreme RWKV (gate init 0.97) - 97% RWKV
     
     # === Legacy aliases (for backward compatibility) ===
     '1M': create_hybrid_1m,            # -> TINY

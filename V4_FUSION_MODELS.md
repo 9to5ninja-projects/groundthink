@@ -575,6 +575,62 @@ state_ratio = rwkv_norm / mamba_norm  # Expect 50-200x
 
 ---
 
+### Observation 14: Extreme Ratio Experiments — Attractor Behavior (2026-01-10)
+
+**Hypothesis:** If optimizer drifts from 70/30 → 90/10 (RWKV dominant), maybe starting at 97/3 (extreme Mamba) would drift to ~70/30 final — actually balanced.
+
+**New Variants Created:**
+- **GF-XM** (eXtreme Mamba): gate_init=0.03 (3% RWKV, 97% Mamba at start)
+- **GF-XR** (eXtreme RWKV): gate_init=0.97 (97% RWKV, 3% Mamba at start)
+
+**Training Results (500 steps, char-level Shakespeare):**
+
+| Model | Init Gate | Final R/M | Act Variance | Val Loss | Drift Direction |
+|-------|-----------|-----------|--------------|----------|-----------------|
+| GF-XM | 0.03 (3% RWKV) | 0.06 | 83x | **1.81** | → RWKV (worse) |
+| GF-XR | 0.97 (97% RWKV) | 0.27 | 239x | 1.96 | → Mamba (better!) |
+| GF-MH | 0.30 (30% RWKV) | ~0.10 | ~80x | ~1.58 | → RWKV (baseline) |
+
+**Graduation Suite Results (S0-S4, untrained):**
+
+| Model | Gate Init | S0-S3 | S4 Variance Ratio | RWKV Norm | Mamba Norm |
+|-------|-----------|-------|-------------------|-----------|------------|
+| GF-XM | 0.03 | ✓ ALL PASS | 66,103x ⚠️ | 401 | 3.47 |
+| GF-MH | 0.30 | ✓ ALL PASS | 87,730x ⚠️ | 617 | 3.63 |
+| GF-XR | 0.97 | ✓ ALL PASS | 124,317x ⚠️ | 650 | 3.61 |
+
+**Key Finding: Bidirectional Attractor**
+
+```
+Start extreme Mamba (0.03) ──→ drifts to 0.06 (toward RWKV)
+Start extreme RWKV (0.97) ──→ drifts to 0.27 (toward Mamba!)
+                              ↓
+                    Attractor zone: 0.06-0.27
+```
+
+**Why This Matters:**
+1. **Optimizer converges to a loss-minimizing attractor**, not blindly preferring RWKV
+2. **GF-XR showed Mamba CAN contribute** when RWKV is so dominant the optimizer needs alternatives
+3. **GF-XM had better loss** (1.81 vs 1.96) but GF-XR had better balance (0.27 vs 0.06)
+4. **Neither solved imbalance** — just shifted the attractor zone
+5. **S4 variance ratio is architecture-dependent**, not just gate-dependent:
+   - GF-XM (most Mamba): 66K ratio (best)
+   - GF-MH (moderate): 88K ratio
+   - GF-XR (most RWKV): 124K ratio (worst)
+
+**Implication for Warmup Scheduling:**
+The idea of scheduled component warmups still makes sense, but:
+- We need a **working model** to fine-tune from, not broken-to-fixed tweaking
+- Starting extreme-RWKV forces Mamba to work harder initially
+- RWKV may genuinely need a boost since "there is less of it in essence" in the hybrid
+
+**Next Steps:**
+- Test with BPE tokenization (where Mamba contributes naturally)
+- Consider asymmetric warmup: freeze RWKV for N steps, let Mamba catch up
+- Focus on diagnostic tools before more ratio experiments
+
+---
+
 ## The Missing Piece: HGF (Hybrid-Gated Fusion)
 
 **Implemented:** Combines HY's per-dimension control with GF's per-position adaptivity.
