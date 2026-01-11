@@ -667,6 +667,114 @@ The 0.2% Mamba contribution by state norm aligns with Observation 14's attractor
 
 ---
 
+### Observation 16: Synthesis — Connecting the Dots (2026-01-10)
+
+**Purpose:** Map causal relationships between observed metrics. Build a coherent model of what's happening.
+
+#### The Evidence Chain
+
+| Metric | Observed | Source |
+|--------|----------|--------|
+| **A.** Gate drift | 0.3→0.7 (RWKV increases) | Task 45, Observation 14 |
+| **B.** State norm ratio | RWKV 200x > Mamba | S1, D1 |
+| **C.** State variance ratio | 66K-124K (RWKV dominates) | S4 |
+| **D.** Gradient ratio | Mamba 10x > RWKV | G4, Task 54 |
+| **E.** Contribution by norm | RWKV 99.8%, Mamba 0.2% | D3 |
+| **F.** Attractor zone | All inits converge to 0.06-0.27 | Observation 14 |
+| **G.** Both components functional | D2 PASS, D4 PASS | Task 52 |
+
+#### Causal Inference: What Causes What?
+
+```
+ARCHITECTURE PROPERTY
+        ↓
+┌───────────────────────────────────────────────────────────────┐
+│ RWKV-6 is an ACCUMULATOR:                                     │
+│   state_{t+1} = decay * state_t + new_info                    │
+│   → State grows with sequence (D1: 2.5x over 512 tokens)      │
+│   → High state norm (B: 200x Mamba)                           │
+│   → High state variance (C: 66K-124K ratio)                   │
+│                                                               │
+│ Mamba-2 is a SELECTOR:                                        │
+│   state = selective_scan(filter(input))                       │
+│   → State stays bounded (D1: 0.91x, slightly shrinks)         │
+│   → Low state norm (B: 1/200th of RWKV)                       │
+│   → Low state variance (C: near-constant)                     │
+└───────────────────────────────────────────────────────────────┘
+        ↓
+GRADIENT DYNAMICS
+        ↓
+┌───────────────────────────────────────────────────────────────┐
+│ Large state → Large activations → Large loss contribution     │
+│ BUT: RWKV params already doing most work (saturated?)         │
+│                                                               │
+│ Small state → Small activations → Small loss contribution     │
+│ BUT: More "room to improve" → Larger gradients to Mamba (D)   │
+│                                                               │
+│ Paradox: Mamba gets 10x larger gradients but contributes 0.2% │
+│ Inference: Mamba's gradients are PULLING but not MOVING much  │
+└───────────────────────────────────────────────────────────────┘
+        ↓
+OPTIMIZER BEHAVIOR
+        ↓
+┌───────────────────────────────────────────────────────────────┐
+│ The gate learns: "RWKV output matters more for loss"          │
+│   → Gate drifts toward higher RWKV weight (A: 0.3→0.7)        │
+│                                                               │
+│ BUT: Complete elimination of Mamba hurts loss                 │
+│   → Attractor zone (F: 0.06-0.27 R/M)                         │
+│   → Mamba provides marginal but real value                    │
+│                                                               │
+│ The equilibrium is: "RWKV does heavy lifting, Mamba refines"  │
+└───────────────────────────────────────────────────────────────┘
+```
+
+#### Key Inferences
+
+1. **The imbalance is architectural, not a bug**
+   - RWKV's recurrence accumulates → naturally larger states
+   - Mamba's selectivity filters → naturally smaller states
+   - This is by design, not broken initialization
+
+2. **Why Mamba gets larger gradients but contributes less**
+   - Gradient ∝ ∂Loss/∂param
+   - Mamba params have MORE room to change (less saturated)
+   - But changing Mamba params has LESS effect on loss (small state)
+   - It's like pushing hard on a door that moves the hinge, not the door
+
+3. **Why extreme inits converge to the same zone**
+   - GF-XM (3% RWKV) → 25%: Optimizer says "need more RWKV"
+   - GF-XR (97% RWKV) → 27%: Optimizer says "need some Mamba"
+   - The loss landscape has a valley at ~10-30% RWKV contribution
+   - This is the thermodynamic equilibrium of this architecture
+
+4. **What Mamba actually provides**
+   - D4 PASS: Information flows through (Mamba participates)
+   - D2 PASS: Mamba state varies with input (not frozen)
+   - Hypothesis: Mamba acts as a **refinement layer**
+     - RWKV provides the "bulk" signal (memory, context)
+     - Mamba provides "edge" corrections (selectivity, precision)
+
+#### Open Questions (For Future Investigation)
+
+| Question | Test to Design |
+|----------|----------------|
+| **Q1:** Does Mamba contribution increase with BPE tokenization? | Task 47 with D3 on BPE |
+| **Q2:** Does Mamba help more on specific token types? | Per-token-type D3 analysis |
+| **Q3:** Is the 10-30% zone optimal or just local minimum? | Train longer, check if zone shifts |
+| **Q4:** Would 2:1 RWKV:Mamba layers work better than 1:1? | New architecture variant |
+| **Q5:** Does the ratio change with model scale (8M, 30M)? | Compare D3 across scales |
+
+#### Practical Implications
+
+1. **Don't fight the attractor** — Starting at extreme ratios wastes early training
+2. **GF-MH (0.3 init) is near-optimal** — Close to attractor, minimal drift waste
+3. **Mamba is not dead, just efficient** — Small contribution ≠ no contribution
+4. **BPE may unlock more Mamba** — Char-level may inherently favor RWKV patterns
+5. **Focus on capability tests, not balance** — The model works (D4 PASS), measure what it can do
+
+---
+
 ## The Missing Piece: HGF (Hybrid-Gated Fusion)
 
 **Implemented:** Combines HY's per-dimension control with GF's per-position adaptivity.
