@@ -797,8 +797,10 @@ These phases used **char-level tokenization** (Shakespeare) for quick sanity che
 | 63 | Run CER comparison (8M) | ⬜ TODO | S | Compute-Efficiency Ratio vs GPT-2-8M |
 | 64 | Run Useful Context Window test | ⬜ TODO | M | Train 2K, eval 2K→32K degradation |
 | 65 | Run State Persistence Score test | ⬜ TODO | M | Fact recall at 5/10/20/50 turns |
+| 66 | Implement validation tooling | ⬜ TODO | L | StateTracer, GroundingScorer per STATEFUL_VALIDATION_GUIDE.md |
 
-**Note:** Tasks 62-65 are V5 prerequisites. See [V5_GATING.md](V5_GATING.md) for full cross-comparison plan.
+**Note:** Tasks 62-66 are V5 gate prerequisites. V5 is a blocker—no 8M scaling until these pass.
+See [V5_GATING.md](V5_GATING.md) for cross-comparison plan, [STATEFUL_VALIDATION_GUIDE.md](STATEFUL_VALIDATION_GUIDE.md) for tool specs.
 
 **Tiny Model Graduation Criteria (per SCALING_MILESTONES.md):**
 | Test | Criteria | BPE Status |
