@@ -1,156 +1,136 @@
-# Getting Started with GroundThink in 5 Minutes
+# Getting Started with GroundThink
 
-**Goal:** Verify your environment and run your first benchmark.
-
----
-
-## Prerequisites
-- **OS:** Linux/WSL (native required; see [README.md](README.md))
-- **Python:** 3.10+
-- **CUDA:** 12.1+ (for GPU acceleration)
-- **Disk:** ~5GB free (for deps + models + checkpoints)
+**Goal:** Verify your environment and run a tiny model test.
 
 ---
 
-## Quick Start (Copy-Paste)
+## Hardware Requirements
+
+| Scale | Min VRAM | Recommended GPU | Notes |
+|-------|----------|-----------------|-------|
+| 3.5M (Tiny) | 4 GB | RTX 4050, 3060 | Development/testing |
+| 8M (Small) | 6 GB | RTX 4060, 3070 | V5 experiments |
+| 30M (Medium) | 12 GB | RTX 4080, 3080 | V5 validation |
+| 125M (Large) | 24 GB | RTX 3090, A6000 | Full training |
+
+**CUDA Compute Capability:** ≥7.0 (Volta or newer)
+
+---
+
+## Software Requirements
+
+| Requirement | Version | Check Command |
+|-------------|---------|---------------|
+| Python | 3.10+ | `python --version` |
+| CUDA | 12.1+ | `nvidia-smi` |
+| GCC | 11+ | `gcc --version` |
+| Linux | Ubuntu 22.04+ | Native or WSL2 |
+
+**Windows:** Not supported for training (CUDA kernel JIT fails). Use WSL2.
+
+---
+
+## Quick Start
 
 ```bash
 # 1. Clone and enter directory
-git clone https://github.com/9to5ninja-projects/groundthink.git
+git clone --recursive https://github.com/9to5ninja-projects/groundthink.git
 cd groundthink
 
-# 2. Setup environment
+# 2. Create and activate venv
 python -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
+
+# 3. Install core dependencies
 pip install -r requirements.txt
 
-# 3. Optional: Faster Mamba kernels (Linux only)
-pip install causal-conv1d mamba-ssm
+# 4. Install CUDA kernels (required for GPU)
+pip install mamba-ssm causal-conv1d
 
-# 4. Verify everything works
-python test_phase0_complete.py
-
-# 5. Run your first benchmark (takes ~20 min on A100)
-python benchmark_variants.py
+# 5. Run the test suite
+python -m pytest tests/test_tiny_graduation.py -v
 ```
 
 ---
 
-## What Happened?
+## What the Tests Verify
 
-✅ **test_phase0_complete.py** verified:
-- CUDA detection
-- PyTorch installation
-- FLA library working
-- Model forward pass (no crashes)
+| Test Group | What It Checks |
+|------------|----------------|
+| `--states` | State accumulation (S0-S4) works correctly |
+| `--gates` | G1-G4 gate values are in expected ranges |
+| `--overfit` | Model can memorize a micro-batch |
+| `--baseline` | train_v4.py runs without crash |
+| `--checkpoint` | Resume from checkpoint produces identical state |
 
-✅ **benchmark_variants.py** ran all 7 Phase 2 variants:
-- Trained each for 500 steps
-- Logged loss, throughput, validation metrics
-- Compared results in a summary table
+Run specific groups:
+```bash
+pytest tests/test_tiny_graduation.py --gates -v   # Just gate tests
+pytest tests/test_tiny_graduation.py -v           # All tests
+```
 
 ---
 
 ## Expected Output
 
-You should see something like:
-
 ```
-============ BENCHMARK RESULTS ============
-
-Variant | Val Loss | Train Loss | Throughput
---------|----------|------------|------------
-GF      | 1.6891   | 1.6536     | 42.9K tok/s
-CP      | 1.6919   | 1.6544     | 47.7K tok/s
-HY      | 1.7600   | 1.7289     | 31.7K tok/s
-... (4 more)
-
-🏆 WINNER: GF-MH (Gated Fusion + Mamba-Heavy)
-Val Loss: 1.6700 (-1.8% vs balanced GF)
-
-========================================
+tests/test_tiny_graduation.py::test_G1_gate_produces_nonzero_output PASSED
+tests/test_tiny_graduation.py::test_G2_gate_values_in_expected_range PASSED
+tests/test_tiny_graduation.py::test_G3_gate_gradient_flows PASSED
+tests/test_tiny_graduation.py::test_G4_gate_behavior_changes_with_input PASSED
+tests/test_tiny_graduation.py::test_baseline_training_completes PASSED
+...
 ```
 
 ---
 
-## Next Steps
+## Key Files
 
-### 👀 Just Want to Understand the Project?
-1. Read [ONBOARDING.md](ONBOARDING.md) Part 1-4 (~15 min)
-2. Look at results above
-3. Read [README.md](README.md) "Phase 2 Results" section
-
-### 🔬 Want to Add a New Variant?
-1. Copy `hybrid_v4_GF.py` to `hybrid_v4_MY.py`
-2. Modify the fusion mechanism in the `forward()` method
-3. Add your variant to `benchmark_variants.py` in the `variants` dict
-4. Run: `python benchmark_variants.py` to see how it compares
-5. See [CONTRIBUTING.md](CONTRIBUTING.md) for full instructions
-
-### 🚂 Want to Train Longer?
-1. Open `train_v4.py` or `train.py`
-2. Modify `max_steps` (currently 5000)
-3. Run: `python train_v4.py` (tracks loss in real-time)
-4. Checkpoints save to `logs/` and `checkpoints/`
-
-### 🤔 Something's Broken?
-1. Check [V4_BUILD_LOG.md](V4_BUILD_LOG.md) for known issues
-2. Check [V4_HANDOFF.md](V4_HANDOFF.md) "AUDIT SUMMARY" for status
-3. See [TROUBLESHOOTING.md](TROUBLESHOOTING.md) (if it exists) or open an issue
-
----
-
-## Key Files for Getting Oriented
-
-| File | Purpose | Why Read |
-|------|---------|----------|
-| [ONBOARDING.md](ONBOARDING.md) | Big picture + concepts | Understand RWKV/Mamba |
-| [README.md](README.md) | Quick reference | Phase 2 results + running benchmarks |
-| [V4_DESIGN.md](V4_DESIGN.md) | Architecture details | See actual implementation |
-| [hybrid_v4_GF.py](hybrid_v4_GF.py) | Code example | Understand the model |
-| [benchmark_variants.py](benchmark_variants.py) | Testing framework | How to benchmark fairly |
+| File | Purpose |
+|------|---------|
+| [model.py](model.py) | GF-MH model definition |
+| [layers.py](layers.py) | RWKV6 + Mamba2 layer implementations |
+| [cuda_backends.py](cuda_backends.py) | CUDA kernel imports (our wrapper) |
+| [train_v4.py](train_v4.py) | Training loop |
+| [configs/](configs/) | YAML config files |
 
 ---
 
 ## Troubleshooting
 
 ### "CUDA not found"
-- Check: `nvidia-smi` (do you see your GPU?)
-- Reinstall: `pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121`
+```bash
+nvidia-smi  # Should show your GPU
+python -c "import torch; print(torch.cuda.is_available())"  # Should print True
+```
 
-### "FLA module not found"
-- Check: `pip list | grep fla`
-- Reinstall: `pip install fla-core` (or from source in [ONBOARDING.md](ONBOARDING.md) Part 8)
+### "ninja: build stopped: subcommand failed"
+- Check GCC version: `gcc --version` (need 11+)
+- Update: `sudo apt update && sudo apt install gcc-11 g++-11`
 
-### "test_phase0_complete.py hangs"
-- Kill it (Ctrl+C)
-- Check environment: `python -c "import torch; print(torch.cuda.is_available())"`
-- See [V4_BUILD_LOG.md](V4_BUILD_LOG.md) Session 1 for setup details
+### "mamba_ssm not found"
+```bash
+pip install mamba-ssm causal-conv1d
+```
 
-### "Import errors in hybrid_v4_*.py"
-- Likely cause: FLA library structure changed
-- Fix: Check [V4_HANDOFF.md AUDIT SUMMARY](V4_HANDOFF.md#audit-summary) for known issues
-- Reference: See `fla_replacements.py` for custom wrapper
-
----
-
-## What's Next?
-
-👉 After running the benchmark, explore:
-- **Phase 2 Results:** Why did GF-MH win? See [CHANGELOG.md](CHANGELOG.md)
-- **Phase 3 Planning:** What's next? See [V4_STRATEGY.md](V4_STRATEGY.md) Phase 3 section
-- **Contributing:** Want to add your own variant? See [CONTRIBUTING.md](CONTRIBUTING.md)
+### Tests hang or segfault
+- Check VRAM: `nvidia-smi` (is it full?)
+- Reduce batch size in test config
 
 ---
 
-**Still stuck?** Check:
-1. [ONBOARDING.md](ONBOARDING.md) Part 10 "Librarian's Note"
-2. [V4_HANDOFF.md](V4_HANDOFF.md) "When Stuck"
-3. [LIBRARIAN_REVIEW.md](LIBRARIAN_REVIEW.md) (documentation consistency, role definition)
-4. Open an issue on GitHub
+## Next Steps
 
-**Time to run benchmarks:** ~20 minutes (A100), ~2 hours (RTX 4050)  
-**Time to understand the project:** ~1 hour (ONBOARDING + README + first benchmark)
+| Goal | Read |
+|------|------|
+| Understand the project | [ONBOARDING.md](ONBOARDING.md) |
+| See architecture details | [V4_DESIGN.md](V4_DESIGN.md) |
+| Run benchmarks | [README.md](README.md) |
+| Contribute | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| V5 planning | [V5_GATING.md](V5_GATING.md) |
 
-Good luck! 🚀
+---
+
+**Test runtime:** ~30 seconds (RTX 4050)  
+**Understanding time:** ~1 hour (ONBOARDING + first test)
