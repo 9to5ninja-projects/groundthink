@@ -1,0 +1,41 @@
+# Task 0.0.1: Memory-Conservative Configuration for WSL
+#
+# MEASURED MEMORY FOOTPRINT (2026-01-11):
+#   PyTorch import:     ~350 MB (fixed cost)
+#   RWKV6 prototype:    +90 MB
+#   163K model + optim: +60 MB
+#   5 training steps:   +10 MB (stable)
+#   Peak with tiny:     514 MB
+#
+# WSL CONSTRAINTS:
+#   Total budget: ~2.5 GB (with VS Code + system)
+#   Available for training: ~2 GB
+#   mamba_ssm import: +200 MB (now lazy-loaded, skipped for pure RWKV-6)
+#
+# CRASHES:
+#   batch=64, seq=64: CRASHED WSL
+#   batch=4, seq=64:  CRASHED WSL (mamba_ssm was loading unnecessarily)
+#   batch=1, seq=32:  SUCCESS (514 MB peak, minimal model)
+#
+# STRATEGY: Start minimal, scale up gradually
+
+# Optimizer (same as full config)
+lr: 3.0e-4
+min_lr: 3.0e-5
+weight_decay: 0.1
+betas: [0.9, 0.95]
+
+# Learning Rate Schedule
+warmup_ratio: 0.1
+lr_decay: cosine
+
+# CONSERVATIVE Batch Configuration for WSL
+batch_size: 1             # Minimal - proven to work
+seq_len: 64               # Standard seq_len
+grad_clip: 1.0
+
+# SHORT Test Duration (verify stability before scaling)
+max_steps: 50             # Quick validation
+eval_every: 25            # Eval twice during test
+save_every: 50            # Save at end only
+log_every: 10             # Log frequently to monitor

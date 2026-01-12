@@ -1,8 +1,14 @@
 """
-FLA Replacements - Bridge to CUDA Implementations
+CUDA Backends - Bridge to RWKV-6 and Mamba-2 Implementations
 
 Provides RWKV6Attention and Mamba2 classes for hybrid_v4.py
 Uses CUDA kernels when available, falls back to PyTorch.
+
+MEMORY NOTE (2026-01-11):
+  - PyTorch import: ~350 MB baseline
+  - RWKV6 prototype: +90 MB
+  - mamba_ssm import: +200 MB (lazy-loaded to avoid when not needed)
+  - WSL budget: ~2.5 GB total, keep models small for development
 """
 
 import os
@@ -27,8 +33,9 @@ except (ImportError, ValueError):
     RWKV6_IMPL = RWKV6Attention_Prototype
     RWKV6_CUDA_AVAILABLE = False
 
-# Import Mamba-2 from mamba-ssm (already has CUDA)
-from mamba_ssm import Mamba2 as Mamba2_SSM
+# Lazy import for Mamba-2 (heavy dependency, only load when needed)
+Mamba2_SSM = None
+MAMBA2_AVAILABLE = False
 
 
 class RWKV6Attention(nn.Module):
@@ -118,11 +125,28 @@ class RWKV6Attention(nn.Module):
 
 
 class Mamba2(nn.Module):
-    """Mamba-2 wrapper for hybrid_v4.py compatibility"""
+    """Mamba-2 wrapper for hybrid_v4.py compatibility
+    
+    NOTE: Lazy-loads mamba_ssm on first instantiation to save ~200MB
+    when only using RWKV-6 (e.g., Task 0.0.1 pure baseline).
+    """
     
     def __init__(self, hidden_size: int, num_heads: int = 4, head_dim: int = 64,
                  expand: int = 2, layer_idx: int = 0):
         super().__init__()
+        
+        # Lazy import mamba_ssm (heavy dependency)
+        global Mamba2_SSM, MAMBA2_AVAILABLE
+        if Mamba2_SSM is None:
+            try:
+                from mamba_ssm import Mamba2 as _Mamba2_SSM
+                Mamba2_SSM = _Mamba2_SSM
+                MAMBA2_AVAILABLE = True
+            except ImportError:
+                raise ImportError(
+                    "mamba_ssm required for Mamba2. Install with: pip install mamba-ssm"
+                )
+        
         self.hidden_size = hidden_size
         self.mamba = Mamba2_SSM(
             d_model=hidden_size,

@@ -307,14 +307,19 @@ def generate_report(metrics_history, config, output_path):
 
 def main():
     """Main training loop for Task 0.0.1"""
+    import sys
+    
+    # Allow specifying config file (default: task_0_0_1.yaml)
+    config_name = sys.argv[1] if len(sys.argv) > 1 else 'task_0_0_1.yaml'
     
     # Load config
-    config_path = Path(__file__).parent.parent / 'configs' / 'task_0_0_1.yaml'
+    config_path = Path(__file__).parent.parent / 'configs' / config_name
     if not config_path.exists():
         print(f"Error: Config file not found: {config_path}")
-        print("Please create configs/task_0_0_1.yaml first")
+        print(f"Please create configs/{config_name} first")
         return
     
+    print(f"Using config: {config_path.name}")
     config = load_config(config_path)
     
     # Setup
@@ -324,7 +329,7 @@ def main():
     # Load data
     print(f"\nLoading WikiText-103 (BPE 16K)...")
     dataset, tokenizer = load_stateful_dataset(
-        'data/wikitext-103',
+        'data/wikitext103/train.txt',
         batch_size=config['batch_size'],
         seq_len=config['seq_len'],
         scale='LARGE',  # Forces BPE
