@@ -1,22 +1,38 @@
 """
 RWKV-6 PyTorch Prototype - Time-Mixing Block
 
+⚠️ WARNING: This is a VALIDATION-ONLY prototype, NOT production RWKV-6!
+
 Purpose: Minimum viable RWKV-6 implementation for prototype validation.
 This serves as the specification reference for building the CUDA kernel wrapper.
 
+⚠️ CRITICAL ARCHITECTURE NOTES:
+1. RWKV6Attention_Prototype is a COMPLETE BLOCK (not just attention)
+   - Includes: LayerNorm → Time-Mixing → Residual → LayerNorm → FFN → Residual
+   - Do NOT wrap with additional LayerNorm or FFN!
+   - Stack directly: [RWKV6Attention(...) for _ in range(num_layers)]
+
+2. WKV Computation is NORMALIZED:
+   - wkv = numerator / denominator (proper weighted average)
+   - Previous bug: accumulated exp(k)*v without normalization → unbounded output
+   - Fixed 2026-01-11: Tracks state_num and state_den separately
+
 Key Features:
-- ✅ Proper _wkv_sequential() - Implements recurrent state update
+- ✅ Proper _wkv_sequential() - Implements recurrent state update with normalization
 - ✅ Time decay parameters used in computation (not just placeholders)  
 - ✅ Squared ReLU for channel mixing (RWKV spec detail)
 - ✅ Returns tuple format: (output, None, None)
 - ⚠️ Sequential loop = O(B*T), not optimized (for validation only)
+- ⚠️ ~50x slower than CUDA kernel (acceptable for <1K steps)
 
 Performance Notes:
-- Suitable for validation with seq_len < 512
+- Suitable for validation with seq_len < 512, steps < 1000
 - For production: use CUDA kernel from RWKV-CUDA/wkv6/
+- Colab free tier: ~0.5s/step (CPU), acceptable for baseline characterization
 
-Reference: V4.5_PYTHON_WRAPPERS.md
+Reference: V4.5_PYTHON_WRAPPERS.md, V4_HANDOFF.md (deviations section)
 Created: 2026-01-09
+Updated: 2026-01-11 (WKV normalization fix, architecture clarification)
 """
 
 import torch

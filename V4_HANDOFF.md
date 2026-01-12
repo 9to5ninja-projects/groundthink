@@ -88,6 +88,21 @@
 | Execution env | Local WSL | Google Colab (VS Code extension) | WSL ~2.5GB limit; Colab provides 15GB RAM + T4 GPU free |
 | Tokenization | Single-pass | 10MB chunked | Memory-safe; prevents OOM during BPE encoding |
 | mamba-ssm | Installed | Skipped on Colab | Build fails without CUDA toolkit; not needed for RWKV6-only baseline |
+| RWKV6 CUDA kernel | wkv6_cuda from RWKV-CUDA/ | PyTorch prototype | CUDA kernel requires compilation; prototype is portable |
+| WKV computation | CUDA-optimized parallel scan | Sequential Python loop | Prototype for validation only; ~100x slower but mathematically correct |
+
+**⚠️ RWKV6 Prototype Notes (Critical for Future Sessions):**
+
+1. **`ops/rwkv6_prototype.py` is NOT production RWKV-6** - it's a validation-only implementation
+2. **RWKV6Attention_Prototype is a FULL BLOCK** - includes LayerNorm, time-mixing, FFN, and residual connections
+3. **Do NOT wrap with additional LN/FFN** - just stack blocks directly: `model.blocks = [RWKV6Attention(...) for _ in range(layers)]`
+4. **WKV normalization was fixed** - previous version had unbounded output; now properly normalizes numerator/denominator
+5. **Performance**: ~0.5s/step on CPU vs ~0.01s/step with CUDA kernel (50x slower)
+
+**Why Not CUDA Kernel?**
+- Requires `ninja` + CUDA toolkit for JIT compilation
+- Colab free tier has limited build environment
+- Prototype is sufficient for baseline characterization (not training at scale)
 
 **Why 50MB is Valid for Baseline:**
 - ~5M tokens after BPE (same density as original plan)
