@@ -217,6 +217,103 @@ class RWKV6Attention_Prototype(nn.Module):
 RWKV6Attention = RWKV6Attention_Prototype
 
 
+class RWKV6TimeMix(nn.Module):
+    """
+    RWKV-6 Time-Mixing ONLY (no FFN, no internal LN/residuals).
+    
+    Use this when you want to wrap with your own FFN and normalization.
+    This is just the WKV attention mechanism.
+    
+    Usage:
+        class MyBlock(nn.Module):
+            def __init__(self, hidden):
+                self.ln1 = nn.LayerNorm(hidden)
+                self.time_mix = RWKV6TimeMix(hidden, num_heads=4)
+                self.ln2 = nn.LayerNorm(hidden)
+                self.ffn = nn.Sequential(...)
+            
+            def forward(self, x):
+                x = x + self.time_mix(self.ln1(x))
+                x = x + self.ffn(self.ln2(x))
+                return x
+    """
+    
+    def __init__(self, hidden_size, num_heads=4, layer_idx=0):
+        super().__init__()
+        self.hidden_size = hidden_size
+        self.num_heads = num_heads
+        self.head_size = hidden_size // num_heads
+        
+        assert hidden_size % num_heads == 0, f"hidden_size must be divisible by num_heads"
+        
+        # Time-mixing parameters
+        self.time_decay = nn.Parameter(torch.ones(num_heads, self.head_size) * -5.0)
+        self.time_first = nn.Parameter(torch.zeros(num_heads, self.head_size))
+        
+        # Linear projections
+        self.key = nn.Linear(hidden_size, hidden_size, bias=False)
+        self.value = nn.Linear(hidden_size, hidden_size, bias=False)
+        self.receptance = nn.Linear(hidden_size, hidden_size, bias=False)
+        self.output = nn.Linear(hidden_size, hidden_size, bias=False)
+        
+        # Conservative initialization
+        for m in [self.key, self.value, self.receptance, self.output]:
+            nn.init.xavier_uniform_(m.weight, gain=0.5)
+    
+    def forward(self, x):
+        """
+        Args:
+            x: Input tensor [B, T, C] (should be layer-normalized)
+            
+        Returns:
+            output: Time-mixed output [B, T, C]
+        """
+        B, T, C = x.shape
+        H, S = self.num_heads, self.head_size
+        
+        # Project to key, value, receptance
+        k = self.key(x).view(B, T, H, S).transpose(1, 2)
+        v = self.value(x).view(B, T, H, S).transpose(1, 2)
+        r = self.receptance(x).view(B, T, H, S).transpose(1, 2)
+        
+        # WKV computation with normalization
+        wkv = self._wkv_sequential(k, v)
+        
+        # Apply receptance gating
+        rwkv = torch.sigmoid(r) * wkv
+        rwkv = rwkv.transpose(1, 2).contiguous().view(B, T, C)
+        
+        return self.output(rwkv)
+    
+    def _wkv_sequential(self, k, v):
+        """Sequential WKV with proper normalization"""
+        B, H, T, S = k.shape
+        device, dtype = k.device, k.dtype
+        
+        time_decay = torch.exp(-torch.exp(self.time_decay.float()))
+        time_first = torch.exp(self.time_first.float())
+        
+        wkv = torch.zeros(B, H, T, S, device=device, dtype=torch.float32)
+        state_num = torch.zeros(B, H, S, device=device, dtype=torch.float32)
+        state_den = torch.zeros(B, H, S, device=device, dtype=torch.float32)
+        
+        for t in range(T):
+            kt = k[:, :, t].float()
+            vt = v[:, :, t].float()
+            wt = torch.exp(kt.clamp(-10, 10))  # Tighter clamp for stability
+            
+            if t == 0:
+                state_num = time_first * wt * vt
+                state_den = time_first * wt
+            else:
+                state_num = time_decay * state_num + wt * vt
+                state_den = time_decay * state_den + wt
+            
+            wkv[:, :, t] = state_num / (state_den + 1e-6)
+        
+        return wkv.to(dtype)
+
+
 def test_rwkv6_prototype():
     """Quick test for G1 gate: forward pass with no NaN"""
     print("Testing RWKV6Attention_Prototype...")
