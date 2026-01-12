@@ -166,6 +166,29 @@ Go back to pure RWKV-6 and pure Mamba-2 to understand:
 
 ---
 
+## Phase 0 Base Model Findings (2026-01-11)
+
+### Task 0.0.1: Pure RWKV-6 Characterization
+
+**Result: RWKV-6 is an AMPLIFIER**
+
+| Metric | Value | Interpretation |
+|--------|-------|----------------|
+| Behavior | AMPLIFIER | Variance grows through layers |
+| Variance | 1.0 → 5.4 std | ~1.27x per layer (5.4x total) |
+| Learning | 125 → 35 | 72% loss reduction in 50 steps |
+| Logits | [-57, +134] | Exploding → softmax saturation |
+| Entropy | 1.97 | Low (random = 9.68) |
+
+**Implication for Fusion:**
+- RWKV-6 does NOT stabilize activations
+- If Mamba-2 proves to be a STABILIZER, they could complement each other
+- Current hybrid imbalance may partly be explained by RWKV's amplification tendency
+
+**Pending:** Task 0.0.2 (Mamba-2) to determine if it's STABILIZER or AMPLIFIER.
+
+---
+
 ## Data Points For Reassessment
 
 When revisiting base models, measure:

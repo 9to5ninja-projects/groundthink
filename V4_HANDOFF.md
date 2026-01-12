@@ -119,14 +119,28 @@
 - Full 540MB can be revisited when infrastructure supports it
 - Matches compute budget constraints documented in V4_BUILD_LOG.md
 
-**Task 0.0.1 Status (2026-01-11):**
-- ✅ Training confirmed working: loss 127 → 36 over 50 steps
-- ✅ Notebook saves metadata to `logs/dataset_meta.json`
-- ✅ Variance analysis saves to `logs/rwkv6_variance.json`
-- ✅ Full findings export to `logs/rwkv6_baseline_findings.json`
-- 🔄 Pending: Extended training run for convergence, validation perplexity
+**Task 0.0.1 Status (2026-01-11): 🟢 PRELIMINARY COMPLETE**
 
-**Next Step:** Run full training (~1K steps), compare to GPT-2 baseline, document in BASE_MODEL_FINDINGS_RWKV6.md
+| Finding | Value | Note |
+|---------|-------|------|
+| Characterization | **AMPLIFIER** | Variance grows ~1.27x per layer |
+| Variance range | 1.0 → 5.4 std | 5.4x total amplification |
+| Learning | 125 → 35 loss | 72% reduction (50 steps) |
+| Logits | [-57, +134] | Exploding, softmax saturates |
+
+**Key Insight:** RWKV-6 alone amplifies variance through layers. Does NOT stabilize.
+This informs fusion design: if Mamba-2 is a STABILIZER, they may complement each other.
+
+**Outputs:**
+- ✅ `logs/dataset_meta.json` - Dataset config
+- ✅ `logs/rwkv6_variance.json` - Layer variance data  
+- ✅ `logs/rwkv6_baseline_findings.json` - Full findings
+
+**Next Steps:**
+1. ⬜ Extended RWKV-6 run (500-1000 steps) for convergence metrics
+2. ⬜ Task 0.0.2: Mamba-2 characterization (is it STABILIZER or AMPLIFIER?)
+3. ⬜ Task 0.0.3: GPT-1 baseline for fair comparison
+4. ⬜ Task 0.0.4: Comparative analysis → inform fusion design
 
 See [BASE_MODEL_CHARACTERIZATION.md](BASE_MODEL_CHARACTERIZATION.md) for detailed plan.
 

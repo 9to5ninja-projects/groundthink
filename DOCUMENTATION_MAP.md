@@ -25,8 +25,9 @@
 ┌─ ACTIVE PLANNING (v5.0-Alpha)
 │
 ├── BASE_MODEL_CHARACTERIZATION.md ⭐ PHASE 0 (CURRENT)
-│   ├─ Pure RWKV-6 benchmark (Task 0.0.1) 🟡 IN PROGRESS
-│   ├─ Pure Mamba-2 benchmark (Task 0.0.2) ⬜ TODO
+│   ├─ Pure RWKV-6 benchmark (Task 0.0.1) � PRELIMINARY COMPLETE
+│   │   └─ Finding: RWKV-6 is AMPLIFIER (variance 1.0→5.4)
+│   ├─ Pure Mamba-2 benchmark (Task 0.0.2) ⬜ TODO (NEXT)
 │   ├─ GPT-1 baseline (Task 0.0.3) ⬜ TODO
 │   ├─ Comparative analysis (Task 0.0.4) ⬜ TODO
 │   └─ Informs V0.5 fusion design
@@ -35,6 +36,7 @@
 │   ├─ Colab-ready RWKV-6 baseline
 │   ├─ Uses RWKV6TimeMix + GELU FFN
 │   ├─ Outputs: logs/dataset_meta.json, logs/rwkv6_*.json
+│   ├─ FINDING: AMPLIFIER characterization
 │   └─ See V4_HANDOFF.md for deviations
 │
 ├── V0.5_ROADMAP.md ⭐ PHASE 1 (PENDING PHASE 0)
@@ -44,8 +46,9 @@
 │
 ├── V4_HANDOFF.md
 │   ├─ Current status (Phase 4.0 results)
+│   ├─ Task 0.0.1 AMPLIFIER findings
 │   ├─ Phase A: Documentation Cleanup (complete)
-│   └─ Phase B: Implementation (next)
+│   └─ Phase B: Implementation (blocked on Phase 0)
 │
 ├── HARMONIZATION_REPORT.md
 │   ├─ Executive Summary (GPT-2 parity, Mamba Paradox)
@@ -55,6 +58,7 @@
 └── OBSERVATION_SYNTHESIS.md
     ├─ Executive Summary (18 observations)
     ├─ Key Inferences (attractor zone, imbalance)
+    ├─ Phase 0 Findings (Task 0.0.1 AMPLIFIER)
     └─ Recommended Next Steps
 
 ┌─ RESEARCH BASELINE
