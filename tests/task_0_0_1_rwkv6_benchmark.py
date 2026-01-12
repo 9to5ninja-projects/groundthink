@@ -334,14 +334,28 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Device: {device}")
     
-    # Load data (lazy import to save memory at startup)
-    print(f"\nLoading WikiText-103 (BPE 16K)...")
-    from data import load_stateful_dataset
+    # Load pre-trained tokenizer (avoids training BPE on 540MB - crashes WSL)
+    print(f"\nLoading pre-trained BPE tokenizer...")
+    from data import load_stateful_dataset, BPETokenizer
+    from pathlib import Path
+    
+    tokenizer_path = Path(__file__).parent.parent / 'data' / 'tokenizer_wikitext.json'
+    if tokenizer_path.exists():
+        tokenizer = BPETokenizer(str(tokenizer_path))
+        print(f"  Loaded pre-trained tokenizer: {tokenizer.vocab_size} vocab")
+    else:
+        print(f"  WARNING: Pre-trained tokenizer not found at {tokenizer_path}")
+        print(f"  Training BPE from scratch (may crash WSL due to memory)")
+        tokenizer = None  # Will train from scratch
+    
+    # Load dataset with pre-trained tokenizer
+    print(f"\nLoading WikiText-103...")
     dataset, tokenizer = load_stateful_dataset(
         'data/wikitext103/train.txt',
         batch_size=config['batch_size'],
         seq_len=config['seq_len'],
-        scale='LARGE',  # Forces BPE
+        tokenizer=tokenizer,  # Use pre-trained to avoid retraining
+        scale='LARGE',
     )
     
     # Create model
