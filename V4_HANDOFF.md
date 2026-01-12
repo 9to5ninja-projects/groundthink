@@ -80,6 +80,21 @@
 - ✅ NIAH Test: tests/test_niah_bpe.py (BPE needle-in-haystack at multiple depths)
 - 📋 Requirements inventory: /tmp/phase0_inventory.txt (tools verified, 5 new components created)
 
+**⚠️ DEVIATIONS FROM ORIGINAL PLAN (2026-01-11):**
+
+| Deviation | Original Plan | Actual | Rationale |
+|-----------|--------------|--------|----------|
+| Dataset size | Full WikiText-103 (540MB) | 50MB subset | Full corpus uses 5.3GB RAM just to load; Colab crashes during tokenization |
+| Execution env | Local WSL | Google Colab (VS Code extension) | WSL ~2.5GB limit; Colab provides 15GB RAM + T4 GPU free |
+| Tokenization | Single-pass | 10MB chunked | Memory-safe; prevents OOM during BPE encoding |
+| mamba-ssm | Installed | Skipped on Colab | Build fails without CUDA toolkit; not needed for RWKV6-only baseline |
+
+**Why 50MB is Valid for Baseline:**
+- ~5M tokens after BPE (same density as original plan)
+- Sufficient for loss curve characterization and variance analysis
+- Full 540MB can be revisited when infrastructure supports it
+- Matches compute budget constraints documented in V4_BUILD_LOG.md
+
 **Next Step:** Execute training run (Task 6), generate BASE_MODEL_FINDINGS_RWKV6.md
 
 See [BASE_MODEL_CHARACTERIZATION.md](BASE_MODEL_CHARACTERIZATION.md) for detailed plan.
