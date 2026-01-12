@@ -57,15 +57,33 @@ Understand individual pathway behavior **before** implementing hybrid fusion. Fi
 
 ### Task 0.0.1: Pure RWKV-6 Benchmark (4M)
 **Goal:** Establish baseline RWKV-6 performance at 4M scale.
+**Status:** 🟡 IN PROGRESS (2026-01-11)
+
+**Implementation:**
+- Notebook: `notebooks/task_0_0_1_wsl.ipynb` (Colab-ready)
+- Model: 8 layers × 144 hidden, ~5.6M params (tied embeddings)
+- Uses: `RWKV6TimeMix` + GELU FFN (not squared ReLU)
+- Dataset: WikiText-103 50MB subset (~5M tokens) via HuggingFace
+
+**⚠️ Deviations:**
+- Uses PyTorch prototype (not CUDA kernel) - Colab JIT unavailable
+- 50MB subset instead of full 540MB - memory constraints
+- GELU FFN instead of squared ReLU - prevents value explosion
+- See V4_HANDOFF.md for full deviation table
+
+**Preliminary Results (50 steps):**
+- Loss: 127 → 36 (learning confirmed)
+- Variance: Layer-wise analysis saved to `logs/rwkv6_variance.json`
+- Full findings: `logs/rwkv6_baseline_findings.json`
 
 **Acceptance Criteria:**
-- [ ] Model trains to convergence on WikiText-103
-- [ ] Validation perplexity recorded
+- [x] Model trains successfully on WikiText-103 subset
+- [ ] Validation perplexity recorded (need full run)
 - [ ] State evolution characterized (norm growth, variance)
 - [ ] Gradient health verified (no pathology)
 - [ ] Compared against GPT-1 (4M) and GPT-2 (6.8M)
 
-**Tools:** `train_v4.py --model RWKV-only --log-states`
+**Tools:** `notebooks/task_0_0_1_wsl.ipynb` (primary), `tools/variance_analysis.py`
 
 ---
 

@@ -93,11 +93,20 @@
 
 **⚠️ RWKV6 Prototype Notes (Critical for Future Sessions):**
 
-1. **`ops/rwkv6_prototype.py` is NOT production RWKV-6** - it's a validation-only implementation
-2. **RWKV6Attention_Prototype is a FULL BLOCK** - includes LayerNorm, time-mixing, FFN, and residual connections
-3. **Do NOT wrap with additional LN/FFN** - just stack blocks directly: `model.blocks = [RWKV6Attention(...) for _ in range(layers)]`
-4. **WKV normalization was fixed** - previous version had unbounded output; now properly normalizes numerator/denominator
-5. **Performance**: ~0.5s/step on CPU vs ~0.01s/step with CUDA kernel (50x slower)
+**Available Classes:**
+1. **`RWKV6Attention_Prototype`** - Full block (LN + WKV + squared ReLU FFN + residuals)
+   - ⚠️ Squared ReLU can cause value explosion over many layers
+   - Use if you want original RWKV-6 spec exactly
+   
+2. **`RWKV6TimeMix`** - Time-mixing only (RECOMMENDED)
+   - No internal FFN/LN - wrap with your own GELU FFN
+   - This is what Task 0.0.1 notebook uses
+   - Stable across 8 layers
+
+**Key Fixes (2026-01-11):**
+- WKV normalization: now properly tracks state_num/state_den
+- Value explosion: solved by using RWKV6TimeMix + GELU FFN
+- Performance: ~0.5s/step on CPU vs ~0.01s/step with CUDA kernel (50x slower)
 
 **Why Not CUDA Kernel?**
 - Requires `ninja` + CUDA toolkit for JIT compilation
@@ -110,7 +119,14 @@
 - Full 540MB can be revisited when infrastructure supports it
 - Matches compute budget constraints documented in V4_BUILD_LOG.md
 
-**Next Step:** Execute training run (Task 6), generate BASE_MODEL_FINDINGS_RWKV6.md
+**Task 0.0.1 Status (2026-01-11):**
+- ✅ Training confirmed working: loss 127 → 36 over 50 steps
+- ✅ Notebook saves metadata to `logs/dataset_meta.json`
+- ✅ Variance analysis saves to `logs/rwkv6_variance.json`
+- ✅ Full findings export to `logs/rwkv6_baseline_findings.json`
+- 🔄 Pending: Extended training run for convergence, validation perplexity
+
+**Next Step:** Run full training (~1K steps), compare to GPT-2 baseline, document in BASE_MODEL_FINDINGS_RWKV6.md
 
 See [BASE_MODEL_CHARACTERIZATION.md](BASE_MODEL_CHARACTERIZATION.md) for detailed plan.
 

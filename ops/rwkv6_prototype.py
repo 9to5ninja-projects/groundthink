@@ -6,33 +6,63 @@ RWKV-6 PyTorch Prototype - Time-Mixing Block
 Purpose: Minimum viable RWKV-6 implementation for prototype validation.
 This serves as the specification reference for building the CUDA kernel wrapper.
 
-⚠️ CRITICAL ARCHITECTURE NOTES:
-1. RWKV6Attention_Prototype is a COMPLETE BLOCK (not just attention)
-   - Includes: LayerNorm → Time-Mixing → Residual → LayerNorm → FFN → Residual
-   - Do NOT wrap with additional LayerNorm or FFN!
-   - Stack directly: [RWKV6Attention(...) for _ in range(num_layers)]
+## Available Classes
 
-2. WKV Computation is NORMALIZED:
+1. **RWKV6Attention_Prototype** (full block, ORIGINAL RWKV-6 spec)
+   - Includes: LayerNorm → Time-Mixing → Residual → LayerNorm → FFN → Residual
+   - Uses squared ReLU FFN: `relu(x)^2` (original RWKV spec)
+   - Do NOT wrap with additional LayerNorm or FFN!
+   - ⚠️ Squared ReLU may cause value explosion over many layers
+
+2. **RWKV6TimeMix** (time-mixing only, RECOMMENDED)
+   - Contains ONLY the WKV time-mixing mechanism
+   - No internal FFN, no LayerNorm, no residuals
+   - Use with your own LN + GELU FFN for stability
+   - This is what Task 0.0.1 notebook uses
+
+## WKV Normalization (Fixed 2026-01-11)
    - wkv = numerator / denominator (proper weighted average)
    - Previous bug: accumulated exp(k)*v without normalization → unbounded output
-   - Fixed 2026-01-11: Tracks state_num and state_den separately
+   - Now tracks state_num and state_den separately
 
-Key Features:
+## Key Features
 - ✅ Proper _wkv_sequential() - Implements recurrent state update with normalization
 - ✅ Time decay parameters used in computation (not just placeholders)  
-- ✅ Squared ReLU for channel mixing (RWKV spec detail)
-- ✅ Returns tuple format: (output, None, None)
+- ✅ Returns tuple format: (output, state, None) from RWKV6Attention_Prototype
 - ⚠️ Sequential loop = O(B*T), not optimized (for validation only)
 - ⚠️ ~50x slower than CUDA kernel (acceptable for <1K steps)
 
-Performance Notes:
+## Performance Notes
 - Suitable for validation with seq_len < 512, steps < 1000
 - For production: use CUDA kernel from RWKV-CUDA/wkv6/
 - Colab free tier: ~0.5s/step (CPU), acceptable for baseline characterization
 
-Reference: V4.5_PYTHON_WRAPPERS.md, V4_HANDOFF.md (deviations section)
+## Usage Examples
+
+```python
+# Option 1: Full block (original RWKV-6, may be unstable)
+blocks = [RWKV6Attention_Prototype(hidden=144, n_head=4) for _ in range(8)]
+
+# Option 2: Time-mix only with custom FFN (RECOMMENDED)
+class Block(nn.Module):
+    def __init__(self, hidden):
+        self.ln1 = RMSNorm(hidden)
+        self.time_mix = RWKV6TimeMix(hidden, num_heads=4)
+        self.ln2 = RMSNorm(hidden)
+        self.ffn = nn.Sequential(
+            nn.Linear(hidden, hidden*4),
+            nn.GELU(),  # NOT squared ReLU
+            nn.Linear(hidden*4, hidden)
+        )
+    def forward(self, x):
+        x = x + self.time_mix(self.ln1(x))
+        x = x + self.ffn(self.ln2(x))
+        return x
+```
+
+Reference: V4.5_PYTHON_WRAPPERS.md, V4_HANDOFF.md, BASE_MODEL_CHARACTERIZATION.md
 Created: 2026-01-09
-Updated: 2026-01-11 (WKV normalization fix, architecture clarification)
+Updated: 2026-01-11 (WKV normalization fix, RWKV6TimeMix added, docs expanded)
 """
 
 import torch

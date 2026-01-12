@@ -25,11 +25,17 @@
 ┌─ ACTIVE PLANNING (v5.0-Alpha)
 │
 ├── BASE_MODEL_CHARACTERIZATION.md ⭐ PHASE 0 (CURRENT)
-│   ├─ Pure RWKV-6 benchmark (Task 0.0.1)
-│   ├─ Pure Mamba-2 benchmark (Task 0.0.2)
-│   ├─ GPT-1 baseline (Task 0.0.3)
-│   ├─ Comparative analysis (Task 0.0.4)
+│   ├─ Pure RWKV-6 benchmark (Task 0.0.1) 🟡 IN PROGRESS
+│   ├─ Pure Mamba-2 benchmark (Task 0.0.2) ⬜ TODO
+│   ├─ GPT-1 baseline (Task 0.0.3) ⬜ TODO
+│   ├─ Comparative analysis (Task 0.0.4) ⬜ TODO
 │   └─ Informs V0.5 fusion design
+│
+├── notebooks/task_0_0_1_wsl.ipynb ⭐ ACTIVE NOTEBOOK
+│   ├─ Colab-ready RWKV-6 baseline
+│   ├─ Uses RWKV6TimeMix + GELU FFN
+│   ├─ Outputs: logs/dataset_meta.json, logs/rwkv6_*.json
+│   └─ See V4_HANDOFF.md for deviations
 │
 ├── V0.5_ROADMAP.md ⭐ PHASE 1 (PENDING PHASE 0)
 │   ├─ Section 1: Core Architecture (Tasks 0.1-0.6)
