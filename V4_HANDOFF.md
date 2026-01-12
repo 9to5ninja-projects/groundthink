@@ -27,6 +27,26 @@
 
 ## Last Session (2026-01-11)
 
+**GPU/Memory Strategy Discovery:**
+- WSL crashes when tokenizing full 540MB WikiText-103 (BPE training + tokenization)
+- **SOLUTION:** VS Code Colab extension (`google.colab`) provides FREE T4 GPU + 15GB RAM
+- Bypasses all local memory constraints without renting cloud machines
+- Notebook updated to auto-detect environment and use full dataset on Colab
+
+**Recommended Workflow:**
+1. Open `notebooks/task_0_0_1_wsl.ipynb` in VS Code
+2. Select Kernel → Connect to Google Colab
+3. Run all cells with full dataset + GPU acceleration
+
+**Memory Investigation Results:**
+| Component | Memory | Notes |
+|-----------|--------|-------|
+| PyTorch import | ~350 MB | Fixed cost |
+| ops/RWKV6Attention | +40 MB | No mamba loaded |
+| 5.6M model + optimizer | +150 MB | Acceptable |
+| BPE tokenization 540MB | CRASH | WSL limit hit |
+| Colab environment | 15 GB | No limits |
+
 **Librarian Audit & Harmonization:**
 - Reconciled V4 diagnostic findings with V0.5 "Twin Debate" architecture.
 - Identified critical "missed implementations" (GRUs, Qualia Fade, Semantic Weighting Sensors).
