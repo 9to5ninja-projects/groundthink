@@ -42,12 +42,20 @@ import torch
 import torch.nn.functional as F
 from pathlib import Path
 from datetime import datetime
-
-# Import pure RWKV-6 model
 import sys
-sys.path.insert(0, str(Path(__file__).parent.parent))
-from models.rwkv6_pure import create_rwkv6_4m
-from data import load_stateful_dataset
+import importlib.util
+
+# Direct import of rwkv6_pure.py (bypass models/__init__.py which loads Mamba2)
+# This saves ~200MB memory critical for WSL
+_rwkv6_path = Path(__file__).parent.parent / 'models' / 'rwkv6_pure.py'
+_spec = importlib.util.spec_from_file_location('rwkv6_pure', _rwkv6_path)
+_rwkv6_module = importlib.util.module_from_spec(_spec)
+sys.path.insert(0, str(Path(__file__).parent.parent))  # For ops import within module
+_spec.loader.exec_module(_rwkv6_module)
+create_rwkv6_4m = _rwkv6_module.create_rwkv6_4m
+
+# Lazy import data loader (also heavy)
+load_stateful_dataset = None
 
 
 def load_config(config_path: str) -> dict:
@@ -326,8 +334,9 @@ def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(f"Device: {device}")
     
-    # Load data
+    # Load data (lazy import to save memory at startup)
     print(f"\nLoading WikiText-103 (BPE 16K)...")
+    from data import load_stateful_dataset
     dataset, tokenizer = load_stateful_dataset(
         'data/wikitext103/train.txt',
         batch_size=config['batch_size'],
