@@ -141,9 +141,10 @@ class RWKV6Attention_Prototype(nn.Module):
         """
         Sequential WKV computation - correct but slow (for validation only).
         
-        This implements the RWKV-6 recurrence:
-            state_t = exp(-exp(time_decay)) * state_{t-1} + exp(k_t) * v_t
-            output_t = sum_j(state_t[j]) (weighted by time_first for t=0)
+        This implements the RWKV-6 recurrence with proper normalization:
+            numerator_t = decay * numerator_{t-1} + exp(k_t) * v_t
+            denominator_t = decay * denominator_{t-1} + exp(k_t)
+            output_t = numerator_t / denominator_t
         
         In the actual CUDA kernel (wkv6_cuda_v1.cu), this is parallelized
         using associative scan techniques.
@@ -163,13 +164,14 @@ class RWKV6Attention_Prototype(nn.Module):
         # Prepare time decay and first
         # exp(-exp(w)) gives decay in (0, 1), faster for more negative w
         time_decay = torch.exp(-torch.exp(self.time_decay.float()))  # [H, S]
-        time_first = self.time_first.float()  # [H, S], bonus for current token
+        time_first = torch.exp(self.time_first.float())  # [H, S], bonus for first token
         
         # Initialize output
         wkv = torch.zeros(B, H, T, S, device=device, dtype=torch.float32)
         
-        # Initialize state (accumulator for weighted k*v)
-        state = torch.zeros(B, H, S, device=device, dtype=torch.float32)
+        # Initialize state (numerator and denominator for proper normalization)
+        state_num = torch.zeros(B, H, S, device=device, dtype=torch.float32)
+        state_den = torch.zeros(B, H, S, device=device, dtype=torch.float32)
         
         for t in range(T):
             # Current token's contribution
@@ -177,21 +179,22 @@ class RWKV6Attention_Prototype(nn.Module):
             vt = v[:, :, t].float()  # [B, H, S]
             
             # Weight for current token (exp(k) to make it positive)
-            # In RWKV, larger k means more weight to current token
-            wt = torch.exp(kt)  # [B, H, S]
+            wt = torch.exp(kt.clamp(max=30))  # Clamp to prevent overflow [B, H, S]
             
             if t == 0:
                 # First token: use time_first bonus
-                wkv[:, :, t] = wt * vt + torch.exp(time_first) * vt
-                state = wt * vt
+                state_num = time_first * wt * vt
+                state_den = time_first * wt
             else:
                 # Recurrence: decay previous state, add new contribution
-                # state_t = decay * state_{t-1} + w_t * v_t
-                state = time_decay * state + wt * vt
-                wkv[:, :, t] = state
+                state_num = time_decay * state_num + wt * vt
+                state_den = time_decay * state_den + wt
+            
+            # Normalized output (prevents unbounded growth)
+            wkv[:, :, t] = state_num / (state_den + 1e-6)
         
-        # Return both output and final state for state extraction
-        return wkv.to(dtype), state.to(dtype)
+        # Return both output and final state (use numerator for state tests)
+        return wkv.to(dtype), state_num.to(dtype)
 
 
 # Alias for compatibility with hybrid_v4.py import expectations
