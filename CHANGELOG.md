@@ -6,6 +6,46 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [0.5.1] - 2026-01-13 (Phase 0 Complete → Phase 1 Starting)
+
+### Summary
+**PHASE 0 BASE MODEL CHARACTERIZATION COMPLETE.** Benchmarked pure RWKV-6, Mamba-2, and GPT-1 at 4M scale. All full models are AMPLIFIERS, but SSMs are 142× more stable than attention. Layer-level complementarity confirmed: RWKV amplifies, Mamba damps. BlinkDL init proven architecture-agnostic. Phase 1 architecture decisions made.
+
+### Phase 0 Results
+
+| Model | Variance Amplification | Character |
+|-------|------------------------|-----------|
+| GPT-1 (4M) | 782× | Extreme AMPLIFIER |
+| RWKV-6 (4M) | 5.5× (1.28×/layer) | AMPLIFIER |
+| Mamba-2 (4M) | 2.0× full / 0.005× layer | AMPLIFIER (full) / DAMPER (layer) |
+
+### Key Findings
+- **SSM Stability:** SSMs amplify 142× less than attention-based models
+- **Complementary Behavior:** RWKV amplifies per-layer, Mamba damps at layer level
+- **BlinkDL Init:** Architecture-agnostic fix for softmax saturation (all three models)
+- **Fusion Insight:** Layer-level fusion should preserve Mamba damping
+
+### Phase 1 Architecture Decisions
+1. Use layer-level fusion to preserve complementary damping/amplification
+2. Apply BlinkDL initialization to all components
+3. Target 2–6× total variance amplification (SSM range)
+4. Monitor variance and softmax health during pilot runs
+5. Open question: How to add Mamba residuals without losing damping?
+
+### Phase 1 Tasks (Starting)
+- Task 0.1: GRU Arbiter (stateful gating)
+- Task 0.2: Mamba Residual Path
+- Task 0.3: Twin Debate Loss
+- Task 0.4: 4M Pilot Run (target: Mamba >5% contribution)
+
+### Changed
+- **V0.5_ROADMAP.md**: Phase 0 marked COMPLETE, Phase 1 marked CURRENT
+- **HANDOFF.md**: Phase 0 completion summary added
+- **BASE_MODEL_CHARACTERIZATION.md**: All tasks complete, Phase 1 decisions added
+- **README.md**: Updated with Phase 0 findings and Phase 1 status
+
+---
+
 ## [5.0-Alpha] - 2026-01-11 (Tasks 55-60: Diagnostic Tooling)
 
 ### Summary
