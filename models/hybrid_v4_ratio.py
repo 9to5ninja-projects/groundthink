@@ -345,3 +345,253 @@ if __name__ == "__main__":
         torch.cuda.empty_cache()
     
     print("\n✓ Ratio variants work!")
+
+
+# ============ Phase 1: GRU Arbiter Variants (Task 0.1) ============
+
+from ops.arbiter_gru import GRUArbiter
+
+
+class ParallelHybridBlock_GRU(nn.Module):
+    """
+    Parallel Hybrid Block with GRU Arbiter fusion (Phase 1).
+    
+    Replaces scalar gate with stateful GRU that learns to weight
+    RWKV (amplifier) vs Mamba (damper) based on sequence context.
+    
+    Phase 0 findings inform design:
+    - RWKV amplifies 1.28x per layer
+    - Mamba damps at layer level (0.005x)
+    - Target total variance: 2-6x
+    """
+    
+    def __init__(
+        self,
+        hidden_size: int,
+        num_heads: int = 4,
+        ffn_mult: float = 4.0,
+        layer_idx: int = 0,
+        dropout: float = 0.0,
+    ):
+        super().__init__()
+        self.hidden_size = hidden_size
+        self.layer_idx = layer_idx
+        
+        # Pre-norm
+        self.ln = RMSNorm(hidden_size)
+        
+        # PARALLEL attention mechanisms
+        self.rwkv6 = RWKV6Attention(
+            hidden_size=hidden_size,
+            num_heads=num_heads,
+            layer_idx=layer_idx,
+        )
+        
+        mamba_expand = 2
+        mamba_head_dim = 64
+        mamba_heads = (mamba_expand * hidden_size) // mamba_head_dim
+        self.mamba2 = Mamba2(
+            hidden_size=hidden_size,
+            num_heads=mamba_heads,
+            head_dim=mamba_head_dim,
+            expand=mamba_expand,
+            layer_idx=layer_idx,
+        )
+        
+        # GRU Arbiter fusion (Phase 1 upgrade)
+        self.fusion = GRUArbiter(hidden_size, dropout=dropout)
+        
+        # Store last fusion weights for loss computation (Task 0.3)
+        self._last_fusion_weights = None
+        
+        # FFN
+        ffn_hidden = int(hidden_size * ffn_mult)
+        self.ffn_ln = RMSNorm(hidden_size)
+        self.ffn = nn.Sequential(
+            nn.Linear(hidden_size, ffn_hidden, bias=False),
+            nn.GELU(),
+            nn.Linear(ffn_hidden, hidden_size, bias=False),
+        )
+    
+    def forward(self, x: torch.Tensor, return_activations: bool = False, 
+                return_states: bool = False, rwkv_drop_prob: float = 0.0,
+                arbiter_hidden: torch.Tensor = None):
+        """
+        Forward pass through hybrid block with GRU arbiter.
+        
+        Args:
+            x: Input tensor [B, T, hidden_size]
+            return_activations: If True, return component outputs
+            return_states: If True, return internal states
+            rwkv_drop_prob: Probability of dropping RWKV during training
+            arbiter_hidden: Previous GRU hidden state (for cross-chunk statefulness)
+            
+        Returns:
+            If return_activations=False and return_states=False: output tensor
+            If return_activations=True: (output, activations_dict)
+            If return_states=True: (output, states_dict)
+        """
+        norm_x = self.ln(x)
+        
+        # PARALLEL pathways
+        if return_states:
+            out_rwkv, _, rwkv_state_dict = self.rwkv6(norm_x, return_state=True)
+            out_mamba, mamba_state_dict = self.mamba2(norm_x, return_state=True)
+        else:
+            out_rwkv, _, _ = self.rwkv6(norm_x)
+            out_mamba = self.mamba2(norm_x)
+        
+        # RWKV Dropout: During training, randomly suppress RWKV to force Mamba learning
+        if self.training and rwkv_drop_prob > 0.0:
+            if torch.rand(1).item() < rwkv_drop_prob:
+                out_rwkv = torch.zeros_like(out_rwkv)
+        
+        # GRU Arbiter Fusion (Phase 1)
+        fused, fusion_weights, new_hidden = self.fusion(out_rwkv, out_mamba, hidden=arbiter_hidden)
+        
+        # Store for Task 0.3 loss computation
+        self._last_fusion_weights = fusion_weights  # (B, L, 2)
+        
+        x = x + fused
+        x = x + self.ffn(self.ffn_ln(x))
+        
+        if return_states:
+            # Compute mean weights for logging (comparable to old scalar gate)
+            w_rwkv_mean = fusion_weights[:, :, 0].mean().item()
+            w_mamba_mean = fusion_weights[:, :, 1].mean().item()
+            
+            states = {
+                'rwkv_state': rwkv_state_dict.get('rwkv_state') if rwkv_state_dict else None,
+                'mamba_state': mamba_state_dict.get('mamba_state') if mamba_state_dict else None,
+                'fusion_weights': fusion_weights,  # Full tensor for analysis
+                'w_rwkv': w_rwkv_mean,
+                'w_mamba': w_mamba_mean,
+                'arbiter_hidden': new_hidden,
+            }
+            return x, states
+        
+        if return_activations:
+            w_rwkv_mean = fusion_weights[:, :, 0].mean().item()
+            return x, {
+                'rwkv': out_rwkv, 
+                'mamba': out_mamba, 
+                'gate': w_rwkv_mean,  # Backward compatible key
+                'fusion_weights': fusion_weights,
+            }
+        return x
+
+
+class HybridModel_GRU(nn.Module):
+    """Hybrid model with GRU Arbiter fusion (Phase 1).
+    
+    Replaces static gated fusion with stateful GRU arbiter.
+    """
+    
+    def __init__(
+        self,
+        vocab_size: int = 10000,
+        hidden_size: int = 128,
+        num_layers: int = 8,
+        num_heads: int = 4,
+        ffn_mult: float = 4.0,
+        tie_embeddings: bool = True,
+        dropout: float = 0.0,
+    ):
+        super().__init__()
+        self.vocab_size = vocab_size
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+        
+        self.embed = nn.Embedding(vocab_size, hidden_size)
+        
+        self.blocks = nn.ModuleList([
+            ParallelHybridBlock_GRU(
+                hidden_size=hidden_size,
+                num_heads=num_heads,
+                ffn_mult=ffn_mult,
+                layer_idx=i,
+                dropout=dropout,
+            )
+            for i in range(num_layers)
+        ])
+        
+        self.ln_out = RMSNorm(hidden_size)
+        self.head = nn.Linear(hidden_size, vocab_size, bias=False)
+        
+        if tie_embeddings:
+            self.head.weight = self.embed.weight
+        
+        # BlinkDL initialization (Phase 0 mandate)
+        self._init_weights()
+    
+    def _init_weights(self):
+        """Apply BlinkDL initialization for training stability."""
+        # Embedding: small uniform
+        nn.init.uniform_(self.embed.weight, -1e-4, 1e-4)
+        
+        # Head: zero if not tied (tied inherits from embed)
+        if self.head.weight is not self.embed.weight:
+            nn.init.zeros_(self.head.weight)
+    
+    def forward(self, x: torch.Tensor, return_activations: bool = False, 
+                return_states: bool = False, rwkv_drop_prob: float = 0.0):
+        """
+        Forward pass through full model.
+        
+        Args:
+            x: Input token indices [B, T]
+            return_activations: If True, return per-layer activations
+            return_states: If True, return per-layer states
+            rwkv_drop_prob: Probability of dropping RWKV during training
+        """
+        h = self.embed(x)
+        
+        all_activations = [] if return_activations else None
+        all_states = [] if return_states else None
+        
+        for block in self.blocks:
+            if return_states:
+                h, states = block(h, return_states=True, rwkv_drop_prob=rwkv_drop_prob)
+                all_states.append(states)
+            elif return_activations:
+                h, acts = block(h, return_activations=True, rwkv_drop_prob=rwkv_drop_prob)
+                all_activations.append(acts)
+            else:
+                h = block(h, rwkv_drop_prob=rwkv_drop_prob)
+        
+        h = self.ln_out(h)
+        logits = self.head(h)
+        
+        if return_states:
+            last_states = all_states[-1] if all_states else {}
+            return logits, last_states
+        
+        if return_activations:
+            return logits, all_activations
+        return logits
+    
+    def get_num_params(self, non_embedding: bool = True) -> int:
+        n_params = sum(p.numel() for p in self.parameters())
+        if non_embedding:
+            n_params -= self.embed.weight.numel()
+        return n_params
+    
+    def get_fusion_weights(self):
+        """Collect fusion weights from all layers for loss computation."""
+        weights = []
+        for block in self.blocks:
+            if block._last_fusion_weights is not None:
+                weights.append(block._last_fusion_weights)
+        return weights
+
+
+def create_hybrid_GRU_5m(vocab_size: int = 10000) -> HybridModel_GRU:
+    """Phase 1 GRU Arbiter model at ~5M params."""
+    return HybridModel_GRU(
+        vocab_size=vocab_size,
+        hidden_size=128,
+        num_layers=8,
+        num_heads=4,
+        ffn_mult=4.0,
+        dropout=0.0,
+    )
