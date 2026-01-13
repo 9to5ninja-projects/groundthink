@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [0.5.1] - 2026-01-13 (Phase 0 Complete → Phase 1 Starting)
+## [0.5.0.5] - 2026-01-13 (Phase 0 Complete → Phase 1 Starting)
 
 ### Summary
 **PHASE 0 BASE MODEL CHARACTERIZATION COMPLETE.** Benchmarked pure RWKV-6, Mamba-2, and GPT-1 at 4M scale. All full models are AMPLIFIERS, but SSMs are 142× more stable than attention. Layer-level complementarity confirmed: RWKV amplifies, Mamba damps. BlinkDL init proven architecture-agnostic. Phase 1 architecture decisions made.

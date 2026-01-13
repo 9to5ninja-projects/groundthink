@@ -1,6 +1,6 @@
 # GroundThink: Hybrid RWKV-6 + Mamba-2 Architecture
 
-**Status:** V0.5.1 Phase 1 — Twin Debate Implementation  
+**Status:** V0.5.0.5 — Phase 0 Complete, Phase 1 Starting  
 **V4 Status:** ✅ Graduated (GPT-2 parity at 17% fewer params)  
 **Phase 0:** ✅ COMPLETE (Base model characterization)  
 **Updated:** 2026-01-13  

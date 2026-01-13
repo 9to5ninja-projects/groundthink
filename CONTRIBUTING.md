@@ -447,3 +447,25 @@ Check the LICENSE file for full terms.
 **Last Updated:** 2026-01-10  
 **Maintained By:** GroundThink Team  
 **Questions?** Open an issue on GitHub
+
+---
+
+## Versioning Scheme (V0.5+)
+
+**Format:** `0.5.{PHASE}.{TASK}`
+
+| Component | Meaning | Example |
+|-----------|---------|---------|
+| `0.5` | Major version (Twin Debate architecture) | Fixed for V0.5 era |
+| `{PHASE}` | Current phase number | 0 = Base Model Characterization, 1 = Core Implementation |
+| `{TASK}` | Last completed task within phase | Increments as tasks complete |
+
+**Examples:**
+- `0.5.0.4` → Phase 0, Task 0.0.4 complete (Comparative Analysis)
+- `0.5.0.5` → Phase 0 fully complete (ready for Phase 1)
+- `0.5.1.1` → Phase 1, Task 0.1 complete (GRU Arbiter)
+- `0.5.1.4` → Phase 1 fully complete (all 4 core tasks)
+
+**Version bumps happen AFTER task completion, not before.**
+
+**Current:** `0.5.0.5` — Phase 0 complete, Phase 1 starting.
