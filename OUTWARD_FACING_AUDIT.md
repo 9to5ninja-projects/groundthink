@@ -131,7 +131,7 @@ Experimental hybrid language model combining RWKV-6 and Mamba-2 architectures...
 ### ✅ What You're Doing Well
 
 1. **Strong documentation culture** — DOCUMENTATION_MAP.md, clear hierarchy
-2. **Excellent internal tracking** — V4_HANDOFF.md, CHANGELOG.md, OBSERVATION_SYNTHESIS.md
+2. **Excellent internal tracking** — HANDOFF.md, CHANGELOG.md, OBSERVATION_SYNTHESIS.md
 3. **Proper archival strategy** — archive/ folder with clear policy
 4. **Explicit experimental warnings** — LICENSE and README both warn about research status
 5. **Detailed technical docs** — V4_DESIGN.md, V4_TESTING.md, etc.
@@ -201,7 +201,7 @@ Experimental hybrid language model combining RWKV-6 and Mamba-2 architectures...
 - Implement Twin Debate Loss (pathway specialization)
 - Test qualia preservation via semantic weighting
 
-See [V4_HANDOFF.md](V4_HANDOFF.md) for detailed transition context.
+See [HANDOFF.md](HANDOFF.md) for detailed transition context.
 
 ## Architecture Overview
 [Keep existing architecture diagram]

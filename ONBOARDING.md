@@ -232,7 +232,7 @@ Phase 4: Advanced Evaluation (⬜ Future)
 |------|---------|------------|
 | [V4_DESIGN.md](V4_DESIGN.md) | Architecture specification | Shows actual vs proposed designs, layer math |
 | [V4_STRATEGY.md](V4_STRATEGY.md) | Task backlog & complexity | Ordered task list with assessment matrix |
-| [V4_HANDOFF.md](V4_HANDOFF.md) | Agent continuity | Current status, git commits, quick audit checklist |
+| [HANDOFF.md](HANDOFF.md) | Agent continuity | Current status, git commits, quick audit checklist |
 | [hybrid_v4_ratio.py](hybrid_v4_ratio.py) | Phase 2 winner code | GF-MH implementation (3.5M params) |
 | [benchmark_variants.py](benchmark_variants.py) | Comparative testing | Benchmark suite for fair variant comparison |
 | [README.md](README.md) | Quick start guide | How to run benchmarks, interpret results |
@@ -346,7 +346,7 @@ Phase 4: Advanced Evaluation (⬜ Future)
 | [README.md](README.md) | First (practical) | Quick start, how to run benchmarks |
 | [CHANGELOG.md](CHANGELOG.md) | When confused about history | What changed and when |
 | [V4_STRATEGY.md](V4_STRATEGY.md) | Before starting work | Task list, complexity assessment |
-| [V4_HANDOFF.md](V4_HANDOFF.md) | Before any major work | Current state, audit checklist |
+| [HANDOFF.md](HANDOFF.md) | Before any major work | Current state, audit checklist |
 | [V4_BUILD_LOG.md](V4_BUILD_LOG.md) | When debugging specific issues | What was tried, what failed/worked |
 | [V4.5_OPTIMIZATION.md](V4.5_OPTIMIZATION.md) | When optimizing performance | Profiling, benchmarking methodology |
 
@@ -382,7 +382,7 @@ This is an experiment in whether "linear-time sequence models" can match or beat
 
 ## Part 10: The Librarian's Note
 
-This document was created as part of the ongoing SOP improvements (see [V4_HANDOFF.md](V4_HANDOFF.md) "SOP Self-Improvement" section).
+This document was created as part of the ongoing SOP improvements (see [HANDOFF.md](HANDOFF.md) "SOP Self-Improvement" section).
 
 **For future librarians:**
 - If external researchers ask "what are you building?", point them here first
@@ -414,7 +414,7 @@ This document was created as part of the ongoing SOP improvements (see [V4_HANDO
 **If you're debugging:**
 1. Read Part 6 (Glossary)
 2. Check [V4_BUILD_LOG.md](V4_BUILD_LOG.md) for similar issues
-3. Read [V4_HANDOFF.md](V4_HANDOFF.md) audit section
+3. Read [HANDOFF.md](HANDOFF.md) audit section
 
 **If you're evaluating:**
 1. Read Part 2 (Why Combine)
@@ -424,4 +424,4 @@ This document was created as part of the ongoing SOP improvements (see [V4_HANDO
 ---
 
 **Last Updated:** 2026-01-10  
-**For Questions:** See [V4_HANDOFF.md](V4_HANDOFF.md) "When Stuck" section
+**For Questions:** See [HANDOFF.md](HANDOFF.md) "When Stuck" section

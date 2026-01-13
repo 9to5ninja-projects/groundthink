@@ -1,12 +1,17 @@
-5.0-Alpha (V0.5 Twin Debate Architecture)
+0.5.0.3-Alpha (V0.5 Twin Debate Architecture)
 Created: 2026-01-08
-Updated: 2026-01-11
-Status: V0.5 PHASE 0 — Base Model Characterization (RWKV-6, Mamba-2, GPT-1)
+Updated: 2026-01-12
+Status: V0.5 PHASE 0 — Base Model Characterization (Next: Comparative Analysis)
 V4 Status: GRADUATED — GPT-2 parity achieved (loss ratio 1.008)
-Current Focus: Pure pathway benchmarks before fusion design
+Current Focus: Task 0.0.4 (Comparative analysis → inform fusion design)
+Task 0.0.1: ✅ COMPLETE — RWKV-6 AMPLIFIER (5.5x)
+Task 0.0.1.a: ✅ CONFIRMED — BlinkDL init fixes saturation
+Task 0.0.2: ✅ COMPLETE — Mamba-2 AMPLIFIER (2.0x), DAMPER at layer level
+Task 0.0.2.a: ✅ CONFIRMED — BlinkDL init fixes saturation
+Task 0.0.3: ✅ COMPLETE — GPT-1 AMPLIFIER (782x) extreme amplification
 
 For detailed version history, see CHANGELOG.md
 For V4 results, see V4_STRATEGY.md and OBSERVATION_SYNTHESIS.md
 For Phase 0 characterization plan, see BASE_MODEL_CHARACTERIZATION.md
 For Phase 1 fusion plan, see V0.5_ROADMAP.md
-For current development context, see V4_HANDOFF.md
+For current development context, see HANDOFF.md

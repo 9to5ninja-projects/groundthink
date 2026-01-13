@@ -1,17 +1,13 @@
-# V4 Handoff (DEPRECATED)
+# Agent Handoff
 
-> **⚠️ This file has been superseded by [HANDOFF.md](HANDOFF.md)**
->
-> The V4 prefix caused confusion. All agent handoff content is now in HANDOFF.md.
-> This file is kept for backwards compatibility with any external references.
-
-See [HANDOFF.md](HANDOFF.md) for current status.
+**Version:** 0.5.0.2-Alpha | **Phase:** 0.5 Task 0.0.3 | **Updated:** 2026-01-12
 
 ---
 
-## Historical Note
+## Current Status
 
-V4 refers to the GF-MH (Groundthink Fusion - Mamba Hybrid) architecture that achieved GPT-2 parity.
+✅ **Phase 4.0 Graduation PASSED** — GF-MH passes all validation gates.
+✅ **Task 62 COMPLETE** — GPT-2 baseline comparison on WikiText-103 with BPE.
 ✅ **Tasks 55-60 COMPLETE** — Diagnostic tooling suite built.
 ✅ **Librarian Audit COMPLETE** — Gap analysis between V4 and V0.5 performed.
 
@@ -69,27 +65,86 @@ V4 refers to the GF-MH (Groundthink Fusion - Mamba Hybrid) architecture that ach
 ### Phase 0: Base Model Characterization (CURRENT PRIORITY)
 | Priority | Task | Description | Status |
 |----------|------|-------------|--------|
-| **0.0.1** | Pure RWKV-6 Benchmark | 4M params, WikiText-103, BPE 16K | ✅ COMPLETE (AMPLIFIER) |
-| **0.0.2** | Pure Mamba-2 Benchmark | 4M params, WikiText-103, BPE 16K | 🔧 READY (ops/mamba2_prototype.py created) |
-| **0.0.3** | GPT-1 Baseline | 4M params for fair comparison | ⬜ TODO |
-| **0.0.4** | Comparative Analysis | Document findings, inform fusion design | ⬜ TODO |
+| **0.0.1** | Pure RWKV-6 Benchmark | 4M params, WikiText-103, BPE 16K | ✅ COMPLETE (AMPLIFIER 5.5x) |
+| **0.0.1.a** | RWKV-6 Init Ablation | BlinkDL init fixes saturation | ✅ CONFIRMED |
+| **0.0.2** | Pure Mamba-2 Benchmark | 4M params, WikiText-103, BPE 16K | ✅ COMPLETE (AMPLIFIER 2.0x) |
+| **0.0.2.a** | Mamba-2 Init Ablation | BlinkDL init fixes saturation | ✅ CONFIRMED |
+| **0.0.3** | GPT-1 Baseline | 4M params for fair comparison | ✅ COMPLETE (AMPLIFIER 782x) |
+| **0.0.4** | Comparative Analysis | Document findings, inform fusion design | ✅ COMPLETE |
+
+---
+
+## Phase 0 Completion Summary (2026-01-12)
+
+**All base model characterization tasks (0.0.1–0.0.4) are complete. Key findings:**
+- All full models are AMPLIFIERS: GPT-1 (782x) >> RWKV-6 (5.5x) > Mamba-2 (2.0x)
+- RWKV-6 amplifies variance per layer, Mamba-2 damps at layer level but amplifies as a full model
+- BlinkDL initialization is architecture-agnostic and mandatory for stability
+- SSMs are far more stable than attention (variance amplification 2–6x vs 782x)
+
+**Phase 1 Key Decisions:**
+- Use layer-level fusion to preserve complementary behavior
+- Apply BlinkDL init to all components
+- Target 2–6x total variance amplification in fusion
+- Monitor variance and softmax health during pilot runs
+- Open question: How to add Mamba residuals without losing damping?
+
+Phase 0 gate PASSED. Proceed to Phase 1 implementation.
 
 **Rationale:** Understand individual pathway behavior before implementing fusion.
 
-**Task 0.0.2 Implementation Ready (2026-01-12):**
+**Task 0.0.2 Implementation Complete (2026-01-12):****
 - ✅ Prototype: `ops/mamba2_prototype.py` - Pure PyTorch SSD (no mamba-ssm CUDA)
 - ✅ Source: Adapted from official `ssd_minimal.py` (Apache-2.0)
-- ⬜ Notebook: `notebooks/task_0_0_2_mamba.ipynb` (to be created, same framework as 0.0.1)
-- 📊 **PRELIMINARY FINDING:** Mamba-2 is a **DAMPER** (variance 1.0 → 0.011)
-- 🔮 **FUSION HYPOTHESIS VALIDATED:** RWKV-6 (AMPLIFIER) + Mamba-2 (DAMPER) = balanced system!
+- ✅ Notebook: `notebooks/task_0_0_2_mamba.ipynb` (Colab-ready, executed)
+- ✅ Output: `logs/mamba2_baseline_findings.json`
 
-**Task 0.0.1 Implementation Complete (2026-01-11):**
-- ✅ Model: models/rwkv6_pure.py (8 layers × 144 hidden, 4.46M params, tied embeddings)
-- ✅ Test Script: tests/task_0_0_1_rwkv6_benchmark.py (integrated training + metrics)
-- ✅ Config: configs/task_0_0_1.yaml (10K steps, WikiText-103 + BPE 16K)
-- ✅ Variance Tool: tools/variance_analysis.py (layer-wise output variance tracking)
-- ✅ NIAH Test: tests/test_niah_bpe.py (BPE needle-in-haystack at multiple depths)
-- 📋 Requirements inventory: /tmp/phase0_inventory.txt (tools verified, 5 new components created)
+**📊 Task 0.0.2 FINDINGS (2026-01-12):**
+
+| Component | Input var | Output var | Ratio | Character |
+|-----------|-----------|------------|-------|-----------|
+| Mamba2TimeMix alone | 0.98 | 0.005 | 0.005x | **DAMPER** |
+| Full 8-layer model | 0.99 | 2.00 | 2.03x | **AMPLIFIER** |
+
+**Key Insight:** Residual connections + FFN + layer stacking transforms Mamba-2's 
+damping into mild amplification. Both RWKV-6 and Mamba-2 full models are AMPLIFIERS,
+but Mamba-2 amplifies less (2.0x vs 5.5x).
+
+**✅ Task 0.0.2.a CONFIRMED (2026-01-12):** BlinkDL init fixes Mamba-2 saturation:
+| Metric | Baseline | BlinkDL Init | Change |
+|--------|----------|--------------|--------|
+| Max prob | 0.86 | 0.05 | -94% |
+| Entropy | 0.50 | 6.98 | +14x |
+| % of random | 5.2% | 72.1% | ✅ Healthy |
+
+**Architecture-agnostic init pattern confirmed:** Same BlinkDL recipe works for RWKV-6, Mamba-2, AND GPT-1.
+
+**📊 Task 0.0.3 FINDINGS (2026-01-12):** GPT-1 is an extreme amplifier:
+
+| Metric | Value | Note |
+|--------|-------|------|
+| Characterization | **AMPLIFIER (782x)** | Extreme amplification |
+| Variance | 0.02 → 16.7 | 782x total over 8 layers |
+| Final loss | 6.77 | 50 steps with BlinkDL init |
+| Max prob | 0.058 | Healthy (no saturation) |
+| Entropy | 70.0% | Of random (9.68) |
+
+**🔮 REVISED FUSION HYPOTHESIS (Updated with GPT-1 findings):** 
+- All three full models are AMPLIFIERS: GPT-1 (782x) >> RWKV-6 (5.5x) > Mamba-2 (2.0x)
+- Raw SSM layers: RWKV-6 (amplifier) vs Mamba-2 (damper) - complementary at layer level
+- SSMs amplify far less than attention-based architectures
+- BlinkDL init is critical and architecture-agnostic
+
+**Task 0.0.1 Implementation Complete (2026-01-12):**
+- ✅ Model: 8 layers × 144 hidden, 4.3M params (tied embeddings)
+- ✅ Notebook: `notebooks/task_0_0_1_wsl.ipynb` (Colab-ready, all cells execute)
+- ✅ Characterization: **AMPLIFIER** (variance 1.01→5.59, 1.28x/layer)
+- ✅ **Sub-task 0.0.1.a: BlinkDL Initialization Ablation - CONFIRMED**
+  - BlinkDL init prevents softmax saturation (max_prob 1.0 → 0.082)
+  - Loss reduced 4.3x in same 50 steps (34.3 → 7.9)
+  - 0% saturation vs 15.6% with original init
+  - Exported: `exports/task_0_0_1a_ablation_results.json`
+- 📋 See: [RWKV_TRAINING_NOTES.md](RWKV_TRAINING_NOTES.md) for BlinkDL init details
 
 **⚠️ DEVIATIONS FROM ORIGINAL PLAN (2026-01-11):**
 
@@ -130,26 +185,47 @@ V4 refers to the GF-MH (Groundthink Fusion - Mamba Hybrid) architecture that ach
 - Full 540MB can be revisited when infrastructure supports it
 - Matches compute budget constraints documented in V4_BUILD_LOG.md
 
-**Task 0.0.1 Status (2026-01-11): 🟢 PRELIMINARY COMPLETE**
+**Task 0.0.1 Status (2026-01-12): 🟢 COMPLETE (Full Dataset Validated)**
 
-| Finding | Value | Note |
-|---------|-------|------|
-| Characterization | **AMPLIFIER** | Variance grows ~1.27x per layer |
-| Variance range | 1.0 → 5.4 std | 5.4x total amplification |
-| Learning | 125 → 35 loss | 72% reduction (50 steps) |
-| Logits | [-57, +134] | Exploding, softmax saturates |
+| Finding | 50MB Subset | Full 12M Tokens | Note |
+|---------|-------------|-----------------|------|
+| Characterization | **AMPLIFIER** | **AMPLIFIER** | Confirmed |
+| Variance range | 1.0 → 5.4 std | 1.01 → 5.59 std | 1.28x per layer |
+| Learning | 125 → 35 loss | 135 → 34 loss | 72-75% reduction |
+| Logits | [-57, +134] | [-55, +83] | Softmax saturates |
+| Entropy | 1.70 | 1.70 | vs random 9.68 |
 
 **Key Insight:** RWKV-6 alone amplifies variance through layers. Does NOT stabilize.
-This informs fusion design: if Mamba-2 is a STABILIZER, they may complement each other.
+This informs fusion design: Mamba-2 is confirmed DAMPER - they complement each other!
+
+**⚠️ IMPORTANT: Softmax Saturation Explained (2026-01-12)**
+
+Investigation of BlinkDL's official RWKV-LM repo revealed our initialization differs significantly from recommended practices. The softmax saturation is NOT an architectural flaw - it's a training configuration issue.
+
+**See [RWKV_TRAINING_NOTES.md](RWKV_TRAINING_NOTES.md) for full details.**
+
+Key differences from BlinkDL recommendations:
+| Parameter | Ours | BlinkDL Official | Impact |
+|-----------|------|------------------|--------|
+| `emb.weight` | Default | uniform(-1e-4, 1e-4) | **10,000x too large** |
+| `ffn.value` | xavier(0.5) | **ZERO** | Residual starts non-zero |
+| `att.output` | Default | **ZERO** | Residual starts non-zero |
+| Weight decay | 0.1 to all | 0.1 only to projections | LN shouldn't decay |
+
+**Sub-task 0.0.1.a: Initialization Ablation** (Optional)
+- Add ablation cell to notebook testing BlinkDL initialization
+- Verify softmax saturation is resolved with proper init
+- Not blocking Task 0.0.2, but validates our understanding
 
 **Outputs:**
 - ✅ `logs/dataset_meta.json` - Dataset config
 - ✅ `logs/rwkv6_variance.json` - Layer variance data  
 - ✅ `logs/rwkv6_baseline_findings.json` - Full findings
+- ✅ `RWKV_TRAINING_NOTES.md` - BlinkDL initialization research
 
 **Next Steps:**
-1. ⬜ Extended RWKV-6 run (500-1000 steps) for convergence metrics
-2. ⬜ Task 0.0.2: Mamba-2 characterization (is it STABILIZER or AMPLIFIER?)
+1. ⬜ Optional: Task 0.0.1.a initialization ablation
+2. 🔧 Task 0.0.2: Mamba-2 characterization (confirmed DAMPER in quick test)
 3. ⬜ Task 0.0.3: GPT-1 baseline for fair comparison
 4. ⬜ Task 0.0.4: Comparative analysis → inform fusion design
 

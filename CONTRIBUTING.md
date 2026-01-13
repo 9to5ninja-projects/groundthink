@@ -20,7 +20,7 @@ Session-dated files, redundant docs, orphaned code, and stale meta-documents acc
 | Version history | `CHANGELOG.md` | ~~V4_BUILD_LOG.md~~ |
 | V4 task backlog | `V4_STRATEGY.md` (archived summary) | ~~session summaries~~ |
 | V0.5 roadmap | `V0.5_ROADMAP.md` | ~~scattered docs~~ |
-| Current status | `V4_HANDOFF.md` | ~~V4_STRATEGY.md header~~ |
+| Current status | `HANDOFF.md` | ~~V4_STRATEGY.md header~~ |
 | Test definitions | `V4_TESTING.md` + `CANARY_TESTS.md` | ~~scattered in strategy~~ |
 
 ### Document Creation Rules
@@ -103,7 +103,7 @@ Example:
 
 ### Handoff Document Rules
 
-`V4_HANDOFF.md` must stay under 100 lines. It contains:
+`HANDOFF.md` must stay under 100 lines. It contains:
 1. Current version/phase (1 line)
 2. Last session summary (5 lines max)
 3. Next actions (5 lines max)
@@ -144,7 +144,7 @@ Example:
 ## Before You Start
 
 1. **Read [ONBOARDING.md](ONBOARDING.md)** — Understand RWKV, Mamba, and the hybrid hypothesis
-2. **Understand the current state** — Read [V4_HANDOFF.md](V4_HANDOFF.md) for quick status
+2. **Understand the current state** — Read [HANDOFF.md](HANDOFF.md) for quick status
 3. **Know what we need** — Check [V4_STRATEGY.md](V4_STRATEGY.md) for Phase 4.0+ tasks
 
 ---
@@ -184,7 +184,7 @@ Example:
    - Conceptual: [ONBOARDING.md](ONBOARDING.md)
    - Architecture: [V4_DESIGN.md](V4_DESIGN.md)
    - Tasks/Progress: [V4_STRATEGY.md](V4_STRATEGY.md)
-   - Status: [V4_HANDOFF.md](V4_HANDOFF.md)
+   - Status: [HANDOFF.md](HANDOFF.md)
    - Implementation: Code files (hybrid_v4_*.py)
 3. Make the fix
 4. Commit with `docs:` prefix: `docs: Fix typo in ONBOARDING.md Part 2`
@@ -205,7 +205,7 @@ Example:
    - Your environment (Python version, CUDA version, OS)
    - Which file failed (variant code, training script, etc.)
 
-**Quick Fix:** If it's an import error, check [V4_HANDOFF.md AUDIT SUMMARY](V4_HANDOFF.md#audit-summary) for known issues
+**Quick Fix:** If it's an import error, check [HANDOFF.md AUDIT SUMMARY](HANDOFF.md#audit-summary) for known issues
 
 ### ⚡ Performance/Optimization Contributions
 
@@ -412,7 +412,7 @@ Benchmark results attached.
 
 **Questions about the project?**
 - Check [ONBOARDING.md](ONBOARDING.md) Part 8 (External Resources)
-- Read [V4_HANDOFF.md](V4_HANDOFF.md) (current status)
+- Read [HANDOFF.md](HANDOFF.md) (current status)
 
 **Technical questions?**
 - Search [V4_BUILD_LOG.md](V4_BUILD_LOG.md) for similar issues

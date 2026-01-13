@@ -672,7 +672,7 @@ Step  500 | Train: 3.70 | Val: 4.60 | RWKV/Mamba: 8.50 [WARN] # BAD: ratio + ove
 | `hybrid_v4.py` | Model architecture (RWKV6 + Mamba2 parallel) |
 | `data_v030.py` | Dataset with train/val split |
 | `tokenizer_v030.py` | Character tokenizer |
-| `V4_HANDOFF.md` | Task tracking for agents |
+| `HANDOFF.md` | Task tracking for agents |
 | `V4_DESIGN.md` | Architecture decisions |
 | `V4_BUILD_LOG.md` | Session-by-session progress |
 

@@ -60,7 +60,7 @@ class Block(nn.Module):
         return x
 ```
 
-Reference: V4.5_PYTHON_WRAPPERS.md, V4_HANDOFF.md, BASE_MODEL_CHARACTERIZATION.md
+Reference: V4.5_PYTHON_WRAPPERS.md, HANDOFF.md, BASE_MODEL_CHARACTERIZATION.md
 Created: 2026-01-09
 Updated: 2026-01-11 (WKV normalization fix, RWKV6TimeMix added, docs expanded)
 """

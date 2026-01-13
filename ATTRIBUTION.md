@@ -84,6 +84,22 @@ from the original paper. This was done to avoid dependency management nightmares
 }
 ```
 
+### BlinkDL Initialization Code
+- **Source**: https://github.com/BlinkDL/RWKV-LM (src/model.py `generate_init_weight()`)
+- **Authors**: Bo Peng (BlinkDL)
+- **License**: Apache 2.0
+- **What we use**: Official initialization recommendations for RWKV-6 training
+- **How we use it**: Sub-task 0.0.1.a ablation study + future RWKV implementations
+- **Key insight**: Tiny embedding init `uniform(-1e-4, 1e-4)` prevents softmax saturation
+
+### Mamba-2 SSD Minimal Implementation
+- **Source**: https://github.com/state-spaces/mamba (mamba_ssm/modules/ssd_minimal.py)
+- **Authors**: Tri Dao, Albert Gu
+- **License**: Apache 2.0
+- **What we use**: Core SSD algorithm adapted to `ops/mamba2_prototype.py`
+- **How we use it**: Pure PyTorch Mamba-2 for Task 0.0.2 characterization (no CUDA deps)
+- **Modifications**: Wrapped in `Mamba2TimeMix` class matching `RWKV6TimeMix` interface
+
 ### NVIDIA Hybrid Architecture Study
 - **Source**: NVIDIA Research on Hybrid SSM Architectures
 - **Finding**: ~43% Mamba-2 + attention outperforms pure models

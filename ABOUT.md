@@ -145,7 +145,7 @@ See [groundthink_architecture_research.md](groundthink_architecture_research.md)
 **If you want to contribute:**
 1. Read [CONTRIBUTING.md](CONTRIBUTING.md) for documentation standards
 2. Review [V0.5_ROADMAP.md](V0.5_ROADMAP.md) for upcoming work
-3. Check [V4_HANDOFF.md](V4_HANDOFF.md) for current development context
+3. Check [HANDOFF.md](HANDOFF.md) for current development context
 4. Start with [GETTING_STARTED.md](GETTING_STARTED.md) to set up environment
 
 **Best ways to help:**
@@ -226,4 +226,4 @@ MIT License — See [LICENSE](LICENSE) for full text.
 - **Documentation:** [DOCUMENTATION_MAP.md](DOCUMENTATION_MAP.md)
 - **Issues:** (GitHub Issues if repository is public)
 
-**Questions?** Check [GETTING_STARTED.md](GETTING_STARTED.md) first, then [V4_HANDOFF.md](V4_HANDOFF.md) for current status.
+**Questions?** Check [GETTING_STARTED.md](GETTING_STARTED.md) first, then [HANDOFF.md](HANDOFF.md) for current status.

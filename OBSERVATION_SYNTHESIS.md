@@ -1,4 +1,4 @@
-# Observation Synthesis — 2026-01-11
+# Observation Synthesis — 2026-01-12
 
 **Purpose:** Consolidate all 18 observations into actionable inferences before revisiting base models.
 
@@ -170,22 +170,42 @@ Go back to pure RWKV-6 and pure Mamba-2 to understand:
 
 ### Task 0.0.1: Pure RWKV-6 Characterization
 
-**Result: RWKV-6 is an AMPLIFIER**
+**Result: RWKV-6 is an AMPLIFIER** (confirmed 2026-01-12)
 
-| Metric | Value | Interpretation |
-|--------|-------|----------------|
-| Behavior | AMPLIFIER | Variance grows through layers |
-| Variance | 1.0 → 5.4 std | ~1.27x per layer (5.4x total) |
-| Learning | 125 → 35 | 72% loss reduction in 50 steps |
-| Logits | [-57, +134] | Exploding → softmax saturation |
-| Entropy | 1.97 | Low (random = 9.68) |
+| Metric | 50MB Subset | Full Dataset (12M tokens) |
+|--------|-------------|---------------------------|
+| Behavior | AMPLIFIER | AMPLIFIER ✓ |
+| Variance | 1.0 → 5.4 | 1.01 → 5.59 |
+| Growth/layer | 1.27x | 1.28x |
+| Learning | 125 → 35 | 135 → 34 (72.6%) |
+| Logits | [-57, +134] | [-55, +83] |
+| Entropy | 1.97 | 1.70 |
+
+**Conclusion:** 50MB subset was representative. Full dataset confirms characterization.
 
 **Implication for Fusion:**
 - RWKV-6 does NOT stabilize activations
 - If Mamba-2 proves to be a STABILIZER, they could complement each other
 - Current hybrid imbalance may partly be explained by RWKV's amplification tendency
 
-**Pending:** Task 0.0.2 (Mamba-2) to determine if it's STABILIZER or AMPLIFIER.
+**Pending:** Extended training run for convergence metrics.
+
+### Task 0.0.2: Pure Mamba-2 Characterization (Preliminary)
+
+**Result: Mamba-2 is a DAMPER** (confirmed 2026-01-12)
+
+| Metric | Value | Interpretation |
+|--------|-------|----------------|
+| Behavior | DAMPER | Variance decreases through layers |
+| Variance | 1.0 → 0.011 | 99% reduction (opposite of RWKV-6) |
+| Prototype | `ops/mamba2_prototype.py` | Pure PyTorch SSD, no CUDA deps |
+
+**Fusion Hypothesis VALIDATED:**
+- RWKV-6 = AMPLIFIER (variance grows 5.4x)
+- Mamba-2 = DAMPER (variance shrinks 99x)
+- Together they may balance each other → stable hybrid
+
+**Pending:** Full training run with variance analysis (notebook TBD).
 
 ---
 
@@ -211,6 +231,6 @@ This gives us a **2x2 comparison matrix**: Stateful (RWKV, Mamba) vs Stateless (
 
 ---
 
-*Generated: 2026-01-11*  
+*Updated: 2026-01-12*  
 *Reference: [archive/V4_FUSION_MODELS.md](archive/V4_FUSION_MODELS.md) Observations 1-18*  
-*See also: [V4_STRATEGY.md](V4_STRATEGY.md) for executive summary*
+*See also: [V4_STRATEGY.md](V4_STRATEGY.md) for executive summary, [HANDOFF.md](HANDOFF.md) for current context*

@@ -1,7 +1,7 @@
 # GroundThink Documentation Map
 
-**Updated:** 2026-01-11 (Post-Harmonization)  
-**Status:** v5.0-Alpha | Phase 0.5 Planning
+**Updated:** 2026-01-12 (Post-BlinkDL Research)  
+**Status:** v5.0.1-Alpha | Phase 0.5 Task 0.0.2
 
 ---
 
@@ -10,9 +10,9 @@
 | Category | Active Docs | Archive |
 |----------|-------------|---------|
 | **Strategy** | BASE_MODEL_CHARACTERIZATION.md (Phase 0), V0.5_ROADMAP.md | V4_STRATEGY_FULL.md |
-| **Handoff** | V4_HANDOFF.md | - |
+| **Handoff** | HANDOFF.md | - |
 | **About** | ABOUT.md | - |
-| **Observations** | OBSERVATION_SYNTHESIS.md | V4_FUSION_MODELS.md, V4_DIAGNOSTICS.md |
+| **Observations** | OBSERVATION_SYNTHESIS.md, RWKV_TRAINING_NOTES.md | V4_FUSION_MODELS.md, V4_DIAGNOSTICS.md |
 | **Reference** | V4_TESTING.md, V4_TRAINING_GUIDE.md, V4_DESIGN.md | V4_BLEND_RATIOS.md, V4_BUILD_LOG.md |
 | **Validation** | STATEFUL_VALIDATION_GUIDE.md, CANARY_TESTS.md | - |
 | **Research** | groundthink_architecture_research.md (3.4K lines) | - |
@@ -22,12 +22,13 @@
 ## Document Hierarchy
 
 ```
-┌─ ACTIVE PLANNING (v5.0-Alpha)
+┌─ ACTIVE PLANNING (v5.0.1-Alpha)
 │
 ├── BASE_MODEL_CHARACTERIZATION.md ⭐ PHASE 0 (CURRENT)
-│   ├─ Pure RWKV-6 benchmark (Task 0.0.1) � PRELIMINARY COMPLETE
-│   │   └─ Finding: RWKV-6 is AMPLIFIER (variance 1.0→5.4)
-│   ├─ Pure Mamba-2 benchmark (Task 0.0.2) ⬜ TODO (NEXT)
+│   ├─ Pure RWKV-6 benchmark (Task 0.0.1) ✅ COMPLETE
+│   │   ├─ Finding: RWKV-6 is AMPLIFIER (variance 1.0→5.6)
+│   │   └─ Sub-task 0.0.1.a: Initialization ablation (optional)
+│   ├─ Pure Mamba-2 benchmark (Task 0.0.2) 🔧 READY (prototype created)
 │   ├─ GPT-1 baseline (Task 0.0.3) ⬜ TODO
 │   ├─ Comparative analysis (Task 0.0.4) ⬜ TODO
 │   └─ Informs V0.5 fusion design
@@ -37,14 +38,14 @@
 │   ├─ Uses RWKV6TimeMix + GELU FFN
 │   ├─ Outputs: logs/dataset_meta.json, logs/rwkv6_*.json
 │   ├─ FINDING: AMPLIFIER characterization
-│   └─ See V4_HANDOFF.md for deviations
+│   └─ See HANDOFF.md for deviations
 │
 ├── V0.5_ROADMAP.md ⭐ PHASE 1 (PENDING PHASE 0)
 │   ├─ Section 1: Core Architecture (Tasks 0.1-0.6)
 │   ├─ Acceptance criteria for all tasks
 │   └─ Graduation criteria (V0.5 -> V1.0)
 │
-├── V4_HANDOFF.md
+├── HANDOFF.md
 │   ├─ Current status (Phase 4.0 results)
 │   ├─ Task 0.0.1 AMPLIFIER findings
 │   ├─ Phase A: Documentation Cleanup (complete)
@@ -126,7 +127,7 @@
 4. [V0.5_ROADMAP.md](V0.5_ROADMAP.md) - What's next
 
 ### For Implementation (Phase B)
-1. [V4_HANDOFF.md](V4_HANDOFF.md) - Current status
+1. [HANDOFF.md](HANDOFF.md) - Current status
 2. [V0.5_ROADMAP.md](V0.5_ROADMAP.md) - Task list with acceptance criteria
 3. [V4_DESIGN.md](V4_DESIGN.md) - Architecture reference
 4. [groundthink_architecture_research.md](groundthink_architecture_research.md) - Design decisions
@@ -159,7 +160,7 @@
 ### Updated
 - OBSERVATION_SYNTHESIS.md - References now point to archive/
 - V4_STRATEGY.md - References updated for archived docs
-- V4_HANDOFF.md - Phase A complete, Phase B next
+- HANDOFF.md - Phase A complete, Phase B next
 
 ---
 
@@ -175,7 +176,7 @@
 | HARMONIZATION_REPORT.md | 8K | Active | V4 post-mortem |
 | V4_STRATEGY.md | 7.4K | Reference | V4 summary |
 | V0.5_ROADMAP.md | 5K | Active | V0.5 task list |
-| V4_HANDOFF.md | 5.4K | Active | Current status |
+| HANDOFF.md | 5.4K | Active | Current status |
 | OBSERVATION_SYNTHESIS.md | 7K | Active | Key findings |
 
 ---

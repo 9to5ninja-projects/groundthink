@@ -1,8 +1,8 @@
 # GroundThink: Hybrid RWKV-6 + Mamba-2 Architecture
 
-**Status:** V0.5 Phase 0 — Base Model Characterization  
+**Status:** V0.5.0.2 Phase 0 — Base Model Characterization  
 **V4 Status:** ✅ Graduated (GPT-2 parity at 17% fewer params)  
-**Updated:** 2026-01-11  
+**Updated:** 2026-01-12  
 **Repository:** https://github.com/9to5ninja-projects/groundthink  
 **License:** MIT (see [LICENSE](LICENSE))
 
@@ -41,7 +41,7 @@
 - Design informed fusion architecture based on findings
 - Implement GRU Arbiter, Mamba Residual, Twin Debate Loss (if needed)
 
-See [BASE_MODEL_CHARACTERIZATION.md](BASE_MODEL_CHARACTERIZATION.md) and [V4_HANDOFF.md](V4_HANDOFF.md) for details.
+See [BASE_MODEL_CHARACTERIZATION.md](BASE_MODEL_CHARACTERIZATION.md) and [HANDOFF.md](HANDOFF.md) for details.
 
 ---
 
@@ -233,7 +233,7 @@ print(f"Output shape: {logits.shape}")  # Should be [4, 64, 97]
 - **[DATA_FLOW.md](DATA_FLOW.md)** — Visual architecture diagrams (6 levels from token to output)
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** — How to add variants, report bugs, contribute improvements
 - **[V4_STRATEGY.md](V4_STRATEGY.md)** — Task backlog, complexity assessment, validation gates
-- **[V4_HANDOFF.md](V4_HANDOFF.md)** — Current status, audit summary, git approval protocol
+- **[HANDOFF.md](HANDOFF.md)** — Current status, audit summary, git approval protocol
 - **[CHANGELOG.md](CHANGELOG.md)** — Version history with dates and major changes
 - **[VERSION](VERSION)** — Current semantic version
 - **[V4_TRAINING_GUIDE.md](V4_TRAINING_GUIDE.md)** — Training procedures and hyperparameter tuning
@@ -391,7 +391,7 @@ The only gate: **must benchmark fairly** (same dataset, same steps, same seeds).
 See documentation in this order:
 1. **Architecture:** [V4_DESIGN.md](V4_DESIGN.md)
 2. **Tasks & Progress:** [V4_STRATEGY.md](V4_STRATEGY.md)
-3. **Current Status:** [V4_HANDOFF.md](V4_HANDOFF.md)
+3. **Current Status:** [HANDOFF.md](HANDOFF.md)
 4. **Implementation Details:** Code comments in [hybrid_v4_ratio.py](hybrid_v4_ratio.py)
 
 ---
