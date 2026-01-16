@@ -1,279 +1,88 @@
 # Agent Handoff
 
-**Version:** 0.5.0.2-Alpha | **Phase:** 0.5 Task 0.0.3 | **Updated:** 2026-01-12
+**Version:** 0.5.1.5-Alpha | **Phase:** 1 Task 0.4 | **Updated:** 2026-01-15
 
 ---
 
 ## Current Status
 
-✅ **Phase 4.0 Graduation PASSED** — GF-MH passes all validation gates.
-✅ **Task 62 COMPLETE** — GPT-2 baseline comparison on WikiText-103 with BPE.
-✅ **Tasks 55-60 COMPLETE** — Diagnostic tooling suite built.
-✅ **Librarian Audit COMPLETE** — Gap analysis between V4 and V0.5 performed.
+✅ **Phase 0 COMPLETE** — Base model characterization done.  
+✅ **Task 0.1 COMPLETE** — minGRU Arbiter with RMSNorm (gold standard).  
+✅ **Task 0.2 COMPLETE** — Mamba Residual Path stable through layers.  
+✅ **Task 0.3b COMPLETE** — 8-Layer stability proven.  
+✅ **Task 0.3 COMPLETE** — Twin Debate Loss implemented.  
+🔧 **Task 0.4 NEXT** — 4M Pilot Run with full modules.
 
 | Test | Result |
 |------|--------|
-| S0-S4 State Tests | 5/5 PASS (variance ratio 108,583x) |
-| Task 43 Overfit | PASS (loss 0.48 in 65 steps) |
-| Task 44 Baseline | PASS (6.01 vs 9.68, 37.9% better) |
-| G1-G4 Gates | G1✓ G2✓ G3⏭ G4⚠ |
-| Task 46 Checkpoint | PASS (21.5 MB, identical reload) |
-| **Task 62 GPT-2** | **EQUIVALENT** (ratio 1.008) |
-| Task 58 Ablation | FAIL (RWKV 99.9%, Mamba 0.1%) |
-| Task 59 Evolution | PASS (state responds to input) |
-| Task 60 Long-ctx | PASS (1.04x ratio) |
+| Task 0.1 minGRU Arbiter | ✅ 99.2% trainable, O(log N) parallel |
+| Task 0.2 Mamba Residual | ✅ Stable through 8 layers |
+| Task 0.3b 8-Layer Proof | ✅ Mamba >5% at all depths |
+| Task 0.3 Debate Loss | ✅ Diversity + Arbiter loss working |
 
 ---
 
-## Last Session (2026-01-11)
+## Last Session (2026-01-15)
 
-**GPU/Memory Strategy Discovery:**
-- WSL crashes when tokenizing full 540MB WikiText-103 (BPE training + tokenization)
-- **SOLUTION:** VS Code Colab extension (`google.colab`) provides FREE T4 GPU + 15GB RAM
-- Bypasses all local memory constraints without renting cloud machines
-- Notebook updated to auto-detect environment and use full dataset on Colab
-
-**Recommended Workflow:**
-1. Open `notebooks/task_0_0_1_wsl.ipynb` in VS Code
-2. Select Kernel → Connect to Google Colab
-3. Run all cells with full dataset + GPU acceleration
-
-**Memory Investigation Results:**
-| Component | Memory | Notes |
-|-----------|--------|-------|
-| PyTorch import | ~350 MB | Fixed cost |
-| ops/RWKV6Attention | +40 MB | No mamba loaded |
-| 5.6M model + optimizer | +150 MB | Acceptable |
-| BPE tokenization 540MB | CRASH | WSL limit hit |
-| Colab environment | 15 GB | No limits |
-
-**Librarian Audit & Harmonization:**
-- Reconciled V4 diagnostic findings with V0.5 "Twin Debate" architecture.
-- Identified critical "missed implementations" (GRUs, Qualia Fade, Semantic Weighting Sensors).
-- Established new documentation strategy: Incremental conversion of research paper to tasks.
-- Consolidated `ops/` package with core CUDA and prototype wrappers.
-
-**Diagnostic Tooling Results:**
-- **Mamba Paradox:** Confirmed Mamba gradients are 10x larger vs RWKV, but state contribution is <0.3%.
-- **Attractor Zone:** Verified all gate initializations gravitate toward 10-30% R/M ratio.
-- **BPE Efficacy:** Confirmed 16K BPE significantly improves component balance over char-level.
+**Task 0.3 Results:**
+- DiversityLoss: Penalizes cosine similarity between agencies
+- ArbiterLoss: Rewards trusting better-performing pathway
+- TwinDebateLoss: Combined with λ_div=0.1, λ_arb=0.1
+- Integration test passed
+- Exported to `tools/debate_loss.py`
 
 ---
 
-## Next Actions (V0.5 Strategy)
+## Next Actions
 
-### Phase 0: Base Model Characterization (CURRENT PRIORITY)
+### Immediate (Task 0.4)
 | Priority | Task | Description | Status |
 |----------|------|-------------|--------|
-| **0.0.1** | Pure RWKV-6 Benchmark | 4M params, WikiText-103, BPE 16K | ✅ COMPLETE (AMPLIFIER 5.5x) |
-| **0.0.1.a** | RWKV-6 Init Ablation | BlinkDL init fixes saturation | ✅ CONFIRMED |
-| **0.0.2** | Pure Mamba-2 Benchmark | 4M params, WikiText-103, BPE 16K | ✅ COMPLETE (AMPLIFIER 2.0x) |
-| **0.0.2.a** | Mamba-2 Init Ablation | BlinkDL init fixes saturation | ✅ CONFIRMED |
-| **0.0.3** | GPT-1 Baseline | 4M params for fair comparison | ✅ COMPLETE (AMPLIFIER 782x) |
-| **0.0.4** | Comparative Analysis | Document findings, inform fusion design | ✅ COMPLETE |
+| **0.4** | 4M Pilot Run | 5K steps, real modules, Mamba >5% | 🔧 NEXT |
+
+### Phase 1 Graduation Criteria
+- [ ] Mamba contribution > 5% (measured by ablation)
+- [ ] Variance amplification 2-6x (SSM range)
+- [ ] Softmax entropy > 5.0, max_prob < 0.2
+- [ ] Arbiter α varies across sequence
+- [ ] Loss converges with debate loss enabled
 
 ---
 
-## Phase 0 Completion Summary (2026-01-12)
+## Completed Notebooks
 
-**All base model characterization tasks (0.0.1–0.0.4) are complete. Key findings:**
-- All full models are AMPLIFIERS: GPT-1 (782x) >> RWKV-6 (5.5x) > Mamba-2 (2.0x)
-- RWKV-6 amplifies variance per layer, Mamba-2 damps at layer level but amplifies as a full model
-- BlinkDL initialization is architecture-agnostic and mandatory for stability
-- SSMs are far more stable than attention (variance amplification 2–6x vs 782x)
-
-**Phase 1 Key Decisions:**
-- Use layer-level fusion to preserve complementary behavior
-- Apply BlinkDL init to all components
-- Target 2–6x total variance amplification in fusion
-- Monitor variance and softmax health during pilot runs
-- Open question: How to add Mamba residuals without losing damping?
-
-Phase 0 gate PASSED. Proceed to Phase 1 implementation.
-
-**Rationale:** Understand individual pathway behavior before implementing fusion.
-
-**Task 0.0.2 Implementation Complete (2026-01-12):****
-- ✅ Prototype: `ops/mamba2_prototype.py` - Pure PyTorch SSD (no mamba-ssm CUDA)
-- ✅ Source: Adapted from official `ssd_minimal.py` (Apache-2.0)
-- ✅ Notebook: `notebooks/task_0_0_2_mamba.ipynb` (Colab-ready, executed)
-- ✅ Output: `logs/mamba2_baseline_findings.json`
-
-**📊 Task 0.0.2 FINDINGS (2026-01-12):**
-
-| Component | Input var | Output var | Ratio | Character |
-|-----------|-----------|------------|-------|-----------|
-| Mamba2TimeMix alone | 0.98 | 0.005 | 0.005x | **DAMPER** |
-| Full 8-layer model | 0.99 | 2.00 | 2.03x | **AMPLIFIER** |
-
-**Key Insight:** Residual connections + FFN + layer stacking transforms Mamba-2's 
-damping into mild amplification. Both RWKV-6 and Mamba-2 full models are AMPLIFIERS,
-but Mamba-2 amplifies less (2.0x vs 5.5x).
-
-**✅ Task 0.0.2.a CONFIRMED (2026-01-12):** BlinkDL init fixes Mamba-2 saturation:
-| Metric | Baseline | BlinkDL Init | Change |
-|--------|----------|--------------|--------|
-| Max prob | 0.86 | 0.05 | -94% |
-| Entropy | 0.50 | 6.98 | +14x |
-| % of random | 5.2% | 72.1% | ✅ Healthy |
-
-**Architecture-agnostic init pattern confirmed:** Same BlinkDL recipe works for RWKV-6, Mamba-2, AND GPT-1.
-
-**📊 Task 0.0.3 FINDINGS (2026-01-12):** GPT-1 is an extreme amplifier:
-
-| Metric | Value | Note |
-|--------|-------|------|
-| Characterization | **AMPLIFIER (782x)** | Extreme amplification |
-| Variance | 0.02 → 16.7 | 782x total over 8 layers |
-| Final loss | 6.77 | 50 steps with BlinkDL init |
-| Max prob | 0.058 | Healthy (no saturation) |
-| Entropy | 70.0% | Of random (9.68) |
-
-**🔮 REVISED FUSION HYPOTHESIS (Updated with GPT-1 findings):** 
-- All three full models are AMPLIFIERS: GPT-1 (782x) >> RWKV-6 (5.5x) > Mamba-2 (2.0x)
-- Raw SSM layers: RWKV-6 (amplifier) vs Mamba-2 (damper) - complementary at layer level
-- SSMs amplify far less than attention-based architectures
-- BlinkDL init is critical and architecture-agnostic
-
-**Task 0.0.1 Implementation Complete (2026-01-12):**
-- ✅ Model: 8 layers × 144 hidden, 4.3M params (tied embeddings)
-- ✅ Notebook: `notebooks/task_0_0_1_wsl.ipynb` (Colab-ready, all cells execute)
-- ✅ Characterization: **AMPLIFIER** (variance 1.01→5.59, 1.28x/layer)
-- ✅ **Sub-task 0.0.1.a: BlinkDL Initialization Ablation - CONFIRMED**
-  - BlinkDL init prevents softmax saturation (max_prob 1.0 → 0.082)
-  - Loss reduced 4.3x in same 50 steps (34.3 → 7.9)
-  - 0% saturation vs 15.6% with original init
-  - Exported: `exports/task_0_0_1a_ablation_results.json`
-- 📋 See: [RWKV_TRAINING_NOTES.md](RWKV_TRAINING_NOTES.md) for BlinkDL init details
-
-**⚠️ DEVIATIONS FROM ORIGINAL PLAN (2026-01-11):**
-
-| Deviation | Original Plan | Actual | Rationale |
-|-----------|--------------|--------|----------|
-| Dataset size | Full WikiText-103 (540MB) | 50MB subset | Full corpus uses 5.3GB RAM just to load; Colab crashes during tokenization |
-| Execution env | Local WSL | Google Colab (VS Code extension) | WSL ~2.5GB limit; Colab provides 15GB RAM + T4 GPU free |
-| Tokenization | Single-pass | 10MB chunked | Memory-safe; prevents OOM during BPE encoding |
-| mamba-ssm | Installed | Skipped on Colab | Build fails without CUDA toolkit; not needed for RWKV6-only baseline |
-| RWKV6 CUDA kernel | wkv6_cuda from RWKV-CUDA/ | PyTorch prototype | CUDA kernel requires compilation; prototype is portable |
-| WKV computation | CUDA-optimized parallel scan | Sequential Python loop | Prototype for validation only; ~100x slower but mathematically correct |
-
-**⚠️ RWKV6 Prototype Notes (Critical for Future Sessions):**
-
-**Available Classes:**
-1. **`RWKV6Attention_Prototype`** - Full block (LN + WKV + squared ReLU FFN + residuals)
-   - ⚠️ Squared ReLU can cause value explosion over many layers
-   - Use if you want original RWKV-6 spec exactly
-   
-2. **`RWKV6TimeMix`** - Time-mixing only (RECOMMENDED)
-   - No internal FFN/LN - wrap with your own GELU FFN
-   - This is what Task 0.0.1 notebook uses
-   - Stable across 8 layers
-
-**Key Fixes (2026-01-11):**
-- WKV normalization: now properly tracks state_num/state_den
-- Value explosion: solved by using RWKV6TimeMix + GELU FFN
-- Performance: ~0.5s/step on CPU vs ~0.01s/step with CUDA kernel (50x slower)
-
-**Why Not CUDA Kernel?**
-- Requires `ninja` + CUDA toolkit for JIT compilation
-- Colab free tier has limited build environment
-- Prototype is sufficient for baseline characterization (not training at scale)
-
-**Why 50MB is Valid for Baseline:**
-- ~5M tokens after BPE (same density as original plan)
-- Sufficient for loss curve characterization and variance analysis
-- Full 540MB can be revisited when infrastructure supports it
-- Matches compute budget constraints documented in V4_BUILD_LOG.md
-
-**Task 0.0.1 Status (2026-01-12): 🟢 COMPLETE (Full Dataset Validated)**
-
-| Finding | 50MB Subset | Full 12M Tokens | Note |
-|---------|-------------|-----------------|------|
-| Characterization | **AMPLIFIER** | **AMPLIFIER** | Confirmed |
-| Variance range | 1.0 → 5.4 std | 1.01 → 5.59 std | 1.28x per layer |
-| Learning | 125 → 35 loss | 135 → 34 loss | 72-75% reduction |
-| Logits | [-57, +134] | [-55, +83] | Softmax saturates |
-| Entropy | 1.70 | 1.70 | vs random 9.68 |
-
-**Key Insight:** RWKV-6 alone amplifies variance through layers. Does NOT stabilize.
-This informs fusion design: Mamba-2 is confirmed DAMPER - they complement each other!
-
-**⚠️ IMPORTANT: Softmax Saturation Explained (2026-01-12)**
-
-Investigation of BlinkDL's official RWKV-LM repo revealed our initialization differs significantly from recommended practices. The softmax saturation is NOT an architectural flaw - it's a training configuration issue.
-
-**See [RWKV_TRAINING_NOTES.md](RWKV_TRAINING_NOTES.md) for full details.**
-
-Key differences from BlinkDL recommendations:
-| Parameter | Ours | BlinkDL Official | Impact |
-|-----------|------|------------------|--------|
-| `emb.weight` | Default | uniform(-1e-4, 1e-4) | **10,000x too large** |
-| `ffn.value` | xavier(0.5) | **ZERO** | Residual starts non-zero |
-| `att.output` | Default | **ZERO** | Residual starts non-zero |
-| Weight decay | 0.1 to all | 0.1 only to projections | LN shouldn't decay |
-
-**Sub-task 0.0.1.a: Initialization Ablation** (Optional)
-- Add ablation cell to notebook testing BlinkDL initialization
-- Verify softmax saturation is resolved with proper init
-- Not blocking Task 0.0.2, but validates our understanding
-
-**Outputs:**
-- ✅ `logs/dataset_meta.json` - Dataset config
-- ✅ `logs/rwkv6_variance.json` - Layer variance data  
-- ✅ `logs/rwkv6_baseline_findings.json` - Full findings
-- ✅ `RWKV_TRAINING_NOTES.md` - BlinkDL initialization research
-
-**Next Steps:**
-1. ⬜ Optional: Task 0.0.1.a initialization ablation
-2. 🔧 Task 0.0.2: Mamba-2 characterization (confirmed DAMPER in quick test)
-3. ⬜ Task 0.0.3: GPT-1 baseline for fair comparison
-4. ⬜ Task 0.0.4: Comparative analysis → inform fusion design
-
-See [BASE_MODEL_CHARACTERIZATION.md](BASE_MODEL_CHARACTERIZATION.md) for detailed plan.
-
-### Phase A: Documentation Cleanup (Sonnet) ✅ COMPLETE
-| Priority | Task | Description | Status |
-|----------|------|-------------|--------|
-| **A1** | Trim V4_STRATEGY.md | Archive completed task details, keep only summary tables. Target: <500 lines. | ✅ COMPLETE (206 lines) |
-| **A2** | Consolidate V4 Docs | Merge redundant findings into OBSERVATION_SYNTHESIS.md. | ✅ COMPLETE (archived 2 docs) |
-| **A3** | Finalize V0.5_ROADMAP.md | Ensure all Section 1 tasks have clear acceptance criteria. | ✅ COMPLETE (6 tasks defined) |
-| **A4** | Update DOCUMENTATION_MAP.md | Reflect new file structure (V0.5 docs, archived V4 details). | ✅ COMPLETE (navigation updated) |
-
-### Phase B: Implementation (Sonnet) - READY TO START
-| Priority | Task | Description |
-|----------|------|-------------|
-| **B1** | GRU Arbiter (Task 0.1) | Replace `nn.Linear` gate with `nn.GRUCell` in `ops/`. |
-| **B2** | Mamba Residual (Task 0.2) | Add `h = x + mamba(x)` skip connection. |
-| **B3** | Debate Loss (Task 0.3) | Implement cosine similarity penalty in `tools/`. |
-| **B4** | Pilot Run (Task 0.4) | 5K steps, verify Mamba contribution > 5%. |
-
-**✅ Phase A Gate: PASSED** - Documentation clean, ready for implementation.
+| Notebook | Task | Status |
+|----------|------|--------|
+| `task_0_0_1_wsl.ipynb` | RWKV-6 baseline | ✅ |
+| `task_0_0_2_mamba.ipynb` | Mamba-2 baseline | ✅ |
+| `task_0_0_3_gpt1.ipynb` | GPT-1 baseline | ✅ |
+| `task_0_1_exploration.ipynb` | GRU exploration | ✅ |
+| `task_0_1_v1_glu_baseline.ipynb` | GLU baseline | ✅ |
+| `task_0_1b_mingru_comparison.ipynb` | minGRU gold standard | ✅ |
+| `task_0_2_mamba_residual_path.ipynb` | Mamba residual | ✅ |
+| `task_0_3b_8layer_stability.ipynb` | 8-layer proof | ✅ |
+| `task_0_3_debate_loss.ipynb` | Debate loss | ✅ |
 
 ---
 
-**CRITICAL:** All V5 benchmarks must use:
-- WikiText-103 data (`data/wikitext103/train.txt`)
-- BPE tokenizer (`data/tokenizer_wikitext.json`, vocab=16K)
-- Same data/tokenizer for both GPT-2 and GF-MH
+## Architecture Summary
 
-See [V5_GATING.md](V5_GATING.md) for thresholds and criteria.
-
----
-
-## Quick Start
-
-```bash
-source .venv/bin/activate
-
-# Run all graduation tests
-python tests/test_tiny_graduation.py --states --gates --overfit --baseline --checkpoint
-
-# Train with state monitoring
-python train_v4.py --model GF-MH --tokenizer bpe --log-states
-
-# Check model registry
-python -c "from models import list_models; print(list_models())"
 ```
+GroundThink 4M Model:
+├── Embedding (vocab → d_model)
+├── TwinDebateBlock × 8
+│   ├── RWKV6TimeMix (amplifier)
+│   ├── Mamba2TimeMix + Residual (damper, grounded)
+│   ├── minGRUArbiter (RMSNorm → scan → weights)
+│   └── Post-norm + Skip
+├── LM Head (d_model → vocab)
+└── TwinDebateLoss (CE + Diversity + Arbiter)
+```
+
+**Target Config:**
+- d_model: 256-384 (to hit ~4M params)
+- n_layers: 8
+- vocab: 16K BPE (WikiText-103)
 
 ---
 
@@ -281,47 +90,11 @@ python -c "from models import list_models; print(list_models())"
 
 | File | Purpose |
 |------|---------|
-| [V4_STRATEGY.md](V4_STRATEGY.md) | Master task backlog (Phases 4.0-5.0) |
-| [CHANGELOG.md](CHANGELOG.md) | Version history |
-| [STATEFUL_VALIDATION_GUIDE.md](STATEFUL_VALIDATION_GUIDE.md) | Test harness documentation |
-| [CANARY_TESTS.md](CANARY_TESTS.md) | S0-S4 and G1-G4 definitions |
-| [tests/test_tiny_graduation.py](tests/test_tiny_graduation.py) | Unified test harness |
-| [tests/test_diagnostics.py](tests/test_diagnostics.py) | D1-D4 diagnostic analysis |
-| [tests/test_ablation.py](tests/test_ablation.py) | Component ablation (Task 58) |
-| [tests/test_long_context.py](tests/test_long_context.py) | 64-512 degradation (Task 60) |
-| [tools/thresholds.py](tools/thresholds.py) | Unified thresholds (Task 56) |
-| [tools/information_flow_tracer.py](tools/information_flow_tracer.py) | MI tracing (Task 55) |
-| [tools/state_metrics.py](tools/state_metrics.py) | State health tracking |
-| [tools/gradient_coupling.py](tools/gradient_coupling.py) | Gradient flow analysis |
+| `ops/arbiter_mingru.py` | Production minGRU arbiter |
+| `tools/debate_loss.py` | Twin Debate loss functions |
+| `ops/rwkv6_prototype.py` | RWKV-6 time-mixing |
+| `ops/mamba2_prototype.py` | Mamba-2 time-mixing |
 
 ---
 
-## Known Issues
-
-| Issue | Status | Notes |
-|-------|--------|-------|
-| G4 Gradient Imbalance | ⚠️ WARN | Mamba grads 10x larger than RWKV |
-| S4 State Variance | ⚠️ WARN | 66K-124K ratio (architecture-dependent) |
-| D1 State Divergence | ⚠️ WARN | RWKV norm grows 2.5x over 512 tokens |
-| D3 Component Balance | ⚠️ WARN | Mamba only 0.2% contribution by state norm |
-| Gate Attractor | ℹ️ INFO | All gates converge to 0.06-0.27 zone |
-
-**Finding (Observation 14):** Optimizer finds loss-minimizing attractor regardless of init.
-- GF-XM (0.03 init): 66K S4 ratio, 1.81 val loss
-- GF-MH (0.30 init): 88K S4 ratio, ~1.58 val loss ← still best
-- GF-XR (0.97 init): 124K S4 ratio, 1.96 val loss
-
----
-
-## Git Status
-
-```
-Latest: c6c2f59
-Branch: main
-Status: Clean (pending doc sync)
-```
-
----
-
-*For detailed task definitions, see [V4_STRATEGY.md](V4_STRATEGY.md)*  
-*For version history, see [CHANGELOG.md](CHANGELOG.md)*
+*For detailed task definitions, see [V0.5_ROADMAP.md](V0.5_ROADMAP.md)*
