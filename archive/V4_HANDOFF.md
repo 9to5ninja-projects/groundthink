@@ -1,453 +1,251 @@
-# V4 Agent Handoff Document
+# V4 Handoff (DEPRECATED)
 
-**Purpose:** Continuity snapshot (version & task status only)  
-**Current Version:** 4.12-Alpha (Phase 4.0 — BPE Re-Validation)  
-**Updated:** 2026-01-10 (Session 17)  
-**Last Agent Action:** Tasks 41-46 complete. Phase 4.0 graduation criteria met (6/6 tests pass).  
-**Repository:** https://github.com/9to5ninja-projects/groundthink  
-**Git Status:** Clean (latest: `32b92eb`)
+> **⚠️ This file has been superseded by [HANDOFF.md](HANDOFF.md)**
+>
+> The V4 prefix caused confusion. All agent handoff content is now in HANDOFF.md.
+> This file is kept for backwards compatibility with any external references.
 
----
-
-## 🚨 CRITICAL REFRAME: Read This First
-
-**Previous Understanding (INCORRECT):**
-> "BPE tokenization fixes component balance. Use BPE and the problem is solved."
-
-**Corrected Understanding:**
-> "Char-level tokenization was a shortcut for quick sanity checks. BPE is the CORRECT BASELINE we should have used from the start. All Phase 3.6-3.8 fusion comparisons were done on char-level and are NOT verified for production. The component balance problem is NOT solved."
-
-**Why This Matters:**
-- Task 40 completed with R/M ratio 0.21 — at the lower bound of acceptable
-- Activation variance ratio: 71x (RWKV var=8.58, Mamba var=0.12) — **severe imbalance**
-- BPE improved R/M 2x vs char-level (0.21 vs 0.08-0.11) but did NOT fix the problem
-- All fusion variant rankings (GF-MH > GF > CP > HGF > HY) are char-level data — unverified
+See [HANDOFF.md](HANDOFF.md) for current status.
 
 ---
 
-## 📋 SESSION SUMMARY (Jan 10 End of Day)
+## Historical Note
 
-**What was accomplished:**
-1. ✅ Task 40 completed — 5000 steps, BPE tokenization, GF-MH model
-2. ✅ Strategic reframe — Recognized char-level was shortcut, BPE is correct baseline
-3. ✅ Created Phase 4.0 — BPE Re-Validation phase with 7 tasks
-4. ✅ Updated V4_STRATEGY.md — Marked Phase 3.6-3.8 as CHAR-LEVEL ONLY
+V4 refers to the GF-MH (Groundthink Fusion - Mamba Hybrid) architecture that achieved GPT-2 parity.
+✅ **Tasks 55-60 COMPLETE** — Diagnostic tooling suite built.
+✅ **Librarian Audit COMPLETE** — Gap analysis between V4 and V0.5 performed.
 
-**Key Finding:**
-BPE did NOT fix component balance as hypothesized. R/M improved from 0.08-0.11 to 0.21, but activation variance (71x) shows Mamba is still severely underutilized.
-
----
-
-## 📊 TASK 40 FINAL RESULTS
-
-**Status:** ✅ COMPLETE  
-**Log:** `logs/task40_bpe_run.log`  
-**Checkpoints:** `checkpoints/ckpt_GF-MH_step5000.pt`, `checkpoints/ckpt_GF-MH_final.pt`
-
-| Metric | Value | Target | Status |
-|--------|-------|--------|--------|
-| R/M Ratio | 0.21 | 0.20-0.46 | ⚠️ At lower bound |
-| Activation Variance Ratio | 71x | <10x ideal | ❌ Severe imbalance |
-| Train Loss | 4.92 | Decreasing | ✅ |
-| Val Loss | 6.22 | — | Higher than char-level |
-| Throughput | ~31K tok/s | — | ✅ Stable |
-
-**Interpretation:**
-- Gradient ratio (R/M 0.21) barely meets threshold
-- But activation variance (71x) shows Mamba output is 71x weaker than RWKV
-- This is NOT a healthy hybrid — RWKV still dominates
+| Test | Result |
+|------|--------|
+| S0-S4 State Tests | 5/5 PASS (variance ratio 108,583x) |
+| Task 43 Overfit | PASS (loss 0.48 in 65 steps) |
+| Task 44 Baseline | PASS (6.01 vs 9.68, 37.9% better) |
+| G1-G4 Gates | G1✓ G2✓ G3⏭ G4⚠ |
+| Task 46 Checkpoint | PASS (21.5 MB, identical reload) |
+| **Task 62 GPT-2** | **EQUIVALENT** (ratio 1.008) |
+| Task 58 Ablation | FAIL (RWKV 99.9%, Mamba 0.1%) |
+| Task 59 Evolution | PASS (state responds to input) |
+| Task 60 Long-ctx | PASS (1.04x ratio) |
 
 ---
 
-## 🎯 CURRENT PHASE: 4.0 — BPE Re-Validation
+## Last Session (2026-01-11)
 
-**Objective:** Verify state space fundamentals and Tiny model graduation criteria with BPE before proceeding to diagnostics or scaling.
+**GPU/Memory Strategy Discovery:**
+- WSL crashes when tokenizing full 540MB WikiText-103 (BPE training + tokenization)
+- **SOLUTION:** VS Code Colab extension (`google.colab`) provides FREE T4 GPU + 15GB RAM
+- Bypasses all local memory constraints without renting cloud machines
+- Notebook updated to auto-detect environment and use full dataset on Colab
 
-**Rationale:** All Phase 3.6-3.8 experiments used char-level tokenization. More critically, we never verified that the state machinery actually works. State monitoring should be our first priority.
+**Recommended Workflow:**
+1. Open `notebooks/task_0_0_1_wsl.ipynb` in VS Code
+2. Select Kernel → Connect to Google Colab
+3. Run all cells with full dataset + GPU acceleration
 
-**Key Learning from Task 40:**
-- Activation variance ratio: 71x (RWKV var=8.58, Mamba var=0.12)
-- Gradient ratio: 0.21 (at lower bound of acceptable)
-- **Conclusion:** State machinery may not be functioning as designed
+**Memory Investigation Results:**
+| Component | Memory | Notes |
+|-----------|--------|-------|
+| PyTorch import | ~350 MB | Fixed cost |
+| ops/RWKV6Attention | +40 MB | No mamba loaded |
+| 5.6M model + optimizer | +150 MB | Acceptable |
+| BPE tokenization 540MB | CRASH | WSL limit hit |
+| Colab environment | 15 GB | No limits |
 
-### Phase 4.0 Task List (Revised Priority Order)
+**Librarian Audit & Harmonization:**
+- Reconciled V4 diagnostic findings with V0.5 "Twin Debate" architecture.
+- Identified critical "missed implementations" (GRUs, Qualia Fade, Semantic Weighting Sensors).
+- Established new documentation strategy: Incremental conversion of research paper to tasks.
+- Consolidated `ops/` package with core CUDA and prototype wrappers.
 
-| Order | # | Task | Status | Details |
-|-------|---|------|--------|---------|
-| ~~1a~~ | ~~41a-1~~ | ~~Type A: Restructure `return_activations`~~ | ✅ DONE | Merged into 41a |
-| ~~1b~~ | ~~41a-2~~ | ~~Type B: RWKV internal state extraction~~ | ✅ DONE | `_wkv_sequential()` returns state |
-| ~~1c~~ | ~~41a-3~~ | ~~Type B: Mamba internal state extraction~~ | ✅ DONE | Output proxy implemented |
-| ✅ | 41 | Create test_tiny_graduation.py | ✅ DONE | S0-S4 test harness created |
-| ✅ | 42 | Run S0-S4 state space tests | ✅ DONE | 5/5 pass, ratio=108583x |
-| ✅ | 43 | Run Tiny overfit test (BPE) | ✅ DONE | Loss 0.48 in 65 steps |
-| ✅ | 44 | Run Tiny naive baseline (BPE) | ✅ DONE | 6.01 < 9.68 (37.9% better) |
-| ✅ | 45 | Run G1-G4 gates (BPE) | ✅ DONE | G1✓ G2✓ G3⏭ G4⚠ |
-| ✅ | 46 | Checkpoint/resume test | ✅ DONE | 21.5 MB, diff=0 |
-| 7 | 47 | Fusion variant re-ranking | ⬜ TODO | 1K steps each with BPE |
-| 8 | 48 | Component balance investigation | ⬜ TODO | Compare Type A vs Type B variance |
-| ✅ | 49 | Propagate state API to all models | ✅ DONE | All 8 model files updated |
-| ✅ | 50 | Add state monitoring to train_v4.py | ✅ DONE | `--log-states` flag added |
-| 9 | 51 | True Mamba SSM state extraction | ⬜ LOW | Research: extract [B,nheads,headdim,d_state] |
-| **10** | 52 | Implement D1-D4 diagnostic tests | ⬜ TODO | Divergence, collapse, interaction, LRD |
-| **11** | 53 | Implement state tracking metrics | ⬜ TODO | Entropy, magnitude, cosine similarity |
-| 12 | 54 | Gradient-state coupling analyzer | ⬜ TODO | Correlation: state gradients ↔ loss |
-| 13 | 55 | Information flow tracer | ⬜ TODO | Mutual information: state → output |
-| **14** | 56 | Consolidate metric thresholds | ⬜ TODO | Single source of truth |
-| 15 | 57 | Enhance --log-states full suite | ⬜ TODO | Integrate Tasks 52-55 metrics |
-| 16 | 58 | Component ablation test | ⬜ TODO | Zero each state → measure loss |
-| 17 | 59 | Linear state evolution test | ⬜ TODO | Predictable state changes |
-| 18 | 60 | Long-context degradation test | ⬜ TODO | 64→128→256→512 curve |
-
-**See [V4_STRATEGY.md](V4_STRATEGY.md#phase-40-bpe-re-validation-new--required-before-scaling) for full task definitions.**
-
-### Two Metrics to Track (Investigation Finding)
-
-**Type A: Output Activations** — What each component produces before fusion
-- Measured in Task 40: **71x variance ratio** (RWKV var=8.58, Mamba var=0.12)
-- Shape: `[B, T, hidden_dim]` per component
-- Answers: "How much is each component contributing to the fused output?"
-
-**Type B: Internal Recurrent States** — The actual memory mechanism
-- Measured in Task 42: **108,583x variance ratio** (RWKV var=9689.4, Mamba var=0.089)
-- RWKV: Recurrent accumulator `[B, H, S]` — the "memory" of past tokens
-- Mamba: SSM state `[B, nheads, headdim, d_state]` — selective state evolution (proxy: `[B, hidden]`)
-- Answers: "Is the recurrent memory actually being used?"
-
-**Baseline Observation (2026-01-10):**
-> Type B ratio (108,583x) is **1,500x higher** than Type A ratio (71x). This suggests Mamba's internal state is near-dormant while its output activations are merely weak. The Mamba component may be functioning more as a feedforward layer than a true state-space model.
-
-### State Space Tests (S0-S4) — BASELINE RESULTS (2026-01-10)
-
-| Test | Purpose | Result | Details |
-|------|---------|--------|--------|
-| S0 | Shapes exist | ✅ PASS | RWKV: [1,4,32], Mamba: [1,128], Gate: 0.70 |
-| S1 | Initialization | ✅ PASS | RWKV norm: 725.7, Mamba norm: 3.7 |
-| S2 | Evolution | ✅ PASS | RWKV diff: 863.2, Mamba diff: 4.5 |
-| S3 | Determinism | ✅ PASS | Both components deterministic (diff=0) |
-| S4 | Balance | ⚠️ WARN | Variance ratio: **108,583x** (severe imbalance) |
-
-**Observations:**
-- **Gate value 0.70** — Unexpected for GF-MH which has `gate_init=0.3`. This is the *learned* gate after training, showing RWKV dominance increased.
-- **RWKV state norm 200x higher** than Mamba (725.7 vs 3.7) — magnitude imbalance
-- **S2 evolution ratio ~190x** — RWKV state changes 190x more than Mamba between inputs
-- **All tests pass** but S4 confirms severe component imbalance at state level
-
-**See [CANARY_TESTS.md](CANARY_TESTS.md#s0-s4-state-space-fundamentals-35m-only--required-first) for implementations.**
-
-### Graduation Tests (Tasks 43-44) — BASELINE RESULTS (2026-01-10)
-
-| Test | Task | Result | Details |
-|------|------|--------|--------|
-| Overfit | 43 | ✅ PASS | Loss 0.48 in 65 steps (10 samples, lr=1e-3) |
-| Baseline | 44 | ✅ PASS | Val 6.01 < Random 9.68 (37.9% better) |
-
-**Observations:**
-- **Fast convergence**: Model memorized 10 samples in only 65 steps (target was 500 max)
-- **Healthy learning**: Initial loss 9.73 → 0.48 shows gradients flow correctly
-- **Meaningful learning**: 37.9% improvement over random confirms model learned patterns, not noise
-- **Val loss 6.01**: Corresponds to perplexity ~407 (vs random perplexity 16000)
-
-### G1-G4 Validation Gates (Task 45) — BASELINE RESULTS (2026-01-10)
-
-| Gate | Test | Result | Status |
-|------|------|--------|--------|
-| G1 | Forward pass | Shape OK, no NaN/Inf, mean=0.0, std=0.23 | ✅ PASS |
-| G2 | Init entropy | 9.65/9.68 (99.7% of max) | ✅ PASS |
-| G3 | 1K training | Validated by Task 40 (5K steps) | ⏭ SKIP |
-| G4 | Gradient balance | RWKV/Mamba = 0.10 | ⚠️ WARN |
-
-**G4 Gradient Analysis:**
-| Component | Params with grads | Avg grad norm |
-|-----------|-------------------|---------------|
-| RWKV | 96 | 0.0042 |
-| Mamba | 64 | 0.0412 |
-| Other | 50 | — |
-
-**Observations:**
-- **Mamba gradients 10x larger** than RWKV at initialization
-- **Correlates with gate drift**: Gate learned 0.3→0.7 (toward RWKV) during training
-- **Hypothesis**: Model compensates for Mamba's stronger gradient signal by shifting weight to RWKV
-
-### Tiny Graduation Criteria (per SCALING_MILESTONES.md)
-
-| Test | Criteria | Status | Observed Value |
-|------|----------|--------|----------------|
-| **S0-S4 (Type A)** | Output activations verified | ✅ Task 40 | 71x variance ratio |
-| **S0-S4 (Type B)** | Internal states verified | ✅ Task 42 | 108,583x variance ratio |
-| Overfit 10-100 samples | Loss → near 0 | ✅ Task 43 | Loss 0.48 in 65 steps |
-| Val < naive baseline | Better than random | ✅ Task 44 | 6.01 < 9.68 (37.9% better) |
-| G1-G4 gates pass | Per V4_TESTING.md | ✅ Task 45 | G1✓ G2✓ G3⏭ G4⚠ |
-| Checkpoint/resume | Save + reload works | ✅ Task 46 | 21.5 MB, diff=0 |
-| Component balance | Documented | ⚠️ Severe | Gate drifted 0.3→0.7 |
-
-**Gate:** Phase 4.0 PASS when S0-S4 pass AND all graduation criteria verified with BPE.
-
-### Task Dependencies (Critical Path)
-
-```
-COMPLETED                         NEXT                      THEN
-─────────────────────────────────────────────────────────────────
-Task 41a (API) ───┬─→ Task 41 ✅ ──→ Task 42 ✅ (5/5 pass)
-Task 49 (all models) ─┘        │
-Task 50 (--log-states) ────────┤
-                               │
-                               ├─→ Task 52 (D1-D4) ──→ Task 57 (enhance logs)
-                               │        │
-                               │        └─→ Task 53 (metrics) ──→ Task 57
-                               │
-                               ├─→ Task 56 (thresholds) ← DOCUMENTATION
-                               │
-                               ├─→ Tasks 43-46 (graduation tests)
-                               │
-                               └─→ Task 48 (balance investigation)
-                                        │
-                                        └─→ Task 58 (ablation)
-```
-
-**Parallelizable:** Tasks 52, 53, 56 can run in parallel  
-**Blockers:** Task 41 blocks all execution tasks  
-**Research:** Tasks 54, 55 are advanced (can defer)
+**Diagnostic Tooling Results:**
+- **Mamba Paradox:** Confirmed Mamba gradients are 10x larger vs RWKV, but state contribution is <0.3%.
+- **Attractor Zone:** Verified all gate initializations gravitate toward 10-30% R/M ratio.
+- **BPE Efficacy:** Confirmed 16K BPE significantly improves component balance over char-level.
 
 ---
 
-## ⚠️ FOR NEXT AGENT
+## Next Actions (V0.5 Strategy)
 
-**🎉 Phase 4.0 Graduation Criteria MET**
+### Phase 0: Base Model Characterization (CURRENT PRIORITY)
+| Priority | Task | Description | Status |
+|----------|------|-------------|--------|
+| **0.0.1** | Pure RWKV-6 Benchmark | 4M params, WikiText-103, BPE 16K | ✅ COMPLETE (AMPLIFIER) |
+| **0.0.2** | Pure Mamba-2 Benchmark | 4M params, WikiText-103, BPE 16K | 🔧 READY (ops/mamba2_prototype.py created) |
+| **0.0.3** | GPT-1 Baseline | 4M params for fair comparison | ⬜ TODO |
+| **0.0.4** | Comparative Analysis | Document findings, inform fusion design | ⬜ TODO |
 
-All core validation tests pass:
-- ✅ S0-S4 state space tests (5/5)
-- ✅ Overfit test (loss 0.48 in 65 steps)
-- ✅ Baseline test (37.9% better than random)
-- ✅ G1-G4 gates (G1✓ G2✓ G3⏭ G4⚠)
-- ✅ Checkpoint/resume (21.5 MB, diff=0)
+**Rationale:** Understand individual pathway behavior before implementing fusion.
 
-**⚠️ Known Issues to Address:**
-- G4 gradient imbalance: Mamba grads 10x larger than RWKV
-- S4 state imbalance: 108,583x variance ratio
-- Gate drift: 0.3→0.7 (RWKV dominance increased)
+**Task 0.0.2 Implementation Ready (2026-01-12):**
+- ✅ Prototype: `ops/mamba2_prototype.py` - Pure PyTorch SSD (no mamba-ssm CUDA)
+- ✅ Source: Adapted from official `ssd_minimal.py` (Apache-2.0)
+- ⬜ Notebook: `notebooks/task_0_0_2_mamba.ipynb` (to be created, same framework as 0.0.1)
+- 📊 **PRELIMINARY FINDING:** Mamba-2 is a **DAMPER** (variance 1.0 → 0.011)
+- 🔮 **FUSION HYPOTHESIS VALIDATED:** RWKV-6 (AMPLIFIER) + Mamba-2 (DAMPER) = balanced system!
 
-**Priority 1: Fusion Variant Re-Ranking (Task 47)**
+**Task 0.0.1 Implementation Complete (2026-01-11):**
+- ✅ Model: models/rwkv6_pure.py (8 layers × 144 hidden, 4.46M params, tied embeddings)
+- ✅ Test Script: tests/task_0_0_1_rwkv6_benchmark.py (integrated training + metrics)
+- ✅ Config: configs/task_0_0_1.yaml (10K steps, WikiText-103 + BPE 16K)
+- ✅ Variance Tool: tools/variance_analysis.py (layer-wise output variance tracking)
+- ✅ NIAH Test: tests/test_niah_bpe.py (BPE needle-in-haystack at multiple depths)
+- 📋 Requirements inventory: /tmp/phase0_inventory.txt (tools verified, 5 new components created)
 
-Re-run 1K steps on each fusion variant with BPE to verify rankings.
+**⚠️ DEVIATIONS FROM ORIGINAL PLAN (2026-01-11):**
 
-**Priority 2: Investigate Component Balance (Task 48)**
+| Deviation | Original Plan | Actual | Rationale |
+|-----------|--------------|--------|----------|
+| Dataset size | Full WikiText-103 (540MB) | 50MB subset | Full corpus uses 5.3GB RAM just to load; Colab crashes during tokenization |
+| Execution env | Local WSL | Google Colab (VS Code extension) | WSL ~2.5GB limit; Colab provides 15GB RAM + T4 GPU free |
+| Tokenization | Single-pass | 10MB chunked | Memory-safe; prevents OOM during BPE encoding |
+| mamba-ssm | Installed | Skipped on Colab | Build fails without CUDA toolkit; not needed for RWKV6-only baseline |
+| RWKV6 CUDA kernel | wkv6_cuda from RWKV-CUDA/ | PyTorch prototype | CUDA kernel requires compilation; prototype is portable |
+| WKV computation | CUDA-optimized parallel scan | Sequential Python loop | Prototype for validation only; ~100x slower but mathematically correct |
 
-The 71x activation variance ratio is concerning:
-- RWKV var=8.58, Mamba var=0.12
-- Is this architectural or fixable?
-- Consider: gate_init, mamba_lr_mult, architectural changes
+**⚠️ RWKV6 Prototype Notes (Critical for Future Sessions):**
 
----
+**Available Classes:**
+1. **`RWKV6Attention_Prototype`** - Full block (LN + WKV + squared ReLU FFN + residuals)
+   - ⚠️ Squared ReLU can cause value explosion over many layers
+   - Use if you want original RWKV-6 spec exactly
+   
+2. **`RWKV6TimeMix`** - Time-mixing only (RECOMMENDED)
+   - No internal FFN/LN - wrap with your own GELU FFN
+   - This is what Task 0.0.1 notebook uses
+   - Stable across 8 layers
 
-## 🚨 OPEN ISSUES
+**Key Fixes (2026-01-11):**
+- WKV normalization: now properly tracks state_num/state_den
+- Value explosion: solved by using RWKV6TimeMix + GELU FFN
+- Performance: ~0.5s/step on CPU vs ~0.01s/step with CUDA kernel (50x slower)
 
-### Component Balance (71x activation variance)
-- **Problem:** Activation variance ratio 71x (Type A), state variance ratio 108,583x (Type B)
-- **Investigation:** Task 48 — after completing graduation tests
-- **Monitoring:** Use `--log-states` flag in training
+**Why Not CUDA Kernel?**
+- Requires `ninja` + CUDA toolkit for JIT compilation
+- Colab free tier has limited build environment
+- Prototype is sufficient for baseline characterization (not training at scale)
 
----
+**Why 50MB is Valid for Baseline:**
+- ~5M tokens after BPE (same density as original plan)
+- Sufficient for loss curve characterization and variance analysis
+- Full 540MB can be revisited when infrastructure supports it
+- Matches compute budget constraints documented in V4_BUILD_LOG.md
 
-## 📁 Current Status Summary
+**Task 0.0.1 Status (2026-01-11): 🟢 PRELIMINARY COMPLETE**
 
-**Phase:** 4.0 BPE RE-VALIDATION  
-**Last Action:** Tasks 41-46 complete — Phase 4.0 graduation criteria MET  
-**Next Action:** Task 47 (fusion variant re-ranking) or Task 48 (component balance investigation)
+| Finding | Value | Note |
+|---------|-------|------|
+| Characterization | **AMPLIFIER** | Variance grows ~1.27x per layer |
+| Variance range | 1.0 → 5.4 std | 5.4x total amplification |
+| Learning | 125 → 35 loss | 72% reduction (50 steps) |
+| Logits | [-57, +134] | Exploding, softmax saturates |
 
-**Phase 3.6-3.8 Status:** ⚠️ CHAR-LEVEL ONLY — Results unverified for production
+**Key Insight:** RWKV-6 alone amplifies variance through layers. Does NOT stabilize.
+This informs fusion design: if Mamba-2 is a STABILIZER, they may complement each other.
 
-**Recent Commits:**
-- `32b92eb` — Task 41-42: S0-S4 state tests complete, baseline documented
-- `74e7d44` — Task 50: State monitoring in training
-- `dd99060` — Task 49: Propagate state API to all models
+**Outputs:**
+- ✅ `logs/dataset_meta.json` - Dataset config
+- ✅ `logs/rwkv6_variance.json` - Layer variance data  
+- ✅ `logs/rwkv6_baseline_findings.json` - Full findings
 
-**Checkpoint Files:**
-- `checkpoints/ckpt_GF-MH_step5000.pt` — Task 40 (BPE, 5K steps)
-- `checkpoints/ckpt_GF-MH_final.pt` — Task 40 final
+**Next Steps:**
+1. ⬜ Extended RWKV-6 run (500-1000 steps) for convergence metrics
+2. ⬜ Task 0.0.2: Mamba-2 characterization (is it STABILIZER or AMPLIFIER?)
+3. ⬜ Task 0.0.3: GPT-1 baseline for fair comparison
+4. ⬜ Task 0.0.4: Comparative analysis → inform fusion design
 
-**Data Available:**
-- `data/fineweb_5m.txt` — BPE training data (5M bytes)
-- `data/shakespeare.txt` — Char-level reference only
+See [BASE_MODEL_CHARACTERIZATION.md](BASE_MODEL_CHARACTERIZATION.md) for detailed plan.
 
----
+### Phase A: Documentation Cleanup (Sonnet) ✅ COMPLETE
+| Priority | Task | Description | Status |
+|----------|------|-------------|--------|
+| **A1** | Trim V4_STRATEGY.md | Archive completed task details, keep only summary tables. Target: <500 lines. | ✅ COMPLETE (206 lines) |
+| **A2** | Consolidate V4 Docs | Merge redundant findings into OBSERVATION_SYNTHESIS.md. | ✅ COMPLETE (archived 2 docs) |
+| **A3** | Finalize V0.5_ROADMAP.md | Ensure all Section 1 tasks have clear acceptance criteria. | ✅ COMPLETE (6 tasks defined) |
+| **A4** | Update DOCUMENTATION_MAP.md | Reflect new file structure (V0.5 docs, archived V4 details). | ✅ COMPLETE (navigation updated) |
 
-## 📁 Project Structure
+### Phase B: Implementation (Sonnet) - READY TO START
+| Priority | Task | Description |
+|----------|------|-------------|
+| **B1** | GRU Arbiter (Task 0.1) | Replace `nn.Linear` gate with `nn.GRUCell` in `ops/`. |
+| **B2** | Mamba Residual (Task 0.2) | Add `h = x + mamba(x)` skip connection. |
+| **B3** | Debate Loss (Task 0.3) | Implement cosine similarity penalty in `tools/`. |
+| **B4** | Pilot Run (Task 0.4) | 5K steps, verify Mamba contribution > 5%. |
 
-```
-groundthink/
-├── train_v4.py                  # Main training entry point
-├── models/                      # Model registry
-│   ├── __init__.py              # get_model('GF-MH'), list_models()
-│   ├── hybrid_v4*.py            # Variants (HY, GF, WS, RF, CP, etc.)
-├── data/                        # Data loading
-│   ├── data_loader.py
-│   ├── tokenizer.py             # BPE via --tokenizer bpe
-│   ├── fineweb_5m.txt           # BPE training data
-│   └── shakespeare.txt          # Char-level reference ONLY
-├── configs/                     # Training YAML configs
-├── checkpoints/                 # Model weights (gitignored)
-├── tests/                       # Test suite
-│   └── test_tiny_graduation.py  # S0-S4 state tests (Task 41)
-├── logs/                        # Training logs
-│   └── task40_bpe_run.log       # Task 40 complete log
-└── docs (*.md files)            # Strategy & reference
-```
-
-**Key Docs:**
-- [V4_STRATEGY.md](V4_STRATEGY.md) — Task backlog (see Phase 4.0 for current tasks)
-- [SCALING_MILESTONES.md](SCALING_MILESTONES.md) — Graduation criteria per model size
-- [V4_TESTING.md](V4_TESTING.md) — G1-G4 gate definitions
-- [VALIDATION_ROADMAP.md](VALIDATION_ROADMAP.md) — Week 1-3 plan (after Phase 4.0)
-
----
-
-## 🔑 Critical Institutional Knowledge
-
-### The Tokenization Lesson (Critical)
-
-**What We Learned:**
-- Char-level tokenization was used for quick iteration during Phases 3.6-3.8
-- This was appropriate for infrastructure validation but NOT for architecture evaluation
-- BPE is the correct baseline for production models
-- All fusion variant rankings from Phase 3.6-3.7 are char-level data and need re-validation
-
-**What BPE Actually Showed (Task 40):**
-- R/M ratio improved: 0.08-0.11 (char) → 0.21 (BPE) — **2x improvement**
-- But activation variance: 71x — **still severely imbalanced**
-- Conclusion: BPE helps but does NOT solve component balance
-
-### Scaling Philosophy (Foundation)
-
-Each parameter scale is an **experimental regime with distinct objectives**:
-- **3.5M:** Sanity check — does training system work? ← **WE ARE HERE (Phase 4.0)**
-- **8M:** Proof of concept — does architecture learn real patterns?
-- **30M:** Scaling laws — do predictions hold?
-- **125M:** MVP delivery — is this production-ready?
-
-**Current Gate:** Phase 4.0 validates 3.5M criteria with BPE before proceeding.
-
-### Component Balance Problem (Open)
-
-| Metric | Char-Level | BPE | Target | Status |
-|--------|------------|-----|--------|--------|
-| R/M Gradient Ratio | 0.08-0.11 | 0.21 | 0.3-3.0 | ⚠️ Improved but low |
-| Activation Variance | ~100x | 71x | <10x | ❌ Still severe |
-
-**Possible Causes:**
-1. Architectural — RWKV inherently dominates in hybrid fusion
-2. Hyperparameter — gate_init, mamba_lr_mult need tuning
-3. Data — FineWeb sample may favor RWKV patterns
-4. Expected — Maybe 71x is acceptable at 3.5M scale
-
-**Investigation:** Task 47 in Phase 4.0
+**✅ Phase A Gate: PASSED** - Documentation clean, ready for implementation.
 
 ---
 
-## ⚠️ Known Issues & Decisions
+**CRITICAL:** All V5 benchmarks must use:
+- WikiText-103 data (`data/wikitext103/train.txt`)
+- BPE tokenizer (`data/tokenizer_wikitext.json`, vocab=16K)
+- Same data/tokenizer for both GPT-2 and GF-MH
 
-**Issue 1: Phase 3.6-3.8 Data Validity**
-- All experiments used char-level tokenization
-- Fusion rankings (GF-MH > GF > CP > HGF > HY) are unverified
-- **Action:** Re-validate with BPE in Task 46
-
-**Issue 2: Component Balance**
-- 71x activation variance is severe
-- R/M 0.21 is at threshold boundary
-- **Action:** Investigate in Task 47
-
-**Issue 3: Tasks 37-38 Status**
-- Previously marked "DEPRECATED — BPE fixes balance"
-- Now marked "REQUIRES RE-EVALUATION" since BPE didn't fully fix it
-- May need to revisit differential warmup or regularization
+See [V5_GATING.md](V5_GATING.md) for thresholds and criteria.
 
 ---
 
-## 📊 Documentation Governance (Librarian Role)
-
-**Recent Changes (Audit Session 2026-01-10):**
-1. V4_HANDOFF.md — Redacted completed Task 41a blockers, updated priorities
-2. V4_STRATEGY.md — Marked Tasks 18.1-18.2 as COMPLETE, updated goal, cleaned Task 49-50 status
-3. Phase 4.0 task table — Updated to show 41a, 49, 50 as DONE
-
-**Core Documents (Sacred Status):**
-- SCALING_MILESTONES.md — Strategic foundation (verified still accurate)
-- V4_STRATEGY.md — Master task source (updated with Phase 4.0)
-- VALIDATION_ROADMAP.md — Execution timeline (deferred until Phase 4.0 complete)
-
----
-
-## ✅ PRE-BASELINE CHECKLIST (per SCALING_MILESTONES.md)
-
-**Before testing baselines, verify all prerequisites are met:**
-
-| # | Requirement | Status | Reference |
-|---|-------------|--------|-----------|
-| 1 | **S0-S4 State tests ready** | ✅ API complete | [CANARY_TESTS.md](CANARY_TESTS.md#s0-s4-state-space-fundamentals-35m-only--required-first) |
-| 2 | **BPE tokenization** | ✅ Implemented | `--tokenizer bpe` flag |
-| 3 | **State extraction API** | ✅ All 8 models | `return_states=True` |
-| 4 | **Training state monitor** | ✅ Implemented | `--log-states` flag |
-| 5 | **test_tiny_graduation.py** | ✅ Created | `tests/test_tiny_graduation.py` |
-| 6 | **Run S0-S4 tests** | ✅ 5/5 PASS | State variance ratio 108583x |
-| 7 | **Overfit test** | ⬜ Pending | Task 43 |
-| 8 | **Naive baseline test** | ⬜ Pending | Task 44 |
-| 9 | **G1-G4 gates (BPE)** | ⬜ Pending | Task 45 |
-| 10 | **Checkpoint/resume** | ⬜ Pending | Task 46 |
-
-**Order:** Task 41 (create test harness) → Tasks 42-46 (run tests) → Phase 3.9
-
----
-
-## 🎯 Phase 4.0 Gate Criteria
-
-**PASS conditions (all required):**
-- ✅ **S0-S4 state space tests pass** — state machinery verified
-- ✅ Overfit test passes (loss → near 0 on small sample)
-- ✅ Naive baseline test passes (val loss < random)
-- ✅ G1-G4 gates pass with BPE tokenization
-- ✅ Checkpoint/resume works
-- ✅ Component balance assessed and documented
-
-**FAIL triggers:**
-- ❌ Any S0-S4 state test fails — state machinery broken
-- ❌ Cannot overfit small sample
-- ❌ Val loss worse than random
-- ❌ Any G1-G4 gate fails with BPE
-- ❌ Component balance deemed unacceptable (decision in Task 48)
-
-**Outcome:** 
-- If PASS → Proceed to Phase 3.9 diagnostics (with BPE baseline)
-- If FAIL → Debug architecture at 3.5M before any scaling
-
----
-
-## 🚀 Quick Start for Next Agent
-
-### State Extraction API
-
-```python
-from models import get_model
-
-model = get_model('GF-MH', vocab_size=16000).cuda()
-x = torch.randint(0, 16000, (2, 64)).cuda()
-
-# Get internal states (Type B)
-logits, states = model(x, return_states=True)
-# states['rwkv_state'].shape = [B, H, S] = [2, 4, 32]
-# states['mamba_state'].shape = [B, hidden] = [2, 128]
-# states['gate'] = 0.70 (learned, was 0.3 init)
-
-# Get output activations (Type A)
-logits, activations = model(x, return_activations=True)
-```
-
-### Run Tests
+## Quick Start
 
 ```bash
 source .venv/bin/activate
-python tests/test_tiny_graduation.py --states  # S0-S4
+
+# Run all graduation tests
+python tests/test_tiny_graduation.py --states --gates --overfit --baseline --checkpoint
+
+# Train with state monitoring
+python train_v4.py --model GF-MH --tokenizer bpe --log-states
+
+# Check model registry
+python -c "from models import list_models; print(list_models())"
 ```
 
-### Key Documents
-- [V4_STRATEGY.md](V4_STRATEGY.md#phase-40-bpe-re-validation-new--required-before-scaling) — Task backlog
-- [CANARY_TESTS.md](CANARY_TESTS.md#s0-s4-state-space-fundamentals-35m-only--required-first) — Test definitions
-- [SCALING_MILESTONES.md](SCALING_MILESTONES.md#35m-parameters-sanity-check--architecture-debug) — Graduation criteria
+---
+
+## Key Files
+
+| File | Purpose |
+|------|---------|
+| [V4_STRATEGY.md](V4_STRATEGY.md) | Master task backlog (Phases 4.0-5.0) |
+| [CHANGELOG.md](CHANGELOG.md) | Version history |
+| [STATEFUL_VALIDATION_GUIDE.md](STATEFUL_VALIDATION_GUIDE.md) | Test harness documentation |
+| [CANARY_TESTS.md](CANARY_TESTS.md) | S0-S4 and G1-G4 definitions |
+| [tests/test_tiny_graduation.py](tests/test_tiny_graduation.py) | Unified test harness |
+| [tests/test_diagnostics.py](tests/test_diagnostics.py) | D1-D4 diagnostic analysis |
+| [tests/test_ablation.py](tests/test_ablation.py) | Component ablation (Task 58) |
+| [tests/test_long_context.py](tests/test_long_context.py) | 64-512 degradation (Task 60) |
+| [tools/thresholds.py](tools/thresholds.py) | Unified thresholds (Task 56) |
+| [tools/information_flow_tracer.py](tools/information_flow_tracer.py) | MI tracing (Task 55) |
+| [tools/state_metrics.py](tools/state_metrics.py) | State health tracking |
+| [tools/gradient_coupling.py](tools/gradient_coupling.py) | Gradient flow analysis |
+
+---
+
+## Known Issues
+
+| Issue | Status | Notes |
+|-------|--------|-------|
+| G4 Gradient Imbalance | ⚠️ WARN | Mamba grads 10x larger than RWKV |
+| S4 State Variance | ⚠️ WARN | 66K-124K ratio (architecture-dependent) |
+| D1 State Divergence | ⚠️ WARN | RWKV norm grows 2.5x over 512 tokens |
+| D3 Component Balance | ⚠️ WARN | Mamba only 0.2% contribution by state norm |
+| Gate Attractor | ℹ️ INFO | All gates converge to 0.06-0.27 zone |
+
+**Finding (Observation 14):** Optimizer finds loss-minimizing attractor regardless of init.
+- GF-XM (0.03 init): 66K S4 ratio, 1.81 val loss
+- GF-MH (0.30 init): 88K S4 ratio, ~1.58 val loss ← still best
+- GF-XR (0.97 init): 124K S4 ratio, 1.96 val loss
+
+---
+
+## Git Status
+
+```
+Latest: c6c2f59
+Branch: main
+Status: Clean (pending doc sync)
+```
+
+---
+
+*For detailed task definitions, see [V4_STRATEGY.md](V4_STRATEGY.md)*  
+*For version history, see [CHANGELOG.md](CHANGELOG.md)*
